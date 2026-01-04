@@ -502,7 +502,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <img 
               src={dynamicLogo} 
               alt="Logo" 
-              className="w-[80px]" 
+              className="w-[150px]" 
             />
           </NavLink>
           <NavLink
