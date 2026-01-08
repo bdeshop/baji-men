@@ -132,9 +132,7 @@ const FeaturedContent = () => {
         }
 
         const data = await response.json();
-         console.log("dfsdf",data)
         if (data.success) {
-          console.log(data)
           setFeaturedGames(data.data);
         } else {
           throw new Error(data.message || "Failed to fetch featured games");

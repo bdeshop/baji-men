@@ -31,6 +31,11 @@ app.use(
       "https://affiliate.foursix.live",
       "https://m-affiliate.foursix.live",
       "https://admin.foursix.live",
+      "https://admin.bajiman.com",
+      "https://bajiman.com",
+      "https://m-affiliate.bajiman.com",
+      "https://affiliate.bajiman.com",
+
       "*",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],

@@ -463,14 +463,19 @@ const AllGamesContent = () => {
     setShowFilterSidebar(false);
   };
 
-  const handleGameClick = (game) => {
+  // Handle game click
+   const handleGameClick = (game) => {
     setSelectedGame(game);
+        console.log("gameee",game)
+    // Check if user is logged in
     if (!user) {
       setShowLoginPopup(true);
       return;
     }
-    handleOpenGame(game);
+    // If user is logged in, navigate directly to game
+    navigate(`/game/${game.gameApiID}`);
   };
+
 
   // Handle opening the game
   const handleOpenGame = async (game) => {

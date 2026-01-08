@@ -398,7 +398,7 @@ export default function Login() {
                           id="phone"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                          className="w-full py-2 md:py-3 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
+                          className="w-full py-2 md:py-2.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
                           placeholder="Enter phone number"
                           disabled={isLoading}
                         />
@@ -415,7 +415,7 @@ export default function Login() {
                       id="username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                      className="w-full p-2 md:p-3 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-2.5 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                       placeholder="Enter your username"
                       disabled={isLoading}
                     />
@@ -429,7 +429,7 @@ export default function Login() {
                       id="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-2.5 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                       placeholder="Enter your email"
                       disabled={isLoading}
                     />
@@ -443,7 +443,7 @@ export default function Login() {
                       id="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-2.5 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                       placeholder="Create a password"
                       disabled={isLoading}
                     />
@@ -457,7 +457,7 @@ export default function Login() {
                       id="confirmPassword"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-2.5 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                       placeholder="Confirm your password"
                       disabled={isLoading}
                     />
@@ -478,7 +478,7 @@ export default function Login() {
                           setReferralValid(false);
                           setReferrerInfo(null);
                         }}
-                        className="flex-1 p-2 md:p-3 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                        className="flex-1 p-2 md:p-3.5 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                         placeholder="Enter referral code"
                         disabled={referralValid || isLoading}
                       />

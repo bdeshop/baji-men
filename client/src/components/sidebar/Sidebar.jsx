@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   FaChevronDown,
   FaChevronRight,
@@ -8,40 +8,45 @@ import {
   FaHandshake,
 } from "react-icons/fa";
 import { MdSupportAgent } from "react-icons/md";
-import axios from "axios";
+import { useSidebar } from "../../../context/SidebarContext";
 
 const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeSubMenu, setActiveSubMenu] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
+  
+  // Use context instead of local state and axios
+  const {
+    categories,
+    promotions,
+    isLoading,
+    fetchCategories,
+    fetchPromotions,
+    fetchProviders,
+    setProviders,
+    setExclusiveGames
+  } = useSidebar();
 
   // Fetch categories on component mount
   useEffect(() => {
     fetchCategories();
+    fetchPromotions();
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${base_url}/api/categories`);
-      if (response.data.success) {
-        setCategories(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleMenu = (title) => {
+  const toggleMenu = async (title, category) => {
     if (activeMenu === title) {
       setActiveMenu(null);
       setActiveSubMenu(null);
+      // Clear providers when collapsing
+      setProviders([]);
+      setExclusiveGames([]);
     } else {
       setActiveMenu(title);
       setActiveSubMenu(null);
+      
+      // If a category is clicked, fetch its providers
+      if (category && category.name) {
+        await fetchProviders(category.name);
+      }
     }
   };
 
@@ -82,7 +87,7 @@ const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
     },
   ];
 
-  if (loading) {
+  if (isLoading.categories) {
     return (
       <div
         className={`fixed md:block hidden md:relative min-h-[calc(100vh-56px)] no-scrollbar border-r border-[#222424] z-20 bg-[#1a1a1a] text-white overflow-y-auto
@@ -92,7 +97,21 @@ const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
               ? "w-75 "
               : "w-20 -translate-x-full py-4 md:translate-x-0"
           }`}
-      ></div>
+      >
+        {/* Loading skeleton */}
+        <div className="p-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center p-3 mb-2">
+              <div className="w-5 h-5 bg-gray-700 rounded animate-pulse"></div>
+              {sidebarOpen && (
+                <div className="ml-3 w-full">
+                  <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -136,7 +155,7 @@ const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
       </div>
 
       {/* Main menu items - Categories from API */}
-      <div className="space-y-1  mt-[15px]">
+      <div className="space-y-1 mt-[15px]">
         {categories.map((category, index) => (
           <div key={category._id}>
             <div
@@ -144,15 +163,23 @@ const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
                 activeMenu === category.name ? "" : ""
               }`}
               onClick={() => {
-                toggleMenu(category.name);
+                toggleMenu(category.name, category);
                 handleCategoryClick(category);
               }}
             >
-              <img
-                src={`${base_url}/${category.image}`}
-                alt={category.name}
-                className="w-5 h-5 min-w-[20px] object-contain"
-              />
+              {category.image ? (
+                <img
+                  src={`${import.meta.env.VITE_API_KEY_Base_URL}/${category.image}`}
+                  alt={category.name}
+                  className="w-5 h-5 min-w-[20px] object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    // You could add a fallback icon here
+                  }}
+                />
+              ) : (
+                <div className="w-5 h-5 min-w-[20px] bg-gray-700 rounded"></div>
+              )}
               <div
                 className={`flex items-center overflow-hidden transition-all duration-300 ${
                   sidebarOpen ? "ml-3 w-full" : "w-0"
@@ -161,28 +188,26 @@ const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
                 <span className="text-sm flex-grow whitespace-nowrap">
                   {category.name}
                 </span>
-                {category.providers &&
-                  category.providers.length > 0 &&
-                  (activeMenu === category.name ? (
+                {(category.providers && category.providers.length > 0) ? (
+                  activeMenu === category.name ? (
                     <FaChevronDown className="text-xs transition-transform duration-200" />
                   ) : (
                     <FaChevronRight className="text-xs transition-transform duration-200" />
-                  ))}
+                  )
+                ) : null}
               </div>
             </div>
 
-            {/* Submenu items - Providers for each category */}
+            {/* Submenu items - Providers */}
             <div
               className={`overflow-hidden transition-all duration-300 ease-in-out ${
                 sidebarOpen &&
-                activeMenu === category.name &&
-                category.providers &&
-                category.providers.length > 0
+                activeMenu === category.name
                   ? "max-h-96"
                   : "max-h-0"
               }`}
             >
-              {sidebarOpen && category.providers && (
+              {sidebarOpen && category.providers && category.providers.length > 0 && (
                 <div className="ml-8 mt-1 mb-2 space-y-1">
                   {category.providers.map((provider) => (
                     <div

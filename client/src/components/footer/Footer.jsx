@@ -55,7 +55,6 @@ const Footer = () => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/social-links`);
-      console.log(response);
       if (response.data.success) {
         setSocialLinks(response.data.data);
       } else {

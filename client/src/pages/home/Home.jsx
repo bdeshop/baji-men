@@ -473,27 +473,30 @@ const HomeContent = () => {
   return (
     <div className="h-screen overflow-hidden font-poppins bg-[#1a1a1a] text-white">
       {/* Loading Overlay - Only show for initial load */}
-      {isLoading && (
-        <div className="fixed top-0 left-0 w-full h-full bg-[#141515] bg-opacity-80 flex justify-center items-center z-[10000000]">
-          <div className="relative w-24 h-24 flex justify-center items-center">
-            {/* Outer rotating circle */}
-            <div className="absolute w-full h-full rounded-full border-4 border-transparent border-t-[#14805E] border-r-[#14805E] animate-spin"></div>
+{isLoading && (
+ <div className="fixed top-0 left-0 w-full h-full bg-[#0a0a0a] flex justify-center items-center z-[10000000]">
+          <div className="relative w-36 h-36 md:w-44 md:h-44 flex justify-center items-center">
+            
+            {/* The 2-Part Rotating Ring with increased width and neon glow */}
+            <div 
+              className="absolute w-full h-full rounded-full border-[5px] border-transparent border-t-[#ff0000] border-b-[#ff0000] animate-spin"
+              style={{
+                filter: 'drop-shadow(0 0 10px #ff0000) drop-shadow(0 0 4px #ff0000)',
+                animationDuration: '1s'
+              }}
+            ></div>
 
-            {/* Inner logo */}
-            <div className="w-20 h-20 rounded-full flex justify-center items-center font-bold text-lg">
+            {/* Inner dynamic logo stays fixed while the arcs rotate */}
+            <div className="z-10 flex justify-center items-center">
               <img 
-                className="w-16" 
+                className="w-[130px] md:w-[160px] object-contain" 
                 src={dynamicLogo} 
-                alt="Loading..." 
-                onError={(e) => {
-                  e.target.src = logo;
-                }}
+                alt="Logo" 
               />
             </div>
           </div>
         </div>
       )}
-
       {/* Header */}
       <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 

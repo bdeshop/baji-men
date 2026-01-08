@@ -65,10 +65,60 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const [showSignupPopup, setShowSignupPopup] = useState(false);
   const [dynamicLogo, setDynamicLogo] = useState(logo);
   const [showMobileAppBanner, setShowMobileAppBanner] = useState(false);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const popupRef = useRef(null);
+
+  // Default categories with provided images
+  const defaultCategories = [
+    {
+      name: "Exclusive",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc",
+      id: "exclusive"
+    },
+    {
+      name: "Sports",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-sport.png?v=1767857219215&source=drccdnsrc",
+      id: "sports"
+    },
+    {
+      name: "Casino",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-casino.png?v=1767857219215&source=drccdnsrc",
+      id: "casino"
+    },
+    {
+      name: "Slots",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-slot.png?v=1767857219215&source=drccdnsrc",
+      id: "slots"
+    },
+    {
+      name: "Crash",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-crash.png?v=1767857219215&source=drccdnsrc",
+      id: "crash"
+    },
+    {
+      name: "Table",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-table.png?v=1767857219215&source=drccdnsrc",
+      id: "table"
+    },
+    {
+      name: "Fishing",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-fish.png?v=1767857219215&source=drccdnsrc",
+      id: "fishing"
+    },
+    {
+      name: "Arcade",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-arcade.png?v=1767857219215&source=drccdnsrc",
+      id: "arcade"
+    },
+    {
+      name: "Lottery",
+      image: "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-lottery.png?v=1767857219215&source=drccdnsrc",
+      id: "lottery"
+    }
+  ];
 
   // Check if device is mobile
   const isMobileDevice = () => {
@@ -104,7 +154,15 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     if (isMobile) {
       setSidebarOpen(false);
     }
-    if (!categories.length) fetchCategories();
+    
+    // Always show default categories initially
+    if (!categories.length) {
+      // Set default categories immediately
+      setCategories(defaultCategories);
+      // Then fetch from API
+      fetchCategories();
+    }
+    
     if (!promotions.length) fetchPromotions();
     checkAuthStatus();
     fetchBrandingData();
@@ -157,14 +215,20 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
 
   const fetchCategories = async () => {
     try {
+      setIsLoadingCategories(true);
       const response = await axios.get(`${API_BASE_URL}/api/categories`);
-      if (response.data) {
-        console.log(response.data);
+      if (response.data && response.data.data) {
+    
+        // Update with API data
         setCategories(response.data.data);
         localStorage.setItem("categories", JSON.stringify(response.data.data));
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
+      // Keep default categories if API fails
+      setCategories(defaultCategories);
+    } finally {
+      setIsLoadingCategories(false);
     }
   };
 
@@ -736,6 +800,12 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
 
           <div className="space-y-1 px-2 mt-[15px]">
+            {isLoadingCategories && (
+              <div className="text-center py-4 text-gray-400 text-sm">
+                Loading categories...
+              </div>
+            )}
+            
             {categories.map((category, index) => (
               <div key={index}>
                 <div
@@ -745,9 +815,14 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   onClick={() => handleCategoryClick(category)}
                 >
                   <img
-                    src={`${base_url}/${category.image}`}
+                    src={category.image}
                     alt={category.name}
                     className="w-5 h-5 min-w-[20px]"
+                    onError={(e) => {
+                      // Fallback for broken images
+                      e.target.onerror = null;
+                      e.target.src = `https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc`;
+                    }}
                   />
                   <div className="flex items-center ml-3 w-full">
                     <span className="text-sm flex-grow whitespace-nowrap">

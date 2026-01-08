@@ -100,7 +100,7 @@ const Event = () => {
             Event
           </h2>
         </div>
-        <div className="flex justify-center items-center h-40">
+        <div className="flex flex-col justify-center items-center h-40 space-y-3">
           <p className="text-gray-400">Loading events...</p>
         </div>
       </div>
@@ -116,8 +116,13 @@ const Event = () => {
             Event
           </h2>
         </div>
-        <div className="flex justify-center items-center h-40">
-          <p className="text-red-400">{error}</p>
+        <div className="flex flex-col justify-center items-center h-40 space-y-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-circle">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" x2="12" y1="8" y2="12"/>
+            <line x1="12" x2="12.01" y1="16" y2="16"/>
+          </svg>
+          <p className="text-red-400 text-center px-4">{error}</p>
         </div>
       </div>
     );
@@ -132,7 +137,15 @@ const Event = () => {
             Event
           </h2>
         </div>
-        <div className="flex justify-center items-center h-40">
+        <div className="flex flex-col justify-center items-center h-40 space-y-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-x-2">
+            <path d="M8 2v4"/>
+            <path d="M16 2v4"/>
+            <rect width="18" height="18" x="3" y="4" rx="2"/>
+            <path d="M3 10h18"/>
+            <path d="m14 14-4 4"/>
+            <path d="m10 14 4 4"/>
+          </svg>
           <p className="text-gray-400">No events available</p>
         </div>
       </div>
