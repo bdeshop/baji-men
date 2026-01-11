@@ -207,7 +207,7 @@ const Footer = () => {
                     href="#"
                     className="hover:text-white transition-colors duration-200 text-[10px]"
                   >
-                    Foursix Casino
+                    http://localhost:4500 Casino
                   </a>
                 </li>
                 <li>
@@ -268,7 +268,7 @@ const Footer = () => {
               className="flex justify-between items-center cursor-pointer w-full text-left font-medium text-gray-200 text-[11px]"
               onClick={() => toggleSection("about")}
             >
-              <span>About Foursix</span>
+              <span>About http://localhost:4500</span>
               {openSection === "about" ? (
                 <FaChevronUp size={12} />
               ) : (
@@ -854,7 +854,7 @@ const Footer = () => {
         {/* Main Text Section */}
         <div className="mb-4 md:mb-8">
           <h3 className="font-medium mb-2 text-gray-400 text-[11px] md:text-[15px]">
-            Foursix Bangladesh - Leading Online Gaming and Betting Platform in
+            http://localhost:4500 Bangladesh - Leading Online Gaming and Betting Platform in
             Bangladesh
           </h3>
           <p className="text-justify leading-relaxed text-gray-600 text-[10px] md:text-[13px]">
@@ -870,7 +870,7 @@ const Footer = () => {
             <p className="text-justify leading-relaxed text-gray-400 mt-2 text-[10px] md:text-base">
               With online betting becoming a mainstream entertainment choice,
               players are looking for a platform that offer both trust and
-              variety. Among the most established names in the industry, Foursix
+              variety. Among the most established names in the industry, http://localhost:4500
               has built a reputation for excellence, security, and an
               unparalleled gaming experience. We continuously update our
               offerings to include the latest games and features, ensuring our
@@ -939,7 +939,7 @@ const Footer = () => {
           </div>
 
           <p className="text-[9px] text-gray-500 mt-2 text-justify">
-            Foursix.live is owned and operated by BAJI Holdings Limited,
+            http://localhost:4500.live is owned and operated by BAJI Holdings Limited,
             registration number 15839, registered address: Hamshahaka,
             Mutasammudu, Autonomous Island of Anjouan, Union of Comoros. Contact
             us{" "}
@@ -947,17 +947,17 @@ const Footer = () => {
               href="mailto:bill@holdingsltd.com"
               className="text-blue-400 hover:underline"
             >
-              support@Foursix.live
+              support@http://localhost:4500.live
             </a>
-            . Foursix.live is licensed and regulated by the Government of the
+            . http://localhost:4500.live is licensed and regulated by the Government of the
             Autonomous Island of Anjouan, Union of Comoros and operates under
-            License No. ALSB-202410030-FJL. Foursix.live has passed all regulatory
+            License No. ALSB-202410030-FJL. http://localhost:4500.live has passed all regulatory
             compliance and is legally authorized to conduct gaming operations
             for any and all games of chance and wagering.
           </p>
         </div>
         <p className="text-[9px] text-white mt-2 text-center md:text-500">
-          &copy; 2025 Foursix Copyrights. All rights Reserved
+          &copy; 2025 http://localhost:4500 Copyrights. All rights Reserved
         </p>
       </div>
     </footer>

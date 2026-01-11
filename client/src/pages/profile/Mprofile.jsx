@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
-import { FiBell, FiUser, FiLock, FiCheckCircle, FiFileText, FiTrendingUp, FiUsers } from "react-icons/fi";
+import { FiBell, FiUser, FiLock, FiCheckCircle, FiFileText, FiTrendingUp, FiUsers, FiLogOut } from "react-icons/fi";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { MdSportsSoccer } from "react-icons/md";
@@ -24,6 +24,8 @@ const Mprofile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
@@ -74,6 +76,35 @@ const Mprofile = () => {
     navigate(path);
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    setShowLogoutPopup(true);
+  };
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
+    
+    // Clear localStorage data
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    
+    // Clear axios default headers
+    delete axios.defaults.headers.common["Authorization"];
+    
+    // Set a small delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setIsLoggingOut(false);
+    setShowLogoutPopup(false);
+    
+    // Navigate to home page
+    navigate("/");
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutPopup(false);
+  };
+
   if (loading) {
     return (
       <div className="h-screen overflow-hidden font-poppins bg-[#0f0f0f] text-white">
@@ -96,6 +127,49 @@ const Mprofile = () => {
   return (
     <div className="h-screen overflow-hidden w-full font-poppins bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] text-white">
       <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      
+      {/* Logout Confirmation Popup */}
+      {showLogoutPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#2a2a2a] rounded-xl shadow-2xl shadow-black/50 w-full max-w-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-900/30 to-red-950/30 border border-red-700/30">
+                <FiLogOut className="text-2xl text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-center mb-2 bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+                Logout Confirmation
+              </h3>
+              <p className="text-gray-300 text-center mb-6">
+                Are you sure you want to logout? You will need to sign in again to access your account.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelLogout}
+                  disabled={isLoggingOut}
+                  className="flex-1 py-3 px-4 bg-gradient-to-br from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 border border-gray-700/50 rounded-xl transition-all duration-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmLogout}
+                  disabled={isLoggingOut}
+                  className="flex-1 py-3 px-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 rounded-xl transition-all duration-300 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Logging out...
+                    </>
+                  ) : (
+                    "Yes, Logout"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex h-[calc(100vh-48px)] sm:h-[calc(100vh-56px)] w-full">
         <Sidebar sidebarOpen={sidebarOpen} menuItems={menuItems} />
         <div className="flex-1 overflow-auto w-full transition-all duration-300">
@@ -111,7 +185,7 @@ const Mprofile = () => {
                     <img
                       src="https://thumbs.dreamstime.com/b/man-profile-cartoon-smiling-round-icon-vector-illustration-graphic-design-135443422.jpg"
                       alt="Profile"
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-green-500 relative z-10"
+                      className="w-[100px] h-[100px] sm:w-20 sm:h-20 rounded-full border-2 border-green-500 relative z-10"
                     />
                   </div>
                   <div>
@@ -121,8 +195,7 @@ const Mprofile = () => {
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-300">Balance:</span>
                       <div className="relative group">
-                                            ৳{userData?.balance?.toFixed(2) || "0.00"}
-
+                        ৳{userData?.balance?.toFixed(2) || "0.00"}
                       </div>
                     </div>
                   </div>
@@ -182,6 +255,31 @@ const Mprofile = () => {
                       </div>
                     </div>
                   ))}
+                      {/* Logout Button Section */}
+            {token && (
+              <div className="mt-8 mb-4 w-full">
+                
+                    <button
+                      onClick={handleLogout}
+                      className="relative inline-flex w-full items-center gap-3 px-6 py-3.5  sm:px-8 sm:py-4 bg-gradient-to-r from-red-900/30 to-red-950/30 hover:from-red-800/30 hover:to-red-900/30 border border-red-700/50 hover:border-red-600/50 rounded-xl transition-all duration-300 shadow-lg shadow-red-500/10 hover:shadow-red-500/20 group"
+                    >
+                      {/* Background glow effect on hover */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      
+                      <FiLogOut className="text-xl text-red-400 group-hover:scale-110 transition-transform duration-300 relative z-10" />
+                      <span className="font-medium text-red-300 group-hover:text-red-200 transition-colors relative z-10">
+                        Logout from Account
+                      </span>
+                      
+                      {/* Arrow indicator */}
+                      <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 relative z-10">
+                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7"></path>
+                        </svg>
+                      </div>
+                    </button>
+              </div>
+            )}
                 </div>
               </div>
             </div>
@@ -216,8 +314,11 @@ const Mprofile = () => {
                     <span className="relative">Sign In Now</span>
                   </a>
                 </div>
+
               </div>
             )}
+
+        
           </div>
           <Footer />
         </div>

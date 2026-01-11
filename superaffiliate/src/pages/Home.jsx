@@ -71,8 +71,8 @@ const Home = () => {
       label: 'Affiliate',
       dropdown: true,
       subItems: [
-        { label: 'Super Affiliate', href: 'https://affiliate.foursix.live/login' },
-        { label: 'Master Affiliate', href: 'https://m-affiliate.foursix.live/login' },
+        { label: 'Super Affiliate', href: 'https://affiliate.bajiman.com/login' },
+        { label: 'Master Affiliate', href: 'https://m-affiliate.bajiman.com/login' },
       ],
     },
     { label: 'FAQ', href: '#faq' },
@@ -81,7 +81,7 @@ const Home = () => {
 
   const faqData = [
     {
-      question: "How do I join the Foursix Affiliate Program?",
+      question: "How do I join the http://localhost:4500 Affiliate Program?",
       answer: "Click the 'Join Now' button, fill out the registration form, and our team will review your application within 24-48 hours."
     },
     {
@@ -110,7 +110,7 @@ const Home = () => {
     {
       name: "Sarah J.",
       role: "Elite Affiliate",
-      quote: "Foursix's affiliate program has been a game-changer! The high commissions and real-time tracking make it easy to earn big.",
+      quote: "http://localhost:4500's affiliate program has been a game-changer! The high commissions and real-time tracking make it easy to earn big.",
       image: "https://via.placeholder.com/100"
     },
     {
@@ -149,7 +149,7 @@ const Home = () => {
             <div className="flex items-center space-x-3">
               <img
                 src={dynamicLogo}
-                alt="Foursix Affiliate"
+                alt="http://localhost:4500 Affiliate"
                 className="h-14 w-auto"
               />
             </div>
@@ -287,10 +287,10 @@ const Home = () => {
           <div className="grid lg:grid-cols-2 h-full gap-12 items-center">
             <div className="text-left">
               <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500 leading-tight">
-                Join Foursix Affiliate Program
+                Join http://localhost:4500 Affiliate Program
               </h1>
               <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">
-                Unlock unlimited earning potential by promoting Foursix. Start today and turn your audience into profit!
+                Unlock unlimited earning potential by promoting http://localhost:4500. Start today and turn your audience into profit!
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <NavLink to="/register" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition duration-300 shadow-lg text-center">
@@ -304,7 +304,7 @@ const Home = () => {
             <div className="flex justify-center">
               <img
                 src="https://bajiliveaffiliate.com/wp-content/uploads/2024/02/bjaff-banner.jpg"
-                alt="Foursix Affiliate Program"
+                alt="http://localhost:4500 Affiliate Program"
                 className="w-full max-w-2xl h-auto rounded-[5px] border border-gray-800"
               />
             </div>
@@ -351,9 +351,9 @@ const Home = () => {
       <section id="why-partner" className="py-20 bg-[#141515]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-4">Why Partner with Foursix?</h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-4">Why Partner with http://localhost:4500?</h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Discover why thousands of affiliates choose Foursix for unmatched earning potential.
+              Discover why thousands of affiliates choose http://localhost:4500 for unmatched earning potential.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -487,7 +487,7 @@ const Home = () => {
             </div>
             <div className="bg-[#2a2b2b] p-8 rounded-lg border border-red-500/20">
               <h3 className="text-2xl font-bold text-red-400 mb-3">Equity Options</h3>
-              <p className="text-gray-300">Earn equity in Foursix for top performers.</p>
+              <p className="text-gray-300">Earn equity in http://localhost:4500 for top performers.</p>
             </div>
             <div className="bg-[#2a2b2b] p-8 rounded-lg border border-teal-500/20">
               <h3 className="text-2xl font-bold text-teal-400 mb-3">Global Recognition</h3>
@@ -607,7 +607,7 @@ const Home = () => {
           <div className="max-w-4xl mx-auto text-center p-12">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-6">Join the Ultimate Affiliate Experience</h2>
             <p className="text-xl text-gray-400 mb-8">
-              Leverage cutting-edge technology and unmatched earning potential with Foursix.
+              Leverage cutting-edge technology and unmatched earning potential with http://localhost:4500.
             </p>
             <NavLink to="/register" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition duration-300 shadow-lg inline-block">
               Start Earning Today
@@ -658,7 +658,7 @@ const Home = () => {
               <div className="flex items-center space-x-3 mb-4">
                 <img
                   src={footerLogo}
-                  alt="Foursix Affiliate"
+                  alt="http://localhost:4500 Affiliate"
                   className="h-12 w-auto"
                   onError={(e) => {
                     e.target.src = 'https://bajiliveaffiliate.com/wp-content/uploads/2023/08/bjaff-logo2-e1708094785566.png';
@@ -666,7 +666,7 @@ const Home = () => {
                 />
               </div>
               <p className="text-gray-400 mb-4 max-w-md">
-                Join Foursix Affiliate and turn your audience into income with our premium services and generous commissions.
+                Join http://localhost:4500 Affiliate and turn your audience into income with our premium services and generous commissions.
               </p>
               <div className="flex space-x-5">
                 <a href="#" className="text-gray-400 hover:text-purple-500 transition duration-300">
@@ -700,7 +700,7 @@ const Home = () => {
               <ul className="space-y-4">
                 <li className="flex items-center space-x-3">
                   <FaEnvelope className="text-purple-500" />
-                  <span className="text-gray-400">affiliate@Foursix.com</span>
+                  <span className="text-gray-400">affiliate@http://localhost:4500.com</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FaPhone className="text-purple-500" />
@@ -715,7 +715,7 @@ const Home = () => {
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-500 text-sm">
-              © 2025 Foursix Affiliate Program. All rights reserved.
+              © 2025 http://localhost:4500 Affiliate Program. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-500 hover:text-purple-500 text-sm transition duration-300">Privacy Policy</a>

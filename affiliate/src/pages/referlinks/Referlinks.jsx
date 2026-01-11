@@ -34,7 +34,7 @@ import toast from 'react-hot-toast';
 
 const Referlinks = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
-  const website_url = 'https://foursix.live'; // Your website URL
+  const website_url = 'https://bajiman.com'; // Your website URL
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('links');
