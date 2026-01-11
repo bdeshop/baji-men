@@ -699,8 +699,8 @@ router.get("/notice", async (req, res) => {
 // GET all menu games
 router.get("/menu-games", async (req, res) => {
   try {
-    const games = await Game.find({category:"exclusive"})
-    console.log("games",games)
+    const games = await MenuGame.find()
+      .populate("category", "name")
     res.json(games);
   } catch (error) {
     console.error("Error fetching menu games:", error);

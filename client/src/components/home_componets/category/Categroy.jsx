@@ -331,12 +331,30 @@ const CategoryContent = () => {
       console.log("Menu games API response:", response.data);
       
       let gamesData = [];
-       console.log(response.data)
-      if (response.data) {
-        setExclusiveGames(response.data);
-      setProviders([]);
-      } 
       
+      if (response.data && response.data.data) {
+        gamesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        gamesData = response.data;
+      }
+      
+      // Try different possible category name variations
+      const exclusiveGamesData = gamesData.filter(game => {
+        if (!game) return false;
+        
+        const categoryName = (game.categoryname || game.category || game.categoryName || '').toLowerCase();
+        const gameName = (game.name || game.gameName || '').toLowerCase();
+        
+        // Check for exclusive category or exclusive in game name
+        return categoryName.includes("exclusive") || 
+               categoryName.includes("exlusive") ||
+               gameName.includes("exclusive") ||
+               gameName.includes("exlusive");
+      });
+      
+      console.log("Filtered exclusive games:", exclusiveGamesData);
+      setExclusiveGames(exclusiveGamesData);
+      setProviders([]);
     } catch (error) {
       console.error("Error fetching exclusive games:", error);
       setExclusiveGames([]);
@@ -486,7 +504,7 @@ const CategoryContent = () => {
       );
     }
 
-    if (providers.length === 0 && exclusiveGames?.length === 0) {
+    if (providers.length === 0 && exclusiveGames.length === 0) {
       return (
         <div className="p-4 text-center text-[13px] text-white">
           No content found for this category.
