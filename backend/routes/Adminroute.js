@@ -2387,7 +2387,6 @@ Adminrouter.get("/games/gameId/:gameId", async (req, res) => {
 });
 
 // POST create new game
-// POST create new game
 Adminrouter.post(
   "/games",
   uploadGameImages.fields([
@@ -2400,7 +2399,7 @@ Adminrouter.post(
 
       const gameProviderFont = await GameProvider.findOne({ name: provider });
       if (!gameProviderFont) {
-        return res.json({ error: "Game provider font not found" });
+        return res.status(400).json({ error: "Game provider font not found" });
       }
 
       let category = gameProviderFont.category;
@@ -2409,19 +2408,20 @@ Adminrouter.post(
 
       // Validation
       if (!name || !provider || !category || !gameApiID) {
-        return res.json({ error: "All fields are required" });
+        return res.status(400).json({ error: "All fields are required" });
       }
 
       if (!req.files || !req.files.portraitImage || !req.files.landscapeImage) {
         return res
+          .status(400)
           .json({ error: "Both portrait and landscape images are required" });
       }
 
-      // Check if gameApiID already exists - UNCOMMENT AND FIX THIS
-      const existingGame = await Game.findOne({ gameApiID: gameApiID });
-      if (existingGame) {
-        return res.json({ error: "Game API ID already exists" });
-      }
+      // Check if gameId already exists
+      // const existingGame = await Game.findOne({ gameId });
+      // if (existingGame) {
+      //   return res.status(400).json({ error: "Game ID already exists" });
+      // }
 
       const gameData = {
         name,

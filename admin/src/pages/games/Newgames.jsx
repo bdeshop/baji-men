@@ -12,37 +12,12 @@ const Newgames = () => {
   const [providers, setProviders] = useState([]);
   const [selectedProvider, setSelectedProvider] = useState("");
   const [games, setGames] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState("");
 
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [loadingGames, setLoadingGames] = useState(false);
-  const [loadingCategories, setLoadingCategories] = useState(false);
   const [savingGameId, setSavingGameId] = useState(null);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  // Fetch categories from local API
-  useEffect(() => {
-    const fetchCategories = async () => {
-      setLoadingCategories(true);
-      try {
-        const response = await fetch(`${base_url}/api/admin/game-categories`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
-        }
-        const categoriesData = await response.json();
-        setCategories(categoriesData);
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        toast.error('Failed to fetch categories');
-      } finally {
-        setLoadingCategories(false);
-      }
-    };
-
-    fetchCategories();
-  }, []);
 
   useEffect(() => {
     const fetchAndMergeProviders = async () => {
@@ -121,11 +96,9 @@ const Newgames = () => {
               localId: localGame._id,
               localFeatured: localGame.featured,
               localStatus: localGame.status,
-              localFullScreen: localGame.fullScreen || false, // Add fullScreen from local game
-              localCategory: localGame.category,
               localPortraitPreview: `${base_url}${localGame.portraitImage}`,
               localLandscapePreview: `${base_url}${localGame.landscapeImage}`,
-              localPortraitImage: null,
+              localPortraitImage: null, // Not holding the file object unless changed
               localLandscapeImage: null,
             };
           } else {
@@ -134,8 +107,6 @@ const Newgames = () => {
               isSaved: false,
               localFeatured: false,
               localStatus: true,
-              localFullScreen: false, // Default to false for new games
-              localCategory: selectedCategory || "",
               localPortraitImage: null,
               localLandscapeImage: null,
               localPortraitPreview: null,
@@ -155,18 +126,6 @@ const Newgames = () => {
 
     fetchAndMergeGames();
   }, [selectedProvider]);
-
-  // Update games when selectedCategory changes
-  useEffect(() => {
-    if (selectedCategory) {
-      setGames(prevGames => 
-        prevGames.map(game => ({
-          ...game,
-          localCategory: game.isSaved ? game.localCategory : selectedCategory
-        }))
-      );
-    }
-  }, [selectedCategory]);
 
   const handleGameDataChange = (gameApiID, field, value) => {
     setGames((prevGames) =>
@@ -239,8 +198,7 @@ const Newgames = () => {
 
   const handleSaveOrUpdateGame = async (gameApiID) => {
     const gameToSave = games.find((g) => g._id === gameApiID);
-    console.log("gameToSave",gameToSave)
-    // Validation for new games
+    console.log(gameToSave)
     if (
       !gameToSave.isSaved &&
       (!gameToSave.localPortraitImage || !gameToSave.localLandscapeImage)
@@ -251,35 +209,16 @@ const Newgames = () => {
       return;
     }
 
-    // Validate category for new games
-    if (!gameToSave.isSaved && !gameToSave.localCategory) {
-      toast.error("Please select a category for the game.");
-      return;
-    }
-
     setSavingGameId(gameApiID);
 
     try {
-      console.log(gameToSave)
       const formData = new FormData();
-      formData.append("gameApiID",gameToSave.game_uuid);
+      formData.append("gameApiID", gameToSave.game_uuid);
       formData.append("name", gameToSave.name);
       formData.append("provider", gameToSave.provider.name);
-      
-      // Add category to form data
-      const selectedCat = categories.find(cat => 
-        cat._id === gameToSave.localCategory || cat.name === gameToSave.localCategory
-      );
-      if (selectedCat) {
-        formData.append("category", selectedCat.name);
-      } else {
-        formData.append("category", gameToSave.localCategory || "");
-      }
-      
+      formData.append("category", gameToSave.category.name);
       formData.append("featured", gameToSave.localFeatured);
       formData.append("status", gameToSave.localStatus);
-      formData.append("fullScreen", gameToSave.localFullScreen); // Add fullScreen field
-      
       if (gameToSave.localPortraitImage) {
         formData.append("portraitImage", gameToSave.localPortraitImage);
       }
@@ -292,6 +231,7 @@ const Newgames = () => {
         ? `${base_url}/api/admin/games/${gameToSave.localId}`
         : `${base_url}/api/admin/games`;
       const method = isUpdate ? "PUT" : "POST";
+
       const response = await fetch(url, {
         method: method,
         body: formData,
@@ -311,10 +251,8 @@ const Newgames = () => {
               ? {
                   ...g,
                   isSaved: true,
-                  localId: result.game?._id,
-                  localCategory: result.game?.category,
-                  localFullScreen: result.game?.fullScreen || false, // Update with saved fullScreen
-                  localPortraitImage: null,
+                  localId: result.game._id,
+                  localPortraitImage: null, // Clear file object
                   localLandscapeImage: null,
                 }
               : g
@@ -352,57 +290,27 @@ const Newgames = () => {
             </h1>
 
             <div className="bg-white rounded-lg shadow-md p-6 border border-orange-100">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Game Provider
-                  </label>
-                  <select
-                    value={selectedProvider}
-                    onChange={(e) => setSelectedProvider(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
-                    disabled={loadingProviders}
-                  >
-                    <option value="">
-                      {loadingProviders
-                        ? "Loading providers..."
-                        : "Select a provider"}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Game Provider
+                </label>
+                <select
+                  value={selectedProvider}
+                  onChange={(e) => setSelectedProvider(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
+                  disabled={loadingProviders}
+                >
+                  <option value="">
+                    {loadingProviders
+                      ? "Loading providers..."
+                      : "Select a provider"}
+                  </option>
+                  {providers.map((provider) => (
+                    <option key={provider._id} value={provider._id}>
+                      {provider.name}
                     </option>
-                    {providers.map((provider) => (
-                      <option key={provider._id} value={provider._id}>
-                        {provider.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Default Category (for new games)
-                  </label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
-                    disabled={loadingCategories}
-                  >
-                    <option value="">
-                      {loadingCategories
-                        ? "Loading categories..."
-                        : "Select a category"}
-                    </option>
-                    {categories
-                      .filter(cat => cat.status)
-                      .map((category) => (
-                        <option key={category._id} value={category._id}>
-                          {category.name}
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    This category will be applied to all new games you add
-                  </p>
-                </div>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -424,10 +332,9 @@ const Newgames = () => {
                     <h3 className="text-lg font-bold text-gray-800 truncate">
                       {game.name}
                     </h3>
-                    <div className="text-sm text-gray-500 mb-4 space-y-1">
-                      <p>Provider: {game.provider.name}</p>
-                      <p>External Category: {game.category.name}</p>
-                    </div>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Provider: {game.provider.name}
+                    </p>
 
                     <img
                       src={game.image}
@@ -436,104 +343,47 @@ const Newgames = () => {
                     />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Local Category
-                        </label>
-                        <select
-                          value={game.localCategory || ""}
+                      <div className="flex items-center">
+                        <input
+                          id={`featured-${game._id}`}
+                          type="checkbox"
+                          checked={game.localFeatured}
                           onChange={(e) =>
                             handleGameDataChange(
                               game._id,
-                              "localCategory",
-                              e.target.value
+                              "localFeatured",
+                              e.target.checked
                             )
                           }
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-[3px] outline-theme_color"
-                          disabled={loadingCategories}
+                          className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded"
+                        />
+                        <label
+                          htmlFor={`featured-${game._id}`}
+                          className="ml-2 block text-sm text-gray-700"
                         >
-                          <option value="">
-                            Select category
-                          </option>
-                          {categories
-                            .filter(cat => cat.status)
-                            .map((category) => (
-                              <option key={category._id} value={category._id}>
-                                {category.name}
-                              </option>
-                            ))}
-                        </select>
-                        {!game.isSaved && !game.localCategory && (
-                          <p className="text-xs text-red-500 mt-1">
-                            Category is required
-                          </p>
-                        )}
+                          Featured
+                        </label>
                       </div>
-                      
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <input
-                            id={`featured-${game._id}`}
-                            type="checkbox"
-                            checked={game.localFeatured}
-                            onChange={(e) =>
-                              handleGameDataChange(
-                                game._id,
-                                "localFeatured",
-                                e.target.checked
-                              )
-                            }
-                            className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded"
-                          />
-                          <label
-                            htmlFor={`featured-${game._id}`}
-                            className="ml-2 block text-sm text-gray-700"
-                          >
-                            Featured
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id={`status-${game._id}`}
-                            type="checkbox"
-                            checked={game.localStatus}
-                            onChange={(e) =>
-                              handleGameDataChange(
-                                game._id,
-                                "localStatus",
-                                e.target.checked
-                              )
-                            }
-                            className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded"
-                          />
-                          <label
-                            htmlFor={`status-${game._id}`}
-                            className="ml-2 block text-sm text-gray-700"
-                          >
-                            Active
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id={`fullscreen-${game._id}`}
-                            type="checkbox"
-                            checked={game.localFullScreen}
-                            onChange={(e) =>
-                              handleGameDataChange(
-                                game._id,
-                                "localFullScreen",
-                                e.target.checked
-                              )
-                            }
-                            className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded"
-                          />
-                          <label
-                            htmlFor={`fullscreen-${game._id}`}
-                            className="ml-2 block text-sm text-gray-700"
-                          >
-                            Full Screen
-                          </label>
-                        </div>
+                      <div className="flex items-center">
+                        <input
+                          id={`status-${game._id}`}
+                          type="checkbox"
+                          checked={game.localStatus}
+                          onChange={(e) =>
+                            handleGameDataChange(
+                              game._id,
+                              "localStatus",
+                              e.target.checked
+                            )
+                          }
+                          className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-gray-300 rounded"
+                        />
+                        <label
+                          htmlFor={`status-${game._id}`}
+                          className="ml-2 block text-sm text-gray-700"
+                        >
+                          Active
+                        </label>
                       </div>
                     </div>
 
@@ -630,12 +480,12 @@ const Newgames = () => {
                       <button
                         type="button"
                         onClick={() => handleSaveOrUpdateGame(game._id)}
-                        disabled={savingGameId === game._id || (!game.isSaved && !game.localCategory)}
-                        className={`w-full px-4 py-2 text-white font-medium rounded-md focus:outline-none transition-colors flex items-center justify-center ${
+                        disabled={savingGameId === game._id}
+                        className={`w-full px-4 py-2 text-white font-medium rounded-md focus:outline-none transition-colors disabled:opacity-70 flex items-center justify-center ${
                           game.isSaved
-                            ? "bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300"
-                            : "bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300"
-                        } ${savingGameId === game._id ? 'opacity-70' : ''}`}
+                            ? "bg-blue-500 hover:bg-blue-600"
+                            : "bg-orange-500 hover:bg-orange-600"
+                        }`}
                       >
                         {savingGameId === game._id ? (
                           <>
