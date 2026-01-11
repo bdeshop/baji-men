@@ -700,6 +700,7 @@ router.get("/notice", async (req, res) => {
 router.get("/menu-games", async (req, res) => {
   try {
     const games = await Game.find({category:"exclusive"})
+    console.log("games",games)
     res.json(games);
   } catch (error) {
     console.error("Error fetching menu games:", error);
