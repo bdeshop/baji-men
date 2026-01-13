@@ -1343,6 +1343,396 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
   });
 // Route to handle game callback data
 // Route to handle game callback data
+// Userrouter.post("/callback-data-game", async (req, res) => {
+//   try {
+//     // Extract fields from request body (support both old and new formats)
+//     let {
+//       // New format fields
+//       account_id,
+//       username,
+//       provider_code,
+//       amount,
+//       game_code,
+//       verification_key,
+//       bet_type,
+//       transaction_id,
+//       times
+//     } = req.body;
+
+//     console.log("Callback data received -> ", req.body);
+
+//     // Determine the format and process accordingly
+//     let processingFormat = 'old';
+//     let processedData = {};
+
+//     // Check for new format indicators
+//     if ((username || account_id) && provider_code && game_code && bet_type) {
+//       processingFormat = 'new';
+      
+//       // Validate required fields for new format
+//       if (!username || !provider_code || !amount || !game_code || !bet_type) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Required fields missing for new format.",
+//         });
+//       }
+
+//       // Process username
+//       if (username) {
+//         username = username.substring(0, 45);
+//         username = username.substring(0, username.length - 2);
+//       }
+//      const findgame=await Game.findOne({gameApiID:game_code});
+//       // Map new format to unified structure
+//       processedData = {
+//         member_account: username,
+//         original_username: username,
+//         bet_amount: bet_type === 'BET' ? parseFloat(amount) : 0,
+//         win_amount: bet_type === 'SETTLE' ? parseFloat(amount) : 0,
+//         game_uid: game_code,
+//         serial_number: transaction_id || `TXN_${Date.now()}`,
+//         currency_code: 'BDT',
+//         platform: 'casino',
+//         game_type: provider_code,
+//         device_info:'web',
+//         bet_type: bet_type,
+//         provider_code: provider_code,
+//         verification_key: verification_key,
+//         times: times,
+//         game_name:findgame?.name || "no game"
+//       };
+
+//     } else {
+//       // Process old format
+//       processingFormat = 'old';
+      
+//       // Validate required fields for old format
+//       if (!member_account || !game_uid || !serial_number || !currency_code) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "All required data are not provided for old format.",
+//         });
+//       }
+
+//       // Ensure currency_code is BDT
+//       if (currency_code !== "BDT") {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Currency code must be BDT.",
+//         });
+//       }
+
+//       // Process member_account
+//       if (member_account) {
+//         member_account = member_account.substring(0, 45);
+//       }
+
+//       const originalusername = member_account.substring(
+//         0,
+//         member_account.length - 2
+//       );
+
+//       // Calculate amounts
+//       const betAmount = parseFloat(bet_amount) || 0;
+//       const winAmount = parseFloat(win_amount) || 0;
+
+//       processedData = {
+//         member_account: member_account,
+//         original_username: originalusername,
+//         bet_amount: betAmount,
+//         win_amount: winAmount,
+//         net_amount: winAmount - betAmount,
+//         game_uid: game_uid,
+//         serial_number: serial_number,
+//         currency_code: currency_code,
+//         platform: platform,
+//         game_type: game_type,
+//         device_info: device_info,
+//         bet_type: 'AUTO', // Old format auto-determines bet/settle
+//         provider_code: game_type,
+//         status: winAmount > 0 ? 'won' : 'lost'
+//       };
+//     }
+
+//     console.log(`Processing ${processingFormat} format data:`, processedData);
+
+//     // Check if serial number already exists in BettingHistory
+//     const existingBet = await BettingHistory.findOne({ 
+//       serial_number: processedData.serial_number 
+//     });
+    
+//     if (existingBet) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Duplicate transaction - serial number already exists.",
+//       });
+//     }
+
+//     // Find the user by username
+//     const matchedUser = await User.findOne({ 
+//       username: processedData.original_username 
+//     });
+    
+//     if (!matchedUser) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found!",
+//       });
+//     }
+
+//     // Calculate amounts and status based on format
+//     let betAmount, winAmount, netAmount, isWin, status;
+
+//     if (processingFormat === 'new') {
+//       betAmount = processedData.bet_type === 'BET' ? processedData.bet_amount : 0;
+//       winAmount = processedData.bet_type === 'SETTLE' ? processedData.win_amount : 0;
+//       netAmount = winAmount - betAmount;
+//       isWin = processedData.bet_type === 'SETTLE';
+//       status = isWin ? 'won' : 'lost';
+//     } else {
+//       betAmount = processedData.bet_amount;
+//       winAmount = processedData.win_amount;
+//       netAmount = processedData.net_amount;
+//       isWin = winAmount > 0;
+//       status = processedData.status;
+//     }
+
+//     // Calculate new balance
+//     const balanceBefore = matchedUser.balance || 0;
+//     const newBalance = balanceBefore - betAmount + winAmount;
+
+//     // Prepare the bet history record for User model
+//     const betRecord = {
+//       betAmount: betAmount,
+//       betResult: isWin ? "win" : "loss",
+//       transaction_id: processedData.serial_number,
+//       game_id: processedData.game_uid,
+//       bet_time: new Date(),
+//       status: "completed",
+//       provider_code: processedData.provider_code,
+//       bet_type: processedData.bet_type
+//     };
+
+//     // Update user data
+//     const updateResult = await User.findOneAndUpdate(
+//       { _id: new mongoose.Types.ObjectId(matchedUser._id) },
+//       {
+//         $set: {
+//           balance: newBalance,
+//           total_bet: (matchedUser.total_bet || 0) + betAmount,
+//           total_wins: isWin
+//             ? (matchedUser.total_wins || 0) + winAmount
+//             : matchedUser.total_wins || 0,
+//           total_loss: !isWin
+//             ? (matchedUser.total_loss || 0) + betAmount
+//             : matchedUser.total_loss || 0,
+//           lifetime_bet: (matchedUser.lifetime_bet || 0) + betAmount,
+//         },
+//         $push: {
+//           betHistory: betRecord,
+//           transactionHistory: {
+//             type: isWin ? "win" : "bet",
+//             amount: isWin ? winAmount : betAmount,
+//             balanceBefore: balanceBefore,
+//             balanceAfter: newBalance,
+//             description: isWin
+//               ? `Won ${winAmount} in game ${processedData.game_uid}`
+//               : `Bet ${betAmount} in game ${processedData.game_uid}`,
+//             referenceId: processedData.serial_number,
+//             createdAt: new Date(),
+//           },
+//         },
+//       },
+//       { returnDocument: "after" }
+//     );
+//        matchedUser.total_bet+=betAmount;
+//        matchedUser.save();
+//     // Check if update was successful
+//     if (!updateResult) {
+//       return res.status(500).json({
+//         success: false,
+//         message: "Failed to update user data.",
+//       });
+//     }
+
+//     // Create BettingHistory record
+//     const bettingHistoryRecord = new BettingHistory({
+//       member_account: processedData.member_account,
+//       original_username: processedData.original_username,
+//       user_id: matchedUser._id,
+//       bet_amount: betAmount,
+//       win_amount: winAmount,
+//       net_amount: netAmount,
+//       game_uid: processedData.game_uid,
+//       serial_number: processedData.serial_number,
+//       currency_code: processedData.currency_code,
+//       status: status,
+//       balance_before: balanceBefore,
+//       balance_after: newBalance,
+//       transaction_time: new Date(),
+//       processed_at: new Date(),
+//       platform: processedData.platform,
+//       game_type: processedData.game_type,
+//       device_info: processedData.device_info,
+//       provider_code: processedData.provider_code,
+//       bet_type: processedData.bet_type,
+//       processing_format: processingFormat
+//     });
+
+//     // Save BettingHistory record
+//     await bettingHistoryRecord.save();
+
+//     // Apply bet to wagering (for bonus requirements)
+//     await updateResult.applyBetToWagering(betAmount);
+
+//     // ========== AFFILIATE COMMISSION LOGIC ==========
+//     let affiliateCommissionProcessed = false;
+//     let commissionDetails = null;
+
+//     // Check if user has an affiliate code and process commission (only when user loses)
+//     if (matchedUser.registrationSource?.affiliateCode && !isWin && betAmount > 0) {
+//         try {
+//             // Find master affiliate
+//             const masterAffiliate = await MasterAffiliate.findOne({ 
+//                 masterCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
+//                 status: 'active'
+//             });
+            
+//             if (masterAffiliate) {
+//                 // Find super affiliate
+//                 const superAffiliate = await Affiliate.findOne({ 
+//                     _id: masterAffiliate.createdBy,
+//                     status: 'active'
+//                 });
+                
+//                 if (superAffiliate) {
+//                   console.log(masterAffiliate.commissionRate)
+//                     // Calculate commissions
+//                     const superAffiliateCommission = (betAmount / 100) *superAffiliate.commissionRate;
+//                     const masterAffiliateCommission = (superAffiliateCommission / 100 ) * masterAffiliate.commissionRate;
+
+//                     console.log(`Commission Calculation - Bet: ${betAmount}, Super Rate: ${superAffiliate.commissionRate}%, Super Commission: ${superAffiliateCommission}, Master Rate: ${masterAffiliate.commissionRate}%, Master Commission: ${masterAffiliateCommission}`);
+
+//                     // Update super affiliate earnings
+//                     const superAffiliateEarning = await superAffiliate.addBetCommission(
+//                         matchedUser._id,
+//                         bettingHistoryRecord._id,
+//                         betAmount,
+//                         superAffiliate.commissionRate,
+//                         superAffiliateCommission,
+//                         `Bet commission from user ${processedData.original_username} - Game: ${processedData.game_uid}`,
+//                         {
+//                             betType: 'loss',
+//                             gameType: processedData.game_type,
+//                             deviceInfo: processedData.device_info,
+//                             masterAffiliateCode: masterAffiliate.masterCode
+//                         }
+//                     );
+//                     masterAffiliate.total_earning+=masterAffiliateCommission;
+//                     // Update master affiliate earnings with override commission
+//                     await masterAffiliate.addOverrideCommission(
+//                         masterAffiliateCommission, // amount
+//                         superAffiliate._id, // sourceAffiliate
+//                         'bet_commission', // sourceType
+//                         superAffiliateCommission, // sourceAmount
+//                         masterAffiliate.commissionRate, // overrideRate
+//                         `Override commission from super affiliate ${superAffiliate.affiliateCode} - User ${processedData.original_username} bet loss in ${processedData.game_uid}`, // description
+//                         {
+//                             subAffiliateEarningId: superAffiliateEarning._id,
+//                             notes: `Commission from user ${processedData.original_username} bet loss - Bet ID: ${bettingHistoryRecord._id}, Bet Amount: ${betAmount}`
+//                         }
+//                     );
+
+//                     // Refresh master affiliate data to get updated earnings
+//                     const updatedMasterAffiliate = await MasterAffiliate.findById(masterAffiliate._id);
+
+//                     affiliateCommissionProcessed = true;
+//                     commissionDetails = {
+//                         superAffiliate: {
+//                             id: superAffiliate._id,
+//                             code: superAffiliate.affiliateCode,
+//                             commissionRate: superAffiliate.commissionRate,
+//                             commissionAmount: superAffiliateCommission,
+//                             newBalance: superAffiliate.totalEarnings + superAffiliateCommission
+//                         },
+//                         masterAffiliate: {
+//                             id: updatedMasterAffiliate._id,
+//                             code: updatedMasterAffiliate.masterCode,
+//                             commissionRate: updatedMasterAffiliate.commissionRate,
+//                             commissionAmount: masterAffiliateCommission,
+//                             totalEarnings: updatedMasterAffiliate.masterEarnings.totalEarnings,
+//                             pendingEarnings: updatedMasterAffiliate.masterEarnings.pendingEarnings,
+//                             paidEarnings: updatedMasterAffiliate.masterEarnings.paidEarnings
+//                         }
+//                     };
+//                     masterAffiliate.save();
+//                     console.log(`✅ Affiliate commissions processed successfully`);
+//                     console.log(`   - Super Affiliate: ${superAffiliateCommission} BDT`);
+//                     console.log(`   - Master Affiliate: ${masterAffiliateCommission} BDT`);
+
+//                 } else {
+//                     console.log(`❌ No active super affiliate found for master affiliate ${masterAffiliate.masterCode}`);
+//                 }
+//             } else {
+//                 console.log(`❌ No active master affiliate found with code: ${matchedUser.registrationSource.affiliateCode}`);
+//             }
+//         } catch (error) {
+//             console.error("❌ Error processing affiliate commission:", error);
+//             // Don't fail the entire transaction if commission processing fails
+//             affiliateCommissionProcessed = false;
+//             commissionDetails = { error: error.message };
+//         }
+//     } else {
+//         console.log(`ℹ️  No affiliate commission - User: ${isWin ? 'won' : 'lost'}, Bet: ${betAmount}, Affiliate Code: ${matchedUser.registrationSource?.affiliateCode || 'none'}`);
+//     }
+//     // ========== END AFFILIATE COMMISSION LOGIC ==========
+
+//     // Send success response
+//     const responseData = {
+//       success: true,
+//       data: {
+//         username: processedData.original_username,
+//         balance: updateResult.balance,
+//         win_amount: winAmount,
+//         bet_amount: betAmount,
+//         game_uid: processedData.game_uid,
+//         serial_number: processedData.serial_number,
+//         gameRecordId: updateResult.betHistory[updateResult.betHistory.length - 1]?._id,
+//         bettingHistoryId: bettingHistoryRecord._id,
+//         processing_format: processingFormat,
+//         affiliateCommissionProcessed: affiliateCommissionProcessed,
+//         commissionDetails: commissionDetails
+//       },
+//     };
+
+//     // For new format, include additional fields in response
+//     if (processingFormat === 'new') {
+//       responseData.data.bet_type = processedData.bet_type;
+//       responseData.data.provider_code = processedData.provider_code;
+//     }
+
+//     res.json(responseData);
+
+//   } catch (error) {
+//     console.error("❌ Error in callback-data-game:", error);
+    
+//     // Handle duplicate key error specifically
+//     if (error.code === 11000 && error.keyPattern && error.keyPattern.serial_number) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Duplicate transaction - serial number already exists.",
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// });
+
+
 Userrouter.post("/callback-data-game", async (req, res) => {
   try {
     // Extract fields from request body (support both old and new formats)
@@ -1592,89 +1982,54 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     // Check if user has an affiliate code and process commission (only when user loses)
     if (matchedUser.registrationSource?.affiliateCode && !isWin && betAmount > 0) {
         try {
-            // Find master affiliate
-            const masterAffiliate = await MasterAffiliate.findOne({ 
-                masterCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
+            // Find affiliate directly using the affiliate code
+            const affiliate = await Affiliate.findOne({ 
+                affiliateCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
                 status: 'active'
             });
             
-            if (masterAffiliate) {
-                // Find super affiliate
-                const superAffiliate = await Affiliate.findOne({ 
-                    _id: masterAffiliate.createdBy,
-                    status: 'active'
-                });
-                
-                if (superAffiliate) {
-                  console.log(masterAffiliate.commissionRate)
-                    // Calculate commissions
-                    const superAffiliateCommission = (betAmount / 100) *superAffiliate.commissionRate;
-                    const masterAffiliateCommission = (superAffiliateCommission / 100 ) * masterAffiliate.commissionRate;
+            if (affiliate) {
+                // Calculate commission based on affiliate's commission rate
+                const commissionAmount = (betAmount / 100) * affiliate.commissionRate;
 
-                    console.log(`Commission Calculation - Bet: ${betAmount}, Super Rate: ${superAffiliate.commissionRate}%, Super Commission: ${superAffiliateCommission}, Master Rate: ${masterAffiliate.commissionRate}%, Master Commission: ${masterAffiliateCommission}`);
+                console.log(`Commission Calculation - Bet: ${betAmount}, Affiliate Rate: ${affiliate.commissionRate}%, Commission: ${commissionAmount}`);
 
-                    // Update super affiliate earnings
-                    const superAffiliateEarning = await superAffiliate.addBetCommission(
-                        matchedUser._id,
-                        bettingHistoryRecord._id,
-                        betAmount,
-                        superAffiliate.commissionRate,
-                        superAffiliateCommission,
-                        `Bet commission from user ${processedData.original_username} - Game: ${processedData.game_uid}`,
-                        {
-                            betType: 'loss',
-                            gameType: processedData.game_type,
-                            deviceInfo: processedData.device_info,
-                            masterAffiliateCode: masterAffiliate.masterCode
-                        }
-                    );
-                    masterAffiliate.total_earning+=masterAffiliateCommission;
-                    // Update master affiliate earnings with override commission
-                    await masterAffiliate.addOverrideCommission(
-                        masterAffiliateCommission, // amount
-                        superAffiliate._id, // sourceAffiliate
-                        'bet_commission', // sourceType
-                        superAffiliateCommission, // sourceAmount
-                        masterAffiliate.commissionRate, // overrideRate
-                        `Override commission from super affiliate ${superAffiliate.affiliateCode} - User ${processedData.original_username} bet loss in ${processedData.game_uid}`, // description
-                        {
-                            subAffiliateEarningId: superAffiliateEarning._id,
-                            notes: `Commission from user ${processedData.original_username} bet loss - Bet ID: ${bettingHistoryRecord._id}, Bet Amount: ${betAmount}`
-                        }
-                    );
+                // Add bet commission to affiliate
+                const affiliateEarning = await affiliate.addBetCommission(
+                    matchedUser._id,
+                    bettingHistoryRecord._id,
+                    betAmount,
+                    affiliate.commissionRate,
+                    commissionAmount,
+                    `Bet commission from user ${processedData.original_username} - Game: ${processedData.game_uid}`,
+                    {
+                        betType: 'loss',
+                        gameType: processedData.game_type,
+                        deviceInfo: processedData.device_info
+                    }
+                );
 
-                    // Refresh master affiliate data to get updated earnings
-                    const updatedMasterAffiliate = await MasterAffiliate.findById(masterAffiliate._id);
+                // Update affiliate's total earning
+                affiliate.total_earning = (affiliate.total_earning || 0) + commissionAmount;
+                await affiliate.save();
 
-                    affiliateCommissionProcessed = true;
-                    commissionDetails = {
-                        superAffiliate: {
-                            id: superAffiliate._id,
-                            code: superAffiliate.affiliateCode,
-                            commissionRate: superAffiliate.commissionRate,
-                            commissionAmount: superAffiliateCommission,
-                            newBalance: superAffiliate.totalEarnings + superAffiliateCommission
-                        },
-                        masterAffiliate: {
-                            id: updatedMasterAffiliate._id,
-                            code: updatedMasterAffiliate.masterCode,
-                            commissionRate: updatedMasterAffiliate.commissionRate,
-                            commissionAmount: masterAffiliateCommission,
-                            totalEarnings: updatedMasterAffiliate.masterEarnings.totalEarnings,
-                            pendingEarnings: updatedMasterAffiliate.masterEarnings.pendingEarnings,
-                            paidEarnings: updatedMasterAffiliate.masterEarnings.paidEarnings
-                        }
-                    };
-                    masterAffiliate.save();
-                    console.log(`✅ Affiliate commissions processed successfully`);
-                    console.log(`   - Super Affiliate: ${superAffiliateCommission} BDT`);
-                    console.log(`   - Master Affiliate: ${masterAffiliateCommission} BDT`);
+                affiliateCommissionProcessed = true;
+                commissionDetails = {
+                    affiliate: {
+                        id: affiliate._id,
+                        code: affiliate.affiliateCode,
+                        name: affiliate.affiliateName,
+                        commissionRate: affiliate.commissionRate,
+                        commissionAmount: commissionAmount,
+                        newBalance: affiliate.total_earning
+                    }
+                };
 
-                } else {
-                    console.log(`❌ No active super affiliate found for master affiliate ${masterAffiliate.masterCode}`);
-                }
+                console.log(`✅ Affiliate commission processed successfully`);
+                console.log(`   - Affiliate: ${affiliate.affiliateCode} earned ${commissionAmount} BDT`);
+
             } else {
-                console.log(`❌ No active master affiliate found with code: ${matchedUser.registrationSource.affiliateCode}`);
+                console.log(`❌ No active affiliate found with code: ${matchedUser.registrationSource.affiliateCode}`);
             }
         } catch (error) {
             console.error("❌ Error processing affiliate commission:", error);

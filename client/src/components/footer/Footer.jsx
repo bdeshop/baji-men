@@ -854,7 +854,7 @@ const Footer = () => {
         {/* Main Text Section */}
         <div className="mb-4 md:mb-8">
           <h3 className="font-medium mb-2 text-gray-400 text-[11px] md:text-[15px]">
-            http://localhost:4500 Bangladesh - Leading Online Gaming and Betting Platform in
+            Bajiman Bangladesh - Leading Online Gaming and Betting Platform in
             Bangladesh
           </h3>
           <p className="text-justify leading-relaxed text-gray-600 text-[10px] md:text-[13px]">
@@ -870,7 +870,7 @@ const Footer = () => {
             <p className="text-justify leading-relaxed text-gray-400 mt-2 text-[10px] md:text-base">
               With online betting becoming a mainstream entertainment choice,
               players are looking for a platform that offer both trust and
-              variety. Among the most established names in the industry, http://localhost:4500
+              variety. Among the most established names in the industry, Bajiman
               has built a reputation for excellence, security, and an
               unparalleled gaming experience. We continuously update our
               offerings to include the latest games and features, ensuring our
@@ -939,25 +939,18 @@ const Footer = () => {
           </div>
 
           <p className="text-[9px] text-gray-500 mt-2 text-justify">
-            http://localhost:4500.live is owned and operated by BAJI Holdings Limited,
+           Bajiman owned and operated by BAJI Holdings Limited,
             registration number 15839, registered address: Hamshahaka,
             Mutasammudu, Autonomous Island of Anjouan, Union of Comoros. Contact
-            us{" "}
-            <a
-              href="mailto:bill@holdingsltd.com"
-              className="text-blue-400 hover:underline"
-            >
-              support@http://localhost:4500.live
-            </a>
-            . http://localhost:4500.live is licensed and regulated by the Government of the
+            us  is licensed and regulated by the Government of the
             Autonomous Island of Anjouan, Union of Comoros and operates under
-            License No. ALSB-202410030-FJL. http://localhost:4500.live has passed all regulatory
+            License No. ALSB-202410030-FJL. Bajiman has passed all regulatory
             compliance and is legally authorized to conduct gaming operations
             for any and all games of chance and wagering.
           </p>
         </div>
         <p className="text-[9px] text-white mt-2 text-center md:text-500">
-          &copy; 2025 http://localhost:4500 Copyrights. All rights Reserved
+          &copy; 2025 Bajiman Copyrights. All rights Reserved
         </p>
       </div>
     </footer>

@@ -276,7 +276,7 @@ Authrouter.post("/affiliate/login", async (req, res) => {
     if (!affiliate) {
       return res.json({
         success: false,
-        message: "Invalid email or password"
+        message: "email or password is worng!"
       });
     }
 
@@ -291,7 +291,7 @@ Authrouter.post("/affiliate/login", async (req, res) => {
     if (!isPasswordValid) {
       return res.json({
         success: false,
-        message: "Invalid email or password"
+        message: "email or password is wrong!"
       });
     }
 
@@ -648,598 +648,272 @@ Authrouter.post("/track-click", async (req, res) => {
   }
 });
 
-// Signup Route with Enhanced Affiliate Tracking
-// Authrouter.post("/signup", async (req, res) => {
-//   try {
-//     const { currency, phone, username, password, confirmPassword, fullName, email, referralCode, affiliateCode } = req.body;
-//     const ipAddress = req.ip || req.connection.remoteAddress;
-//     const userAgent = req.get('User-Agent') || 'unknown';
-
-//     // Validation checks
-//     if (!phone || !username || !password || !confirmPassword) {
-//       return res.status(400).json({ 
-//         success: false,
-//         error: "Phone, username, password, and confirm password are required" 
-//       });
-//     }
-
-//     if (!/^1[0-9]{9}$/.test(phone)) {
-//       return res.status(400).json({ 
-//         success: false,
-//         error: "Please enter a valid Bangladeshi phone number, starting with 1." 
-//       });
-//     }
-
-//     if (!/^[a-z0-9_]+$/.test(username)) {
-//       return res.status(400).json({ 
-//         success: false,
-//         error: "Username can only contain lowercase letters, numbers, and underscores." 
-//       });
-//     }
-
-//     if (username.length < 3) {
-//       return res.status(400).json({ 
-//         success: false,
-//         error: "Username must be at least 3 characters long." 
-//       });
-//     }
-
-//     if (password.length < 6) {
-//       return res.status(400).json({ 
-//         success: false,
-//         error: "Password must be at least 6 characters long." 
-//       });
-//     }
-
-//     if (password !== confirmPassword) {
-//       return res.status(400).json({ 
-//         success: false,
-//         error: "Passwords do not match." 
-//       });
-//     }
-
-//     // Check for affiliate referral (prioritize cookies, fallback to request body)
-//     let affiliateReferral = null;
-//     let referringAffiliate = null;
-//     let clickId = null;
-    
-//     // Check cookies for affiliate tracking
-//     const affiliateCodeFromCookie = req.cookies?.affiliate_ref;
-//     const clickIdFromCookie = req.cookies?.click_id;
-//     console.log("Affiliate tracking info:", { affiliateCodeFromCookie, clickIdFromCookie, affiliateCode });
-
-//     // Use cookie-based affiliate code if available, otherwise use request body affiliateCode
-//     const affiliateCodeToUse = affiliateCodeFromCookie || affiliateCode;
-
-//     // Handle affiliate tracking
-//     if (affiliateCodeToUse) {
-//       referringAffiliate = await Mastera.findOne({
-//         affiliateCode: affiliateCodeToUse.toUpperCase(),
-//         status: 'active'
-//       });
-
-//       if (!referringAffiliate) {
-//         console.log(`Invalid affiliate code: ${affiliateCodeToUse}`);
-//       } else {
-//         affiliateReferral = {
-//           affiliateId: referringAffiliate._id,
-//           affiliateCode: affiliateCodeToUse.toUpperCase(),
-//           clickId: clickIdFromCookie || null
-//         };
-//       }
-//     }
-
-//     // Handle regular user referral (manual input)
-//     let referredBy = null;
-//     if (referralCode && !affiliateReferral) {
-//       const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
-//       if (!referrer) {
-//         return res.status(400).json({ 
-//           success: false,
-//           error: "Invalid referral code" 
-//         });
-//       }
-//       referredBy = referrer._id;
-//     }
-
-//     // Check if user already exists
-//     const existingUser = await User.findOne({
-//       $or: [{ username }, { phone: `+880${phone}` }, { email }]
-//     });
-
-//     if (existingUser) {
-//       if (existingUser.username === username) {
-//         return res.status(400).json({ 
-//           success: false,
-//           error: "Username already exists." 
-//         });
-//       }
-//       if (existingUser.phone === `+880${phone}`) {
-//         return res.status(400).json({ 
-//           success: false,
-//           error: "Phone number already registered." 
-//         });
-//       }
-//       if (email && existingUser.email === email) {
-//         return res.status(400).json({ 
-//           success: false,
-//           error: "Email already registered." 
-//         });
-//       }
-//     }
-
-//     // Generate a unique player_id
-//     let player_id;
-//     let isUnique = false;
-    
-//     while (!isUnique) {
-//       player_id = 'PL' + Math.random().toString(36).substr(2, 8).toUpperCase();
-//       const existingPlayer = await User.findOne({ player_id });
-//       if (!existingPlayer) {
-//         isUnique = true;
-//       }
-//     }
-
-//     // Create registration source tracking
-//     const registrationSource = {
-//       type: affiliateReferral ? 'affiliate_referral' : referredBy ? 'user_referral' : 'direct',
-//       source: 'website',
-//       medium: 'organic',
-//       campaign: 'signup',
-//       clickId: clickIdFromCookie,
-//       affiliateCode: affiliateReferral?.affiliateCode,
-//       userReferralCode: referralCode,
-//       landingPage: '/register',
-//       ipAddress,
-//       userAgent,
-//       timestamp: new Date()
-//     };
-
-//     // Create new user
-//     const newUser = new User({
-//       currency: currency || "BDT",
-//       phone: `+880${phone}`,
-//       username,
-//       password,
-//       fullName,
-//       email: email || null,
-//       player_id,
-//       referredBy,
-//       registrationSource,
-//       affiliateReferral: affiliateReferral ? {
-//         affiliateId: affiliateReferral.affiliateId,
-//         affiliateCode: affiliateReferral.affiliateCode,
-//         clickId: affiliateReferral.clickId
-//       } : undefined
-//     });
-
-//     await newUser.save();
-
-//     // Handle affiliate conversion if applicable - USING NEW EARNINGS HISTORY SYSTEM
-//     if (affiliateReferral && referringAffiliate) {
-//       const commissionAmount = 500; // Fixed 500 taka per successful signup
-//       const registrationId = newUser._id;
-      
-//       try {
-//         // Use the new addRegistrationBonus method
-//         await referringAffiliate.addRegistrationBonus(
-//           newUser._id,           // referredUser
-//           registrationId,         // registrationId
-//           commissionAmount,       // bonusAmount
-//           'New user registration bonus', // description
-//           {
-//             registrationSource: 'website',
-//             clickId: clickIdFromCookie,
-//             ipAddress: ipAddress,
-//             userAgent: userAgent,
-//             campaign: 'signup'
-//           }
-//         );
-
-//         // Track the click conversion
-//         await referringAffiliate.trackClick();
-
-//         console.log(`Affiliate conversion recorded: ${affiliateReferral.affiliateCode} earned ${commissionAmount} taka for registration`);
-
-//       } catch (affiliateError) {
-//         console.error('Error recording affiliate commission:', affiliateError);
-//         // Don't fail the user registration if affiliate tracking fails
-//       }
-//     }
-
-//     // Update regular user referrer's count if applicable
-//     if (referredBy) {
-//       try {
-//         await User.findByIdAndUpdate(referredBy, {
-//           $inc: { 
-//             referralCount: 1,
-//             referralEarnings: 50 // Example: 50 taka bonus for regular referral
-//           },
-//           $push: {
-//             referralUsers: {
-//               user: newUser._id,
-//               joinedAt: new Date(),
-//               earnedAmount: 50
-//             }
-//           }
-//         });
-
-//         // Add bonus to referrer's account
-//         await User.findByIdAndUpdate(referredBy, {
-//           $inc: { balance: 50 }
-//         });
-
-//         console.log(`User referral recorded: ${referredBy} earned 50 taka for referral`);
-
-//       } catch (referralError) {
-//         console.error('Error recording user referral:', referralError);
-//         // Don't fail the user registration if referral tracking fails
-//       }
-//     }
-
-//     // Update login information for the new user
-//     newUser.login_count = 1;
-//     newUser.last_login = new Date();
-//     newUser.first_login = false;
-//     await newUser.save();
-
-//     // Create a login log entry
-//     const { deviceType, browser, os } = getDeviceInfo(userAgent);
-    
-//     const loginLog = new LoginLog({
-//       userId: newUser._id,
-//       username: newUser.username,
-//       ipAddress,
-//       userAgent,
-//       deviceType,
-//       browser,
-//       os,
-//       status: 'success',
-//       failureReason: null
-//     });
-    
-//     await loginLog.save();
-
-//     // Clear affiliate cookies after successful registration
-//     res.clearCookie('affiliate_ref');
-//     res.clearCookie('click_id');
-
-//     // Generate JWT token
-//     const token = jwt.sign(
-//       { userId: newUser._id, username: newUser.username },
-//       JWT_SECRET,
-//       { expiresIn: "30d" }
-//     );
-
-//     // Return success response with token
-//     res.status(201).json({
-//       success: true,
-//       message: "User created successfully",
-//       token,
-//       user: {
-//         id: newUser._id,
-//         player_id: newUser.player_id,
-//         username: newUser.username,
-//         email: newUser.email,
-//         phone: newUser.phone,
-//         currency: newUser.currency,
-//         balance: newUser.balance,
-//         referralCode: newUser.referralCode,
-//         first_login: newUser.first_login,
-//         login_count: newUser.login_count,
-//         last_login: newUser.last_login,
-//         isAffiliateReferred: !!affiliateReferral,
-//         isUserReferred: !!referredBy,
-//         affiliateCode: affiliateReferral?.affiliateCode
-//       }
-//     });
-//   } catch (error) {
-//     console.error("Signup error:", error);
-//     res.status(500).json({ 
-//       success: false,
-//       error: "Internal server error" 
-//     });
-//   }
-// });
 Authrouter.post("/signup", async (req, res) => {
-    try {
-      const { currency, phone, username, password, confirmPassword, fullName, email, referralCode, affiliateCode } = req.body;
-      const ipAddress = req.ip || req.connection.remoteAddress;
-      const userAgent = req.get('User-Agent') || 'unknown';
+  try {
+    const { currency, phone, username, password, confirmPassword, fullName, email, referralCode, affiliateCode } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent') || 'unknown';
 
-      // Validation checks
-      if (!phone || !username || !password || !confirmPassword) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Phone, username, password, and confirm password are required" 
-        });
-      }
-
-      if (!/^1[0-9]{9}$/.test(phone)) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Please enter a valid Bangladeshi phone number, starting with 1." 
-        });
-      }
-
-      if (!/^[a-z0-9_]+$/.test(username)) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Username can only contain lowercase letters, numbers, and underscores." 
-        });
-      }
-
-      if (username.length < 3) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Username must be at least 3 characters long." 
-        });
-      }
-
-      if (password.length < 6) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Password must be at least 6 characters long." 
-        });
-      }
-
-      if (password !== confirmPassword) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Passwords do not match." 
-        });
-      }
-
-      // Handle regular user referral (manual input)
-      let referredBy = null;
-      if (referralCode) {
-        const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
-        if (!referrer) {
-          return res.status(400).json({ 
-            success: false,
-            error: "Invalid referral code" 
-          });
-        }
-        referredBy = referrer._id;
-      }
-
-      // Check if user already exists
-      const existingUser = await User.findOne({
-        $or: [{ username }, { phone: `+880${phone}` }, { email }]
-      });
-
-      if (existingUser) {
-        if (existingUser.username === username) {
-          return res.status(400).json({ 
-            success: false,
-            error: "Username already exists." 
-          });
-        }
-        if (existingUser.phone === `+880${phone}`) {
-          return res.status(400).json({ 
-            success: false,
-            error: "Phone number already registered." 
-          });
-        }
-        if (email && existingUser.email === email) {
-          return res.status(400).json({ 
-            success: false,
-            error: "Email already registered." 
-          });
-        }
-      }
-
-      // Generate a unique player_id
-      let player_id;
-      let isUnique = false;
-      
-      while (!isUnique) {
-        player_id = 'PL' + Math.random().toString(36).substr(2, 8).toUpperCase();
-        const existingPlayer = await User.findOne({ player_id });
-        if (!existingPlayer) {
-          isUnique = true;
-        }
-      }
-
-      // Create registration source tracking
-      const registrationSource = {
-        type: referredBy ? 'user_referral' : affiliateCode ? 'affiliate_referral' : 'direct',
-        source: 'website',
-        medium: 'organic',
-        campaign: 'signup',
-        userReferralCode: referralCode,
-        affiliateCode: affiliateCode,
-        landingPage: '/register',
-        ipAddress,
-        userAgent,
-        timestamp: new Date()
-      };
-
-      // Create new user
-      const newUser = new User({
-        currency: currency || "BDT",
-        phone: `+880${phone}`,
-        username,
-        password,
-        fullName,
-        email: email || null,
-        player_id,
-        referredBy,
-        registrationSource
-      });
-
-      await newUser.save();
-
-      // ------------------affiliate-part-----------------------
-      let affiliateId = null;
-      if (affiliateCode) {
-        // Find the master affiliate
-        const masterAffiliate = await MasterAffiliate.findOne({ 
-          masterCode: affiliateCode.toUpperCase(),
-          status: 'active' 
-        });
-
-        if (!masterAffiliate) {
-          return res.status(400).json({ 
-            success: false,
-            error: "Invalid affiliate code" 
-          });
-        }
-
-        // Find the affiliate who created this master affiliate
-        const affiliate = await Affiliate.findOne({ 
-          _id: masterAffiliate.createdBy,
-          status: 'active' 
-        });
-
-        if (affiliate) {
-          affiliateId = affiliate._id;
-          
-          // Ensure CPA rate is a valid number
-          const registrationBonus = Number(affiliate.cpaRate) || 0;
-          
-          // Add registration bonus to affiliate
-          const affiliateEarning = await affiliate.addRegistrationBonus(
-            newUser._id,
-            newUser._id, // Using user ID as registration ID
-            registrationBonus,
-            'New user registration bonus',
-            { currency: 'BDT' }
-          );
-
-          // Update affiliate's referred users
-          await Affiliate.findByIdAndUpdate(affiliate._id, {
-            $inc: { referralCount: 1 },
-            $push: {
-              referredUsers: {
-                user: newUser._id,
-                joinedAt: new Date(),
-                earnedAmount: registrationBonus,
-                userStatus: 'active',
-                lastActivity: new Date()
-              }
-            }
-          });
-
-          // Add override commission to master affiliate
-          const overrideRate = Number(masterAffiliate.masterEarnings.overrideCommission) / 100 || 0;
-          const overrideAmount = Number(masterAffiliate.cpaRate) || 0;
-          
-          console.log("Master Affiliate CPA Rate:", overrideAmount);
-
-          // Ensure total_earning is a valid number before incrementing
-          const currentTotalEarning = Number(masterAffiliate.total_earning) || 0;
-          masterAffiliate.total_earning = currentTotalEarning + overrideAmount;
-          
-          await masterAffiliate.addOverrideCommission(
-            overrideAmount,
-            affiliate._id,
-            'registration',
-            registrationBonus,
-            overrideRate,
-            'Override commission from affiliate registration bonus',
-            { subAffiliateEarningId: affiliateEarning.earningsHistory[affiliateEarning.earningsHistory.length - 1]._id }
-          );
-          
-          await masterAffiliate.save();
-          console.log(`Affiliate commission recorded: Affiliate ${affiliate._id} earned ${registrationBonus} BDT`);
-          console.log(`Master affiliate commission recorded: Master ${masterAffiliate._id} earned ${overrideAmount} BDT`);
-        } else {
-          console.log(`No active affiliate found for master affiliate ${masterAffiliate._id}. Skipping affiliate commission.`);
-        }
-      }
-
-      // Update regular user referrer's count if applicable
-      if (referredBy) {
-        try {
-          await User.findByIdAndUpdate(referredBy, {
-            $inc: { 
-              referralCount: 1,
-              referralEarnings: 50 // Example: 50 taka bonus for regular referral
-            },
-            $push: {
-              referralUsers: {
-                user: newUser._id,
-                joinedAt: new Date(),
-                earnedAmount: 50
-              }
-            }
-          });
-
-          // Add bonus to referrer's account
-          await User.findByIdAndUpdate(referredBy, {
-            $inc: { balance: 50 }
-          });
-
-          console.log(`User referral recorded: ${referredBy} earned 50 taka for referral`);
-
-        } catch (referralError) {
-          console.error('Error recording user referral:', referralError);
-          // Don't fail the user registration if referral tracking fails
-        }
-      }
-
-      // Update login information for the new user
-      newUser.login_count = 1;
-      newUser.last_login = new Date();
-      newUser.first_login = false;
-      await newUser.save();
-
-      // Create a login log entry
-      const { deviceType, browser, os } = getDeviceInfo(userAgent);
-      
-      const loginLog = new LoginLog({
-        userId: newUser._id,
-        username: newUser.username,
-        ipAddress,
-        userAgent,
-        deviceType,
-        browser,
-        os,
-        status: 'success',
-        failureReason: null
-      });
-      
-      await loginLog.save();
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: newUser._id, username: newUser.username },
-        JWT_SECRET,
-        { expiresIn: "30d" }
-      );
-
-      // Return success response with token
-      res.status(201).json({
-        success: true,
-        message: "User created successfully",
-        token,
-        user: {
-          id: newUser._id,
-          player_id: newUser.player_id,
-          username: newUser.username,
-          email: newUser.email,
-          phone: newUser.phone,
-          currency: newUser.currency,
-          balance: newUser.balance,
-          referralCode: newUser.referralCode,
-          affiliateId: affiliateId,
-          first_login: newUser.first_login,
-          login_count: newUser.login_count,
-          last_login: newUser.last_login,
-          isUserReferred: !!referredBy,
-          isAffiliateReferred: !!affiliateId
-        }
-      });
-    } catch (error) {
-      console.error("Signup error:", error);
-      res.status(500).json({ 
+    // Validation checks (unchanged)
+    if (!phone || !username || !password || !confirmPassword) {
+      return res.status(400).json({ 
         success: false,
-        error: "Internal server error" 
+        error: "Phone, username, password, and confirm password are required" 
       });
     }
-  });
 
+    if (!/^1[0-9]{9}$/.test(phone)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Please enter a valid Bangladeshi phone number, starting with 1." 
+      });
+    }
+
+    if (!/^[a-z0-9_]+$/.test(username)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Username can only contain lowercase letters, numbers, and underscores." 
+      });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Username must be at least 3 characters long." 
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Password must be at least 6 characters long." 
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Passwords do not match." 
+      });
+    }
+
+    // Handle regular user referral (manual input)
+    let referredBy = null;
+    if (referralCode) {
+      const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+      if (!referrer) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Invalid referral code" 
+        });
+      }
+      referredBy = referrer._id;
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ username }, { phone: `+880${phone}` }, { email }]
+    });
+
+    if (existingUser) {
+      if (existingUser.username === username) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Username already exists." 
+        });
+      }
+      if (existingUser.phone === `+880${phone}`) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Phone number already registered." 
+        });
+      }
+      if (email && existingUser.email === email) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Email already registered." 
+        });
+      }
+    }
+
+    // Generate a unique player_id
+    let player_id;
+    let isUnique = false;
+    
+    while (!isUnique) {
+      player_id = 'PL' + Math.random().toString(36).substr(2, 8).toUpperCase();
+      const existingPlayer = await User.findOne({ player_id });
+      if (!existingPlayer) {
+        isUnique = true;
+      }
+    }
+
+    // Create registration source tracking
+    const registrationSource = {
+      type: referredBy ? 'user_referral' : affiliateCode ? 'affiliate_referral' : 'direct',
+      source: 'website',
+      medium: 'organic',
+      campaign: 'signup',
+      userReferralCode: referralCode,
+      affiliateCode: affiliateCode,
+      landingPage: '/register',
+      ipAddress,
+      userAgent,
+      timestamp: new Date()
+    };
+
+    // Create new user
+    const newUser = new User({
+      currency: currency || "BDT",
+      phone: `+880${phone}`,
+      username,
+      password,
+      fullName,
+      email: email || null,
+      player_id,
+      referredBy,
+      registrationSource
+    });
+
+    await newUser.save();
+
+    // ------------------affiliate-part-----------------------
+    let affiliateId = null;
+    if (affiliateCode) {
+      // Find the affiliate directly using the affiliate code
+      const affiliate = await Affiliate.findOne({ 
+        affiliateCode: affiliateCode.toUpperCase(),
+        status: 'active' 
+      });
+
+      if (!affiliate) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Invalid affiliate code" 
+        });
+      }
+
+      affiliateId = affiliate._id;
+      
+      // Ensure CPA rate is a valid number
+      const registrationBonus = Number(affiliate.cpaRate) || 0;
+      
+      // Add registration bonus to affiliate
+      await affiliate.addRegistrationBonus(
+        newUser._id,
+        newUser._id, // Using user ID as registration ID
+        registrationBonus,
+        'New user registration bonus',
+        { currency: 'BDT' }
+      );
+
+      // Update affiliate's referred users
+      await Affiliate.findByIdAndUpdate(affiliate._id, {
+        $inc: { referralCount: 1 },
+        $push: {
+          referredUsers: {
+            user: newUser._id,
+            joinedAt: new Date(),
+            earnedAmount: registrationBonus,
+            userStatus: 'active',
+            lastActivity: new Date()
+          }
+        }
+      });
+
+      console.log(`Affiliate commission recorded: Affiliate ${affiliate._id} earned ${registrationBonus} BDT`);
+    }
+
+    // Update regular user referrer's count if applicable
+    if (referredBy) {
+      try {
+        await User.findByIdAndUpdate(referredBy, {
+          $inc: { 
+            referralCount: 1,
+            referralEarnings: 50 // Example: 50 taka bonus for regular referral
+          },
+          $push: {
+            referralUsers: {
+              user: newUser._id,
+              joinedAt: new Date(),
+              earnedAmount: 50
+            }
+          }
+        });
+
+        // Add bonus to referrer's account
+        await User.findByIdAndUpdate(referredBy, {
+          $inc: { balance: 50 }
+        });
+
+        console.log(`User referral recorded: ${referredBy} earned 50 taka for referral`);
+
+      } catch (referralError) {
+        console.error('Error recording user referral:', referralError);
+        // Don't fail the user registration if referral tracking fails
+      }
+    }
+
+    // Update login information for the new user
+    newUser.login_count = 1;
+    newUser.last_login = new Date();
+    newUser.first_login = false;
+    await newUser.save();
+
+    // Create a login log entry
+    const { deviceType, browser, os } = getDeviceInfo(userAgent);
+    
+    const loginLog = new LoginLog({
+      userId: newUser._id,
+      username: newUser.username,
+      ipAddress,
+      userAgent,
+      deviceType,
+      browser,
+      os,
+      status: 'success',
+      failureReason: null
+    });
+    
+    await loginLog.save();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: newUser._id, username: newUser.username },
+      JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    // Return success response with token
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      token,
+      user: {
+        id: newUser._id,
+        player_id: newUser.player_id,
+        username: newUser.username,
+        email: newUser.email,
+        phone: newUser.phone,
+        currency: newUser.currency,
+        balance: newUser.balance,
+        referralCode: newUser.referralCode,
+        affiliateId: affiliateId,
+        first_login: newUser.first_login,
+        login_count: newUser.login_count,
+        last_login: newUser.last_login,
+        isUserReferred: !!referredBy,
+        isAffiliateReferred: !!affiliateId
+      }
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error" 
+    });
+  }
+});
 
 // Get referral statistics
 Authrouter.get("/referral-stats", async (req, res) => {

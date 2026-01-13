@@ -24,8 +24,7 @@ import {
   FiTrendingUp,
   FiUsers,
   FiLogOut,
-  FiEye,
-  FiEyeOff,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { MdSportsSoccer } from "react-icons/md";
 import axios from "axios";
@@ -51,7 +50,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const [activeTab, setActiveTab] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState(null);
-  const [showBalance, setShowBalance] = useState(false);
   const [categories, setCategories] = useState(
     JSON.parse(localStorage.getItem("categories")) || []
   );
@@ -66,6 +64,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const [dynamicLogo, setDynamicLogo] = useState(logo);
   const [showMobileAppBanner, setShowMobileAppBanner] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -371,6 +370,31 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     }
   };
 
+  // Function to refresh user balance
+  const refreshBalance = async () => {
+    if (!isLoggedIn) return;
+    
+    try {
+      setIsRefreshingBalance(true);
+      const token = localStorage.getItem("token");
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/api/user/my-information`
+      );
+      
+      if (response.data.success) {
+        setUserData(response.data.data);
+        localStorage.setItem("user", JSON.stringify(response.data.data));
+      }
+    } catch (error) {
+      console.error("Error refreshing balance:", error);
+      toast.error("Failed to refresh balance");
+    } finally {
+      setIsRefreshingBalance(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -509,10 +533,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     setActiveSubMenu(activeSubMenu === subItem ? null : subItem);
   };
 
-  const toggleBalanceVisibility = () => {
-    setShowBalance(!showBalance);
-  };
-
   const downloadFileAtURL = (url) => {
     const fileName = url.split("/").pop();
     const aTag = document.createElement("a");
@@ -648,81 +668,77 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           {isLoggedIn ? (
             <>
               {/* Desktop View */}
-         <div className="hidden md:flex items-center rounded overflow-hidden gap-2">
-      <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
-    
-        <div className="flex items-center space-x-1 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
-          <img
-            src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/currency-type/bdt.png?v=1755600713311&source=drccdnsrc"
-            className="w-4 h-4"
-            alt="BDT"
-          />
-          <span className="min-w-[60px]">
-            {showBalance ? userData?.balance : "******"}
-          </span>
-        </div>
-        <button
-          className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800"
-          onClick={toggleBalanceVisibility}
-          aria-label={showBalance ? "Hide balance" : "Show balance"}
-        >
-          {showBalance ? (
-            <FiEyeOff className="w-4 h-4" />
-          ) : (
-            <FiEye className="w-4 h-4" />
-          )}
-        </button>
-      </div>
-      <div className="flex justify-center items-center gap-2">
-        <NavLink
-          to="/member/withdraw"
-          className="text-white text-[12px] md:text-sm px-5 py-2 border-[1px] cursor-pointer border-gray-700 rounded hover:bg-[#333] transition-all duration-200"
-        >
-          Withdrawal
-        </NavLink>
-        <NavLink
-          to="/member/deposit"
-          className="bg-theme_color text-[12px] md:text-sm px-5 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
-        >
-          Deposit
-        </NavLink>
-      </div>
-    </div>
+              <div className="hidden md:flex items-center rounded overflow-hidden gap-2">
+                <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
+                  <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
+                    <img
+                      src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/currency-type/bdt.png?v=1755600713311&source=drccdnsrc"
+                      className="w-4 h-4"
+                      alt="BDT"
+                    />
+                    <span className="min-w-[60px]">
+                      {userData?.balance || "0.00"}
+                    </span>
+                  </div>
+                  <button
+                    className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={refreshBalance}
+                    disabled={isRefreshingBalance}
+                    aria-label="Refresh balance"
+                  >
+                    <FiRefreshCw 
+                      className={`w-4 h-4 ${isRefreshingBalance ? 'animate-spin' : ''}`}
+                    />
+                  </button>
+                </div>
+                <div className="flex justify-center items-center gap-2">
+                  <NavLink
+                    to="/member/withdraw"
+                    className="text-white text-[12px] md:text-sm px-5 py-2 border-[1px] cursor-pointer border-gray-700 rounded hover:bg-[#333] transition-all duration-200"
+                  >
+                    Withdrawal
+                  </NavLink>
+                  <NavLink
+                    to="/member/deposit"
+                    className="bg-theme_color text-[12px] md:text-sm px-5 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
+                  >
+                    Deposit
+                  </NavLink>
+                </div>
+              </div>
 
-    {/* Mobile View - Keep as is */}
-    <div className="md:hidden flex px-[10px] items-center gap-2">
-      <div className="bg-box_bg rounded-[5px] border-[1px] border-gray-800">
-        <div className="flex items-center space-x-1 px-3 py-2 text-sm">
-          <img
-            src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/currency-type/bdt.png?v=1755600713311&source=drccdnsrc"
-            className="w-4 h-4"
-            alt="BDT"
-          />
-          <span className="text-white min-w-[40px]">
-            {showBalance ? userData?.balance : "******"}
-          </span>
-          <button
-            className="ml-1 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200"
-            onClick={toggleBalanceVisibility}
-            aria-label={showBalance ? "Hide balance" : "Show balance"}
-          >
-            {showBalance ? (
-              <FiEyeOff className="w-4 h-4" />
-            ) : (
-              <FiEye className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-      </div>
-      <NavLink
-        to="/member/deposit"
-        className="bg-theme_color text-[12px] px-3 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
-      >
-        Deposit
-      </NavLink>
-    </div>
-  </>
-
+              {/* Mobile View */}
+              <div className="md:hidden flex px-[10px] items-center gap-2">
+                <div className="bg-box_bg rounded-[5px] border-[1px] border-gray-800 flex items-center">
+                  <div className="flex items-center space-x-2 px-3 py-2 text-sm">
+                    <img
+                      src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/currency-type/bdt.png?v=1755600713311&source=drccdnsrc"
+                      className="w-4 h-4"
+                      alt="BDT"
+                    />
+                    <span className="text-white min-w-[40px]">
+                      {userData?.balance || "0.00"}
+                    </span>
+                  </div>
+                  <button
+                    className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={refreshBalance}
+                    disabled={isRefreshingBalance}
+                    aria-label="Refresh balance"
+                  >
+                    <FiRefreshCw 
+                      className={`w-4 h-4 ${isRefreshingBalance ? 'animate-spin' : ''}`}
+                    />
+                  </button>
+                </div>
+                <NavLink
+                  to="/member/deposit"
+                  className="bg-theme_color text-[12px] px-3 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
+                >
+                  Deposit
+                </NavLink>
+              </div>
+            </>
           ) : (
             <>
               <NavLink

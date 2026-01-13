@@ -80,7 +80,7 @@ const Header = ({ toggleSidebar }) => {
      <Toaster/>
       {/* Left Side Logo + Menu */}
       <div className="logo flex justify-start items-center gap-[20px] w-full">
-        <NavLink to="/dashboard" className='md:flex justify-start items-center gap-[5px] hidden md:w-[12%]'>
+        <NavLink to="/dashboard" className='md:flex justify-start items-center gap-[5px] hidden md:w-[18%]'>
           <img 
             className='w-[50%]' 
             src={dynamicLogo} 
@@ -97,25 +97,14 @@ const Header = ({ toggleSidebar }) => {
 
       {/* Right Side - Settings & Admin */}
       <div className="relative flex items-center gap-4" ref={dropdownRef}>
-        <button className="text-[22px] text-white hover:text-[#0A92FA] transition duration-200">
-          <FiSettings />
-        </button>
-
         {/* Admin Dropdown */}
         <div className="relative">
           <button 
-            className="flex items-center gap-2 text-white hover:text-[#0A92FA] transition duration-200"
+            className="flex items-center gap-2 text-white cursor-pointer transition duration-200"
             onClick={() => setDropdownVisible(!dropdownVisible)}
           >
             <div className="w-8 h-8 rounded-full bg-theme_color flex items-center justify-center overflow-hidden">
-              <img 
-                src={dynamicLogo}
-                alt="Admin" 
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  e.target.src = logo;
-                }}
-              />
+               A
             </div>
             <span className="hidden md:block text-sm">Admin</span>
           </button>
@@ -123,7 +112,7 @@ const Header = ({ toggleSidebar }) => {
           {dropdownVisible && (
             <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-50">
               <NavLink
-                to="/profile"
+                to="/affiliate/profile"
                 className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition duration-200"
                 onClick={() => setDropdownVisible(false)}
               >

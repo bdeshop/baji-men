@@ -50,18 +50,18 @@ const Sidebar = ({ isOpen }) => {
       to: '/affiliate/payment-methods',
       description: 'Configure payout options'
     },
-    // {
-    //   label: 'Referral Links',
-    //   icon: <FiShare2 className="text-[18px]" />,
-    //   to: '/affiliate/referral-links',
-    //   description: 'Your affiliate links and codes'
-    // },
-    // {
-    //   label: 'Referrals',
-    //   icon: <FiUsers className="text-[18px]" />,
-    //   to: '/affiliate/referrals',
-    //   description: 'View your referral network'
-    // },
+    {
+      label: 'Referral Links',
+      icon: <FiShare2 className="text-[18px]" />,
+      to: '/affiliate/referral-links',
+      description: 'Your affiliate links and codes'
+    },
+    {
+      label: 'Referrals',
+      icon: <FiUsers className="text-[18px]" />,
+      to: '/affiliate/referrals',
+      description: 'View your referral network'
+    },
     {
       label: 'Performance',
       icon: <FiBarChart2 className="text-[18px]" />,
@@ -74,24 +74,24 @@ const Sidebar = ({ isOpen }) => {
       to: '/affiliate/payout-history',
       description: 'View past payments'
     },
-    {
-      label: 'Create Master Affiliate',
-      icon: <FiUsers className="text-[18px]" />,
-      to: '/affiliate/new-master-affiliate',
-      description: 'Create a master affiliate account'
-    },
-       {
-      label: 'All Master Affiliates',
-      icon: <FiUsers className="text-[18px]" />,
-      to: '/affiliate/all-master-affiliate',
-      description: 'All master affiliate account'
-    },
-         {
-      label: 'Master Payout',
-      icon: <GiTakeMyMoney className="text-[18px]" />,
-      to: '/affiliate/master-payout-history',
-      description: 'All master affiliate account'
-    },
+    // {
+    //   label: 'Create Master Affiliate',
+    //   icon: <FiUsers className="text-[18px]" />,
+    //   to: '/affiliate/new-master-affiliate',
+    //   description: 'Create a master affiliate account'
+    // },
+    //    {
+    //   label: 'All Master Affiliates',
+    //   icon: <FiUsers className="text-[18px]" />,
+    //   to: '/affiliate/all-master-affiliate',
+    //   description: 'All master affiliate account'
+    // },
+    //      {
+    //   label: 'Master Payout',
+    //   icon: <GiTakeMyMoney className="text-[18px]" />,
+    //   to: '/affiliate/master-payout-history',
+    //   description: 'All master affiliate account'
+    // },
   ];
 
   return (

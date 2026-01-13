@@ -68,7 +68,7 @@ const Editaffilaite = () => {
         commissionRate: data.commissionRate,
         depositRate: data.depositRate,
         commissionType: data.commissionType,
-        cpaRate: data.cpaRate,
+        cpaRate: data.cpaRate || 0, // Ensure cpaRate is included
         paymentMethod: data.paymentMethod,
         minimumPayout: data.minimumPayout,
         payoutSchedule: data.payoutSchedule,
@@ -369,9 +369,9 @@ const Editaffilaite = () => {
         <div className="flex pt-[10vh]">
           <Sidebar isOpen={isSidebarOpen} />
           <main className={`transition-all duration-300 flex-1 p-8 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
-            <div className="flex justify-center items-center h-64">
-              <FaSpinner className="animate-spin text-blue-600 text-3xl mr-3" />
-              <span className="text-gray-700 font-medium">Loading affiliate details...</span>
+            <div className="flex flex-col justify-center items-center h-64">
+              <FaSpinner className="animate-spin text-orange-600 text-5xl mr-3" />
+              <span className="text-gray-700 font-medium mt-2">Loading affiliate details...</span>
             </div>
           </main>
         </div>
@@ -557,6 +557,30 @@ const Editaffilaite = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
+                      {/* CPA Rate Field */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">CPA Rate (BDT)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={editForm.cpaRate || 0}
+                          onChange={(e) => setEditForm({...editForm, cpaRate: parseFloat(e.target.value) || 0})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Commission Type</label>
+                        <select
+                          value={editForm.commissionType}
+                          onChange={(e) => setEditForm({...editForm, commissionType: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="revenue_share">Revenue Share</option>
+                          <option value="cpa">CPA</option>
+                          <option value="hybrid">Hybrid</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex justify-end space-x-3">
                       <button
@@ -625,7 +649,15 @@ const Editaffilaite = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">CPA Rate:</span>
-                          <span className="font-medium">{formatCurrency(selectedAffiliate.cpaRate)}</span>
+                          <span className="font-medium">{formatCurrency(selectedAffiliate.cpaRate || 0)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Minimum Payout:</span>
+                          <span className="font-medium">{formatCurrency(selectedAffiliate.minimumPayout || 0)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Payout Schedule:</span>
+                          <span className="font-medium">{selectedAffiliate.payoutSchedule || 'Manual'}</span>
                         </div>
                       </div>
                     </div>
@@ -636,34 +668,44 @@ const Editaffilaite = () => {
                       <div className="space-y-3">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Total Earnings:</span>
-                          <span className="font-medium text-green-600">{formatCurrency(selectedAffiliate.totalEarnings)}</span>
+                          <span className="font-medium text-green-600">{formatCurrency(selectedAffiliate.totalEarnings || 0)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Pending Earnings:</span>
-                          <span className="font-medium text-yellow-600">{formatCurrency(selectedAffiliate.pendingEarnings)}</span>
+                          <span className="font-medium text-yellow-600">{formatCurrency(selectedAffiliate.pendingEarnings || 0)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Paid Earnings:</span>
-                          <span className="font-medium text-blue-600">{formatCurrency(selectedAffiliate.paidEarnings)}</span>
+                          <span className="font-medium text-blue-600">{formatCurrency(selectedAffiliate.paidEarnings || 0)}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Referral Stats */}
+                    {/* Additional Information */}
                     <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Referral Statistics</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Additional Information</h3>
                       <div className="space-y-3">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Total Referrals:</span>
-                          <span className="font-medium">{selectedAffiliate.referralCount}</span>
+                          <span className="text-gray-600">Affiliate Code:</span>
+                          <span className="font-medium">{selectedAffiliate.affiliateCode || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Active Referrals:</span>
-                          <span className="font-medium">{selectedAffiliate.activeReferrals}</span>
+                          <span className="text-gray-600">Payment Method:</span>
+                          <span className="font-medium">{selectedAffiliate.paymentMethod || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Conversion Rate:</span>
-                          <span className="font-medium">{selectedAffiliate.conversionRate?.toFixed(2)}%</span>
+                          <span className="text-gray-600">Auto Payout:</span>
+                          <span className="font-medium">{selectedAffiliate.autoPayout ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Last Login:</span>
+                          <span className="font-medium">
+                            {selectedAffiliate.lastLogin ? formatDate(selectedAffiliate.lastLogin) : 'Never'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Registered On:</span>
+                          <span className="font-medium">{formatDate(selectedAffiliate.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -679,15 +721,15 @@ const Editaffilaite = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 className="text-green-800 font-semibold">Total Earnings</h4>
-                    <p className="text-2xl font-bold text-green-900">{formatCurrency(selectedAffiliate.totalEarnings)}</p>
+                    <p className="text-2xl font-bold text-green-900">{formatCurrency(selectedAffiliate.totalEarnings || 0)}</p>
                   </div>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="text-yellow-800 font-semibold">Pending Earnings</h4>
-                    <p className="text-2xl font-bold text-yellow-900">{formatCurrency(selectedAffiliate.pendingEarnings)}</p>
+                    <p className="text-2xl font-bold text-yellow-900">{formatCurrency(selectedAffiliate.pendingEarnings || 0)}</p>
                   </div>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="text-blue-800 font-semibold">Paid Earnings</h4>
-                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(selectedAffiliate.paidEarnings)}</p>
+                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(selectedAffiliate.paidEarnings || 0)}</p>
                   </div>
                 </div>
 
@@ -755,7 +797,7 @@ const Editaffilaite = () => {
                           type="number"
                           step="0.01"
                           min="0.01"
-                          max={selectedAffiliate.pendingEarnings}
+                          max={selectedAffiliate.pendingEarnings || 0}
                           value={balanceForm.amount}
                           onChange={(e) => setBalanceForm({...balanceForm, amount: e.target.value})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -795,11 +837,11 @@ const Editaffilaite = () => {
                 </div>
 
                 {/* Payout Action */}
-                {selectedAffiliate.pendingEarnings > selectedAffiliate.minimumPayout && (
+                {(selectedAffiliate.pendingEarnings || 0) > (selectedAffiliate.minimumPayout || 0) && (
                   <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
                     <h4 className="text-lg font-semibold text-blue-900 mb-2">Process Payout</h4>
                     <p className="text-blue-700 mb-4">
-                      Available for payout: {formatCurrency(selectedAffiliate.pendingEarnings)}
+                      Available for payout: {formatCurrency(selectedAffiliate.pendingEarnings || 0)}
                     </p>
                     <button
                       onClick={() => processPayout(selectedAffiliate.pendingEarnings)}
@@ -837,7 +879,7 @@ const Editaffilaite = () => {
                                 {formatDate(transaction.earnedAt)}
                               </td>
                               <td className="py-3 px-4 text-sm text-gray-600 capitalize">
-                                {transaction.type.replace('_', ' ')}
+                                {transaction.type?.replace('_', ' ')}
                               </td>
                               <td className="py-3 px-4 text-sm text-gray-600">
                                 {transaction.description}
@@ -901,37 +943,41 @@ const Editaffilaite = () => {
                     </div>
 
                     {/* Earnings by Type */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Earnings by Type</h4>
-                      <div className="space-y-3">
-                        {Object.entries(performanceData.earningsByType).map(([type, amount]) => (
-                          <div key={type} className="flex justify-between items-center">
-                            <span className="text-gray-600 capitalize">{type.replace('_', ' ')}</span>
-                            <span className="font-medium text-green-600">{formatCurrency(amount)}</span>
-                          </div>
-                        ))}
+                    {performanceData.earningsByType && (
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Earnings by Type</h4>
+                        <div className="space-y-3">
+                          {Object.entries(performanceData.earningsByType).map(([type, amount]) => (
+                            <div key={type} className="flex justify-between items-center">
+                              <span className="text-gray-600 capitalize">{type.replace('_', ' ')}</span>
+                              <span className="font-medium text-green-600">{formatCurrency(amount)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Recent Transactions */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h4>
-                      <div className="space-y-3">
-                        {performanceData.recentTransactions.map((transaction, index) => (
-                          <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <div>
-                              <p className="font-medium capitalize">{transaction.type.replace('_', ' ')}</p>
-                              <p className="text-sm text-gray-500">{formatDate(transaction.earnedAt)}</p>
+                    {performanceData.recentTransactions && performanceData.recentTransactions.length > 0 && (
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h4>
+                        <div className="space-y-3">
+                          {performanceData.recentTransactions.map((transaction, index) => (
+                            <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100">
+                              <div>
+                                <p className="font-medium capitalize">{transaction.type?.replace('_', ' ')}</p>
+                                <p className="text-sm text-gray-500">{formatDate(transaction.earnedAt)}</p>
+                              </div>
+                              <span className={`font-medium ${
+                                transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {formatCurrency(transaction.amount)}
+                              </span>
                             </div>
-                            <span className={`font-medium ${
-                              transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {formatCurrency(transaction.amount)}
-                            </span>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-gray-500 text-center py-8">No performance data available.</p>
@@ -967,7 +1013,7 @@ const Editaffilaite = () => {
                               {formatDate(transaction.earnedAt)}
                             </td>
                             <td className="py-3 px-4 text-sm text-gray-600 capitalize">
-                              {transaction.type.replace('_', ' ')}
+                              {transaction.type?.replace('_', ' ')}
                             </td>
                             <td className="py-3 px-4 text-sm text-gray-600">
                               {transaction.description}

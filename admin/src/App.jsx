@@ -40,7 +40,6 @@ import Allevent from './pages/event/Allevent'
 import Allaffiliates from './pages/allaffiliates/Allaffiliates'
 import Payout from './pages/payout/Payout'
 import Affiliatepayout from './pages/affiliatepayout/Affiliatepayout'
-import Affilaitedetails from './pages/allaffiliates/Affilaitedetails'
 import Edituserdetails from './pages/users/details/Edituserdetails'
 import Newdepositmethod from './pages/payment_methods/deposit/Newdepositmethod'
 import Alldepositmethods from './pages/payment_methods/deposit/Alldepositmethods'
@@ -57,6 +56,7 @@ import Viewdetails from './pages/users/details/Viewdetails'
 import Opaydeposit from './pages/opay/Opaydeposit'
 import Createbonus from './pages/bonus/Createbonus'
 import Allbonuses from './pages/bonus/Allbonuses'
+import Affiliatedetails from './pages/allaffiliates/Affiliatedetails'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -548,6 +548,15 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+         <Route 
+          exact 
+          path="/affiliates/affiliate-details/:id" 
+          element={
+            <ProtectedRoute>
+              <Affiliatedetails />
+            </ProtectedRoute>
+          }
+        />
                <Route 
           exact 
           path="/affiliates/payout" 
@@ -571,7 +580,7 @@ const App = () => {
           path="/affiliates/affilaite-details/:id" 
           element={
             <ProtectedRoute>
-              <Affilaitedetails />
+              <Affiliatedetails />
             </ProtectedRoute>
           }
           

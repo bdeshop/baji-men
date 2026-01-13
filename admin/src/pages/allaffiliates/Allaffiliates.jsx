@@ -386,7 +386,7 @@ const AllAffiliates = () => {
           <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
             <div className="flex items-center justify-center h-full">
        <div className="flex justify-center items-center py-8">
-                                   <FaSpinner className="animate-spin text-orange-500 text-2xl" />
+                                   <FaSpinner className="animate-spin text-orange-500 text-5xl" />
                                  </div>
             </div>
           </main>
@@ -614,7 +614,7 @@ const AllAffiliates = () => {
                               <button 
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700 shadow-sm"
                                 title="View details"
-                                onClick={() => viewAffiliateDetails(affiliate)}
+                                onClick={() =>navigate(`/affiliates/affiliate-details/${affiliate._id}`)}
                               >
                                 <FaEye />
                               </button>

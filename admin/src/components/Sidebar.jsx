@@ -247,7 +247,6 @@ const Sidebar = ({ isOpen }) => {
           key: 'affiliate',
           links: [
             { to: '/affiliates/all-affiliates', text: 'All Affiliates' },
-            { to: '/affiliates/master-affiliate', text: 'Master Affilaites' },
             { to: '/affiliates/payout', text: 'Payouts' },
             { to: '/affiliates/set-affilaite-payout-amount', text: 'Amount' },
           ],
