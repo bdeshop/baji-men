@@ -67,14 +67,6 @@ const Home = () => {
     { label: 'Commission', href: '#commission' },
     { label: 'Benefits', href: '#benefits' },
     { label: 'Tools', href: '#tools' },
-    {
-      label: 'Affiliate',
-      dropdown: true,
-      subItems: [
-        { label: 'Super Affiliate', href: 'https://affiliate.bajiman.com/login' },
-        { label: 'Master Affiliate', href: 'https://m-affiliate.bajiman.com/login' },
-      ],
-    },
     { label: 'FAQ', href: '#faq' },
     { label: 'Contact', href: '#contact' },
   ];
@@ -149,7 +141,7 @@ const Home = () => {
             <div className="flex items-center space-x-3">
               <img
                 src={dynamicLogo}
-                alt="http://localhost:4500 Affiliate"
+                alt="Affiliate"
                 className="h-14 w-auto"
               />
             </div>
@@ -287,10 +279,10 @@ const Home = () => {
           <div className="grid lg:grid-cols-2 h-full gap-12 items-center">
             <div className="text-left">
               <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-500 leading-tight">
-                Join http://localhost:4500 Affiliate Program
+                Join BajiMan Affiliate Program
               </h1>
               <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">
-                Unlock unlimited earning potential by promoting http://localhost:4500. Start today and turn your audience into profit!
+                Unlock unlimited earning potential by promoting BajiMan. Start today and turn your audience into profit!
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <NavLink to="/register" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition duration-300 shadow-lg text-center">
@@ -351,9 +343,9 @@ const Home = () => {
       <section id="why-partner" className="py-20 bg-[#141515]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-4">Why Partner with http://localhost:4500?</h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-4">Why Partner with BajiMan?</h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Discover why thousands of affiliates choose http://localhost:4500 for unmatched earning potential.
+              Discover why thousands of affiliates choose BajiMan for unmatched earning potential.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -487,7 +479,7 @@ const Home = () => {
             </div>
             <div className="bg-[#2a2b2b] p-8 rounded-lg border border-red-500/20">
               <h3 className="text-2xl font-bold text-red-400 mb-3">Equity Options</h3>
-              <p className="text-gray-300">Earn equity in http://localhost:4500 for top performers.</p>
+              <p className="text-gray-300">Earn equity in BajiMan for top performers.</p>
             </div>
             <div className="bg-[#2a2b2b] p-8 rounded-lg border border-teal-500/20">
               <h3 className="text-2xl font-bold text-teal-400 mb-3">Global Recognition</h3>
@@ -607,7 +599,7 @@ const Home = () => {
           <div className="max-w-4xl mx-auto text-center p-12">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-6">Join the Ultimate Affiliate Experience</h2>
             <p className="text-xl text-gray-400 mb-8">
-              Leverage cutting-edge technology and unmatched earning potential with http://localhost:4500.
+              Leverage cutting-edge technology and unmatched earning potential with BajiMan.
             </p>
             <NavLink to="/register" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition duration-300 shadow-lg inline-block">
               Start Earning Today
@@ -658,7 +650,7 @@ const Home = () => {
               <div className="flex items-center space-x-3 mb-4">
                 <img
                   src={footerLogo}
-                  alt="http://localhost:4500 Affiliate"
+                  alt="BajiMan Affiliate"
                   className="h-12 w-auto"
                   onError={(e) => {
                     e.target.src = 'https://bajiliveaffiliate.com/wp-content/uploads/2023/08/bjaff-logo2-e1708094785566.png';
@@ -666,7 +658,7 @@ const Home = () => {
                 />
               </div>
               <p className="text-gray-400 mb-4 max-w-md">
-                Join http://localhost:4500 Affiliate and turn your audience into income with our premium services and generous commissions.
+                Join BajiMan Affiliate and turn your audience into income with our premium services and generous commissions.
               </p>
               <div className="flex space-x-5">
                 <a href="#" className="text-gray-400 hover:text-purple-500 transition duration-300">
@@ -700,7 +692,7 @@ const Home = () => {
               <ul className="space-y-4">
                 <li className="flex items-center space-x-3">
                   <FaEnvelope className="text-purple-500" />
-                  <span className="text-gray-400">affiliate@http://localhost:4500.com</span>
+                  <span className="text-gray-400">affiliate@BajiMan.com</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FaPhone className="text-purple-500" />
@@ -715,7 +707,7 @@ const Home = () => {
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-500 text-sm">
-              © 2025 http://localhost:4500 Affiliate Program. All rights reserved.
+              © 2025 BajiMan Affiliate Program. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-500 hover:text-purple-500 text-sm transition duration-300">Privacy Policy</a>
