@@ -108,7 +108,6 @@ const Login = () => {
               className="w-[120px] md:w-[180px]"
             />
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-white mt-4">Super Affiliate Login</h1>
           <p className="text-gray-400 text-sm mt-2 text-center">Sign in to your affiliate account</p>
         </div>
 
