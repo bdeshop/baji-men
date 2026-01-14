@@ -10,6 +10,7 @@ const Banner = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
+    deviceCategory: 'both',
     images: []
   });
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -18,6 +19,10 @@ const Banner = () => {
   const [editingBanner, setEditingBanner] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [bannerToDelete, setBannerToDelete] = useState(null);
+  const [filter, setFilter] = useState({
+    deviceCategory: '',
+    status: ''
+  });
   
   // Fetch banners on component mount
   useEffect(() => {
@@ -26,13 +31,20 @@ const Banner = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   
-  const fetchBanners = async () => {
+  const fetchBanners = async (filters = {}) => {
     try {
       setLoading(true);
-      const response = await fetch(`${base_url}/api/admin/banners`);
+      const queryParams = new URLSearchParams();
+      
+      if (filters.deviceCategory) queryParams.append('deviceCategory', filters.deviceCategory);
+      if (filters.status !== '') queryParams.append('status', filters.status);
+      
+      const url = `${base_url}/api/admin/banners${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await fetch(url);
+      
       if (response.ok) {
         const data = await response.json();
-        setBanners(data);
+        setBanners(data.banners || data);
       } else {
         console.error('Failed to fetch banners');
         toast.error('Failed to fetch banners');
@@ -53,6 +65,21 @@ const Banner = () => {
     });
   };
 
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    const newFilter = {
+      ...filter,
+      [name]: value
+    };
+    setFilter(newFilter);
+    fetchBanners(newFilter);
+  };
+
+  const clearFilters = () => {
+    setFilter({ deviceCategory: '', status: '' });
+    fetchBanners();
+  };
+
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     
@@ -66,6 +93,12 @@ const Banner = () => {
     
     files.forEach(file => {
       if (file) {
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`File ${file.name} is too large. Maximum size is 10MB`);
+          return;
+        }
+        
         const reader = new FileReader();
         reader.onloadend = () => {
           newPreviews.push(reader.result);
@@ -108,6 +141,7 @@ const Banner = () => {
       setLoading(true);
       const uploadData = new FormData();
       uploadData.append('name', formData.name);
+      uploadData.append('deviceCategory', formData.deviceCategory);
       
       formData.images.forEach((image) => {
         uploadData.append('images', image);
@@ -123,12 +157,17 @@ const Banner = () => {
         console.log('Banners created:', result);
         
         // Reset form and refresh banners
-        setFormData({ name: '', images: [] });
+        setFormData({ 
+          name: '', 
+          deviceCategory: 'both', 
+          images: [] 
+        });
         setImagePreviews([]);
         fetchBanners();
         toast.success('Banners uploaded successfully!');
       } else {
-        toast.error('Failed to upload banners');
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to upload banners');
       }
     } catch (error) {
       console.error('Error uploading banners:', error);
@@ -149,7 +188,7 @@ const Banner = () => {
       });
       
       if (response.ok) {
-        fetchBanners(); // Refresh the list
+        fetchBanners(filter); // Refresh with current filters
         toast.success('Banner status updated successfully');
       } else {
         toast.error('Failed to update banner status');
@@ -179,7 +218,7 @@ const Banner = () => {
       });
       
       if (response.ok) {
-        fetchBanners(); // Refresh the list
+        fetchBanners(filter); // Refresh with current filters
         toast.success('Banner deleted successfully');
       } else {
         toast.error('Failed to delete banner');
@@ -195,13 +234,21 @@ const Banner = () => {
 
   const startEdit = (banner) => {
     setEditingBanner(banner);
-    setFormData({ name: banner.name, images: [] });
+    setFormData({ 
+      name: banner.name, 
+      deviceCategory: banner.deviceCategory || 'both',
+      images: [] 
+    });
     setImagePreviews([]);
   };
 
   const cancelEdit = () => {
     setEditingBanner(null);
-    setFormData({ name: '', images: [] });
+    setFormData({ 
+      name: '', 
+      deviceCategory: 'both',
+      images: [] 
+    });
     setImagePreviews([]);
   };
 
@@ -212,8 +259,15 @@ const Banner = () => {
       setLoading(true);
       const editData = new FormData();
       editData.append('name', formData.name);
+      editData.append('deviceCategory', formData.deviceCategory);
       
       if (formData.images.length > 0) {
+        // Validate file size (max 10MB)
+        if (formData.images[0].size > 10 * 1024 * 1024) {
+          toast.error('Image is too large. Maximum size is 10MB');
+          setLoading(false);
+          return;
+        }
         editData.append('image', formData.images[0]);
       }
       
@@ -228,12 +282,17 @@ const Banner = () => {
         
         // Reset form and refresh banners
         setEditingBanner(null);
-        setFormData({ name: '', images: [] });
+        setFormData({ 
+          name: '', 
+          deviceCategory: 'both',
+          images: [] 
+        });
         setImagePreviews([]);
-        fetchBanners();
+        fetchBanners(filter);
         toast.success('Banner updated successfully!');
       } else {
-        toast.error('Failed to update banner');
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to update banner');
       }
     } catch (error) {
       console.error('Error updating banner:', error);
@@ -243,10 +302,18 @@ const Banner = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   return (
     <section className="font-nunito h-screen bg-gray-50">
       <Header toggleSidebar={toggleSidebar} />
-    
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
@@ -285,6 +352,48 @@ const Banner = () => {
           <div className="w-full mx-auto">
             <h1 className="text-2xl font-bold text-gray-800 mb-6">Banner Management</h1>
             
+            {/* Filter Section */}
+            <div className="bg-white rounded-[5px] p-4 border border-gray-200 mb-6">
+              <h2 className="text-lg font-semibold text-gray-700 mb-4">Filter Banners</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Device Category</label>
+                  <select
+                    name="deviceCategory"
+                    value={filter.deviceCategory}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">All Categories</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="computer">Computer</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    name="status"
+                    value={filter.status}
+                    onChange={handleFilterChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">All Status</option>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-[3px] hover:bg-gray-300 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+            
             {/* Add/Edit Banner Form */}
             <div className="bg-white rounded-[5px] p-6 border border-gray-200 mb-8">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -303,6 +412,46 @@ const Banner = () => {
                     placeholder="Enter banner name"
                     required={!!editingBanner}
                   />
+                </div>
+                
+                {/* Device Category Field */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Device Category *</label>
+                  <div className="flex space-x-4">
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        name="deviceCategory"
+                        value="mobile"
+                        checked={formData.deviceCategory === 'mobile'}
+                        onChange={handleInputChange}
+                        className="form-radio h-4 w-4 text-orange-600"
+                      />
+                      <span className="ml-2 text-gray-700">Mobile</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        name="deviceCategory"
+                        value="computer"
+                        checked={formData.deviceCategory === 'computer'}
+                        onChange={handleInputChange}
+                        className="form-radio h-4 w-4 text-orange-600"
+                      />
+                      <span className="ml-2 text-gray-700">Computer</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        name="deviceCategory"
+                        value="both"
+                        checked={formData.deviceCategory === 'both'}
+                        onChange={handleInputChange}
+                        className="form-radio h-4 w-4 text-orange-600"
+                      />
+                      <span className="ml-2 text-gray-700">Both</span>
+                    </label>
+                  </div>
                 </div>
                 
                 {/* Image Upload Section */}
@@ -349,6 +498,9 @@ const Banner = () => {
                           alt={editingBanner.name} 
                           className="h-32 w-48 object-cover rounded-md"
                         />
+                        <div className="text-xs text-gray-600 mt-1">
+                          Device: {editingBanner.deviceCategory === 'both' ? 'All Devices' : editingBanner.deviceCategory}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -376,7 +528,6 @@ const Banner = () => {
                         accept="image/*"
                         onChange={handleImageUpload}
                         multiple={!editingBanner}
-                        {...(editingBanner ? {} : { multiple: true })}
                       />
                     </label>
                   </div>
@@ -406,14 +557,19 @@ const Banner = () => {
             
             {/* Banners Table */}
             <div className="">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">All Banners</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">All Banners</h2>
+                <div className="text-sm text-gray-600">
+                  {banners.length} banner(s) found
+                </div>
+              </div>
               
               {loading && banners.length === 0 ? (
                 <div className="text-center py-8">Loading banners...</div>
               ) : banners.length === 0 ? (
-                <div className="text-center py-8">No banners found</div>
+                <div className="text-center py-8 text-gray-500">No banners found. {filter.deviceCategory || filter.status ? 'Try changing your filters.' : 'Start by adding some banners.'}</div>
               ) : (
-                <div className="overflow-x-auto border-[1px] border-gray-200">
+                <div className="overflow-x-auto border-[1px] border-gray-200 rounded-lg">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-theme_color">
                       <tr>
@@ -424,7 +580,13 @@ const Banner = () => {
                           Name
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                          Device Category
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
                           Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                          Created
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
                           Actions
@@ -433,14 +595,35 @@ const Banner = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {banners.map((banner) => (
-                        <tr key={banner._id}>
+                        <tr key={banner._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="h-16 w-24 flex-shrink-0">
-                              <img className="h-16 w-24 rounded-md object-cover" src={`${base_url}/${banner.image}`} alt={banner.name} />
+                              <img 
+                                className="h-16 w-24 rounded-md object-cover border border-gray-200" 
+                                src={`${base_url}/${banner.image}`} 
+                                alt={banner.name} 
+                              />
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{banner.name}</div>
+                            <div className="text-sm font-medium text-gray-900">{banner.name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {banner.deviceCategory === 'both' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  All Devices
+                                </span>
+                              ) : banner.deviceCategory === 'mobile' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Mobile
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  Computer
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -451,21 +634,30 @@ const Banner = () => {
                                 onChange={() => toggleStatus(banner._id, banner.status)}
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                              <span className="ml-3 text-sm font-medium text-gray-900">
-                                {banner.status ? 'Active' : 'Inactive'}
+                              <span className="ml-3 text-sm font-medium">
+                                {banner.status ? (
+                                  <span className="text-green-600">Active</span>
+                                ) : (
+                                  <span className="text-red-600">Inactive</span>
+                                )}
                               </span>
                             </label>
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(banner.createdAt)}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button 
-                              className="px-[8px] py-[7px] text-white bg-blue-600 cursor-pointer rounded-[3px] text-[16px] mr-3"
+                              className="px-[8px] py-[7px] text-white bg-blue-600 cursor-pointer rounded-[3px] text-[16px] mr-3 hover:bg-blue-700 transition-colors"
                               onClick={() => startEdit(banner)}
+                              title="Edit Banner"
                             >
                               <FaEdit />
                             </button>
                             <button 
-                              className="px-[8px] py-[7px] text-white bg-red-600 cursor-pointer rounded-[3px] text-[16px]"
+                              className="px-[8px] py-[7px] text-white bg-red-600 cursor-pointer rounded-[3px] text-[16px] hover:bg-red-700 transition-colors"
                               onClick={() => confirmDelete(banner)}
+                              title="Delete Banner"
                             >
                               <FaTrash />
                             </button>

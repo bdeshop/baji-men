@@ -1,29 +1,29 @@
 import React, { useState, useEffect, memo } from "react";
 import axios from "axios";
 
-// Simple cache to store banners
-let bannerCache = [];
+// Simple cache to store computer banners
+let computerBannerCache = [];
 
 export const Slider = memo(() => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [slides, setSlides] = useState(bannerCache); // Initialize with cache
-  const [loading, setLoading] = useState(!bannerCache.length); // Skip loading if cached
+  const [slides, setSlides] = useState(computerBannerCache); // Initialize with cache
+  const [loading, setLoading] = useState(!computerBannerCache.length); // Skip loading if cached
   const [error, setError] = useState(null);
 
-  // Fetch banners from API
+  // Fetch computer banners from API
   useEffect(() => {
     // If cache exists, skip fetch
-    if (bannerCache.length > 0) {
-      setSlides(bannerCache);
+    if (computerBannerCache.length > 0) {
+      setSlides(computerBannerCache);
       setLoading(false);
       return;
     }
 
-    const fetchBanners = async () => {
+    const fetchComputerBanners = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${base_url}/api/banners`);
+        const response = await axios.get(`${base_url}/api/banners/computer`);
 
         if (response.data.success) {
           // Transform API data to match the expected format
@@ -31,45 +31,49 @@ export const Slider = memo(() => {
             id: banner._id,
             src: banner.image,
             alt: banner.name || "Banner",
+            deviceCategory: banner.deviceCategory
           }));
 
           // Update cache and state
-          bannerCache = bannerData;
+          computerBannerCache = bannerData;
           setSlides(bannerData);
         } else {
-          setError("Failed to fetch banners");
+          setError("Failed to fetch computer banners");
         }
       } catch (err) {
-        console.error("Error fetching banners:", err);
-        setError("Error loading banners");
+        console.error("Error fetching computer banners:", err);
+        setError("Error loading computer banners");
 
         // Fallback to default slides if API fails
         const fallbackSlides = [
           {
             id: 1,
             src: "https://img.b112j.com/upload/announcement/image_241602.jpg",
-            alt: "Slider 1",
+            alt: "Computer Banner 1",
+            deviceCategory: "computer"
           },
           {
             id: 2,
             src: "https://img.b112j.com/upload/announcement/image_241701.jpg",
-            alt: "Slider 2",
+            alt: "Computer Banner 2",
+            deviceCategory: "computer"
           },
           {
             id: 3,
             src: "https://img.b112j.com/upload/announcement/image_242355.jpg",
-            alt: "Slider 3",
+            alt: "Computer Banner 3",
+            deviceCategory: "computer"
           },
         ];
-        bannerCache = fallbackSlides; // Cache fallback slides
+        computerBannerCache = fallbackSlides; // Cache fallback slides
         setSlides(fallbackSlides);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBanners();
-  }, []); // Keep base_url in dependency array
+    fetchComputerBanners();
+  }, [base_url]); // Keep base_url in dependency array
 
   const nextSlide = () => {
     if (slides.length === 0) return;
@@ -118,7 +122,7 @@ export const Slider = memo(() => {
   if (slides.length === 0) {
     return (
       <div className="relative w-full h-[180px] md:h-[200px] lg:h-[250px] flex items-center justify-center bg-gray-200">
-        <div className="text-gray-500">No banners available</div>
+        <div className="text-gray-500">No computer banners available</div>
       </div>
     );
   }
@@ -131,10 +135,9 @@ export const Slider = memo(() => {
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
         {slides.map((slide) => (
-          <div key={slide.id} className="w-full  flex-shrink-0">
+          <div key={slide.id} className="w-full flex-shrink-0">
             <img
-              // src={`${base_url}${slide.src}`}
-              src={`${base_url}/${slide.src}`}
+              src={slide.src.startsWith('http') ? slide.src : `${base_url}/${slide.src}`}
               alt={slide.alt}
               className="w-full object-cover h-[200px] md:h-full"
               loading="lazy" // Add lazy loading for images
@@ -211,6 +214,6 @@ export const Slider = memo(() => {
 });
 
 // Optional: Clear cache when needed (e.g., on logout or data refresh)
-export const clearBannerCache = () => {
-  bannerCache = [];
+export const clearComputerBannerCache = () => {
+  computerBannerCache = [];
 };

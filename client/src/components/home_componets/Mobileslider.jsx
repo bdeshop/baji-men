@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, memo, useCallback } from "react";
 import axios from "axios";
 
-let bannerCache = [];
+let mobileBannerCache = [];
 
 export const Mobileslider = memo(() => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
-  const [slides, setSlides] = useState(bannerCache);
-  const [loading, setLoading] = useState(!bannerCache.length);
+  const [slides, setSlides] = useState(mobileBannerCache);
+  const [loading, setLoading] = useState(!mobileBannerCache.length);
   
   // currentSlide 1 is the first real image
   const [currentSlide, setCurrentSlide] = useState(1);
@@ -17,39 +17,57 @@ export const Mobileslider = memo(() => {
   const [startX, setStartX] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
 
-  // 1. Data Fetching
+  // 1. Data Fetching - Only mobile banners
   useEffect(() => {
-    if (bannerCache.length > 0) {
-      setSlides(bannerCache);
+    if (mobileBannerCache.length > 0) {
+      setSlides(mobileBannerCache);
       setLoading(false);
       return;
     }
 
-    const fetchBanners = async () => {
+    const fetchMobileBanners = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${base_url}/api/banners`);
+        const response = await axios.get(`${base_url}/api/banners/mobile`);
         if (response.data.success) {
           const bannerData = response.data.data.map((banner) => ({
             id: banner._id,
             src: banner.image,
             alt: banner.name || "Banner",
+            deviceCategory: banner.deviceCategory
           }));
-          bannerCache = bannerData;
+          mobileBannerCache = bannerData;
           setSlides(bannerData);
         }
       } catch (err) {
+        console.error("Error fetching mobile banners:", err);
+        // Fallback banners for mobile
         const fallback = [
-          { id: 1, src: "https://img.b112j.com/upload/announcement/image_241602.jpg", alt: "S1" },
-          { id: 2, src: "https://img.b112j.com/upload/announcement/image_241701.jpg", alt: "S2" },
-          { id: 3, src: "https://img.b112j.com/upload/announcement/image_242355.jpg", alt: "S3" },
+          { 
+            id: 1, 
+            src: "https://img.b112j.com/upload/announcement/image_241602.jpg", 
+            alt: "Mobile Banner 1",
+            deviceCategory: "mobile"
+          },
+          { 
+            id: 2, 
+            src: "https://img.b112j.com/upload/announcement/image_241701.jpg", 
+            alt: "Mobile Banner 2",
+            deviceCategory: "mobile"
+          },
+          { 
+            id: 3, 
+            src: "https://img.b112j.com/upload/announcement/image_242355.jpg", 
+            alt: "Mobile Banner 3",
+            deviceCategory: "mobile"
+          },
         ];
         setSlides(fallback);
       } finally {
         setLoading(false);
       }
     };
-    fetchBanners();
+    fetchMobileBanners();
   }, [base_url]);
 
   // 2. Prepare slides with clones for infinite loop
@@ -131,7 +149,7 @@ export const Mobileslider = memo(() => {
   if (!hasSlides) return null;
 
   return (
-    <div className="relative w-full py-4  overflow-hidden select-none">
+    <div className="relative w-full py-4 overflow-hidden select-none">
       <div 
         className={`flex ${isTransitioning && !isDragging ? "transition-transform duration-500 ease-out" : ""}`}
         onTransitionEnd={handleTransitionEnd}

@@ -708,4 +708,52 @@ router.get("/menu-games", async (req, res) => {
   }
 });
 
+
+// GET mobile banners only
+router.get("/banners/mobile", async (req, res) => {
+  try {
+    const banners = await Banner.find({ 
+      status: true,
+      deviceCategory: { $in: ['mobile', 'both'] }
+    })
+      .sort({ createdAt: -1 })
+      .select("name image deviceCategory createdAt updatedAt");
+    
+    res.json({
+      success: true,
+      data: banners,
+      count: banners.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching mobile banners",
+      error: error.message
+    });
+  }
+});
+
+// GET computer banners only
+router.get("/banners/computer", async (req, res) => {
+  try {
+    const banners = await Banner.find({ 
+      status: true,
+      deviceCategory: { $in: ['computer', 'both'] }
+    })
+      .sort({ createdAt: -1 })
+      .select("name image deviceCategory createdAt updatedAt");
+    
+    res.json({
+      success: true,
+      data: banners,
+      count: banners.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching computer banners",
+      error: error.message
+    });
+  }
+});
 module.exports = router;

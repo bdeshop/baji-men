@@ -1359,7 +1359,6 @@ Adminrouter.get("/banners", async (req, res) => {
   }
 });
 
-// POST create new banner(s)
 Adminrouter.post(
   "/banners",
   uploadBanners.array("images", 5),
@@ -1371,13 +1370,24 @@ Adminrouter.post(
           .json({ error: "Please upload at least one banner image" });
       }
 
+      // Validate deviceCategory if provided
+      if (req.body.deviceCategory) {
+        const validCategories = ['mobile', 'computer', 'both'];
+        if (!validCategories.includes(req.body.deviceCategory)) {
+          return res.status(400).json({
+            error: "Invalid device category. Must be 'mobile', 'computer', or 'both'"
+          });
+        }
+      }
+
       const banners = [];
 
       for (const file of req.files) {
         const bannerData = {
           name: req.body.name || `Banner ${Date.now()}`,
           image: `/uploads/banners/${file.filename}`,
-          status: true,
+          deviceCategory: req.body.deviceCategory || 'both', // Default to 'both'
+          status: req.body.status !== undefined ? req.body.status : true,
         };
 
         const newBanner = new Banner(bannerData);
@@ -1390,6 +1400,7 @@ Adminrouter.post(
         banners: banners,
       });
     } catch (error) {
+      console.error("Create banner error:", error);
       res.status(500).json({ error: "Failed to create banners" });
     }
   }
@@ -1404,6 +1415,7 @@ Adminrouter.put("/banners/:id/status", async (req, res) => {
     }
 
     banner.status = req.body.status;
+    banner.updatedAt = Date.now();
     await banner.save();
 
     res.json({
@@ -1411,6 +1423,7 @@ Adminrouter.put("/banners/:id/status", async (req, res) => {
       banner: banner,
     });
   } catch (error) {
+    console.error("Update status error:", error);
     res.status(500).json({ error: "Failed to update banner status" });
   }
 });
@@ -1426,8 +1439,21 @@ Adminrouter.put(
         return res.status(404).json({ error: "Banner not found" });
       }
 
+      // Validate deviceCategory if provided
+      if (req.body.deviceCategory) {
+        const validCategories = ['mobile', 'computer', 'both'];
+        if (!validCategories.includes(req.body.deviceCategory)) {
+          return res.status(400).json({
+            error: "Invalid device category. Must be 'mobile', 'computer', or 'both'"
+          });
+        }
+        banner.deviceCategory = req.body.deviceCategory;
+      }
+
       // Update fields
-      if (req.body.name) banner.name = req.body.name;
+      if (req.body.name !== undefined) banner.name = req.body.name;
+      if (req.body.status !== undefined) banner.status = req.body.status;
+      
       if (req.file) {
         // Delete old image file
         if (banner.image) {
@@ -1439,6 +1465,7 @@ Adminrouter.put(
         banner.image = `/uploads/banners/${req.file.filename}`;
       }
 
+      banner.updatedAt = Date.now();
       await banner.save();
 
       res.json({
@@ -1446,6 +1473,7 @@ Adminrouter.put(
         banner: banner,
       });
     } catch (error) {
+      console.error("Update banner error:", error);
       res.status(500).json({ error: "Failed to update banner" });
     }
   }
@@ -1471,10 +1499,10 @@ Adminrouter.delete("/banners/:id", async (req, res) => {
 
     res.json({ message: "Banner deleted successfully" });
   } catch (error) {
+    console.error("Delete banner error:", error);
     res.status(500).json({ error: "Failed to delete banner" });
   }
 });
-
 // ==================== PROMOTIONAL CONTENT ROUTES ====================
 
 // GET all promotional content

@@ -86,7 +86,7 @@ const CategorySkeleton = ({ isMobile }) => {
   if (isMobile) {
     return (
       <div className="block lg:hidden px-2 py-4 md:p-4 pt-[40px] relative">
-        <div className="flex gap-3 overflow-hidden">
+        <div className="flex gap-3 ">
           {Array.from({ length: 8 }).map((_, index) => (
             <div
               key={index}
@@ -633,7 +633,7 @@ const CategoryContent = () => {
       ) : (
         <>
           {/* Mobile slider for categories using Embla Carousel */}
-          <div className="block lg:hidden px-2 py-4 md:p-4 pt-[40px] relative hidescrollbar">
+          <div className="block lg:hidden px-2 py-4 md:p-4 pt-[30px]  md:pt-[40px] relative hidescrollbar">
             <div className="embla" ref={emblaRef}>
               <div className="embla__container flex gap-3">
                 {categories.map((category) => (

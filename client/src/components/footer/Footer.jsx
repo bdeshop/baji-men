@@ -207,7 +207,7 @@ const Footer = () => {
                     href="#"
                     className="hover:text-white transition-colors duration-200 text-[10px]"
                   >
-                    http://localhost:4500 Casino
+                    Casino
                   </a>
                 </li>
                 <li>
@@ -268,7 +268,7 @@ const Footer = () => {
               className="flex justify-between items-center cursor-pointer w-full text-left font-medium text-gray-200 text-[11px]"
               onClick={() => toggleSection("about")}
             >
-              <span>About http://localhost:4500</span>
+              <span>About BajiMan</span>
               {openSection === "about" ? (
                 <FaChevronUp size={12} />
               ) : (
@@ -415,7 +415,7 @@ const Footer = () => {
                     href="#"
                     className="hover:text-white transition-colors duration-200 text-[10px]"
                   >
-                    BJ Forum{" "}
+                    BajiMan Forum{" "}
                     <span className="inline-block text-gray-500 text-[9px]">
                       ↗
                     </span>
@@ -950,7 +950,7 @@ const Footer = () => {
           </p>
         </div>
         <p className="text-[9px] text-white mt-2 text-center md:text-500">
-          &copy; 2025 Bajiman Copyrights. All rights Reserved
+          &copy; 2026 Bajiman Copyrights. All rights Reserved
         </p>
       </div>
     </footer>

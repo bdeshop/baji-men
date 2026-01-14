@@ -10,6 +10,12 @@ const bannerSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  deviceCategory: {
+    type: String,
+    enum: ['mobile', 'computer', 'both'], // Added enum for validation
+    default: 'both',
+    required: true
+  },
   status: {
     type: Boolean,
     default: true
