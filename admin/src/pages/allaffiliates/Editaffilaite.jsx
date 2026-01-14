@@ -922,7 +922,7 @@ const Editaffilaite = () => {
                 ) : performanceData ? (
                   <div className="space-y-6">
                     {/* Performance Metrics */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                         <h4 className="text-gray-600 text-sm font-medium">Total Earnings</h4>
                         <p className="text-2xl font-bold text-gray-900">{formatCurrency(performanceData.metrics.totalEarnings)}</p>
@@ -934,10 +934,6 @@ const Editaffilaite = () => {
                       <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                         <h4 className="text-gray-600 text-sm font-medium">Transactions</h4>
                         <p className="text-2xl font-bold text-gray-900">{performanceData.metrics.transactionCount}</p>
-                      </div>
-                      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                        <h4 className="text-gray-600 text-sm font-medium">Conversion Rate</h4>
-                        <p className="text-2xl font-bold text-blue-600">{performanceData.metrics.conversionRate?.toFixed(2)}%</p>
                       </div>
                     </div>
 
