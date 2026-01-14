@@ -439,7 +439,6 @@ const Editaffilaite = () => {
                   { id: 'balance', label: 'Balance', icon: FaWallet },
                   { id: 'performance', label: 'Performance', icon: FaChartLine },
                   { id: 'transactions', label: 'Transactions', icon: FaHistory },
-                  { id: 'master-affiliates', label: 'Master Affiliates', icon: FaUsers },
                   { id: 'password', label: 'Password', icon: FaLock }
                 ].map((tab) => {
                   const IconComponent = tab.icon;

@@ -8,7 +8,6 @@ import Sidebar from '../components/Sidebar';
 const Dashboard = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [loading, setLoading] = useState(true);
   
   // Profile states
   const [profile, setProfile] = useState({
@@ -74,22 +73,30 @@ const Dashboard = () => {
   useEffect(() => {
     const affiliateData = localStorage.getItem('affiliate');
     if (affiliateData) {
-      const parsedData = JSON.parse(affiliateData);
-      setProfile({
-        ...parsedData,
-        cpaRate: parsedData.cpaRate || 200,
-        totalPayout: parsedData.totalPayout || 0,
-        pendingPayout: parsedData.pendingPayout || 0
-      });
+      try {
+        const parsedData = JSON.parse(affiliateData);
+        setProfile({
+          ...parsedData,
+          cpaRate: parsedData.cpaRate || 200,
+          totalPayout: parsedData.totalPayout || 0,
+          pendingPayout: parsedData.pendingPayout || 0
+        });
+      } catch (error) {
+        console.error('Error parsing affiliate data:', error);
+      }
     }
     loadDashboardStats();
   }, []);
 
   const loadDashboardStats = async () => {
     try {
-      setLoading(true);
       const token = localStorage.getItem('affiliatetoken');
-      const response = await axios.get(`${base_url}/api/affiliate/dashboard`,  { 
+      if (!token) {
+        console.warn('No affiliate token found');
+        return;
+      }
+
+      const response = await axios.get(`${base_url}/api/affiliate/dashboard`, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
       
@@ -117,9 +124,9 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
-      toast.error('Failed to load dashboard statistics');
-    } finally {
-      setLoading(false);
+      if (error.response?.status !== 401) {
+        toast.error('Failed to load dashboard statistics');
+      }
     }
   };
 
@@ -228,23 +235,20 @@ const Dashboard = () => {
     }
   ];
 
-  if (loading) {
-    return (
-      <section className="font-nunito min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-teal-100">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all font-poppins duration-500 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <p className="text-indigo-600 mt-4 font-medium">Loading...</p>
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  // Get user's first name for welcome message
+  const getUserFirstName = () => {
+    if (profile.firstName) return profile.firstName;
+    const affiliateData = localStorage.getItem('affiliate');
+    if (affiliateData) {
+      try {
+        const parsedData = JSON.parse(affiliateData);
+        return parsedData.firstName || 'Affiliate';
+      } catch (error) {
+        return 'Affiliate';
+      }
+    }
+    return 'Affiliate';
+  };
 
   return (
     <section className="min-h-screen bg-white ">
@@ -262,7 +266,7 @@ const Dashboard = () => {
             {/* Header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-indigo-900">Super Affiliate Dashboard</h1>
-              <p className="text-indigo-600 mt-2 text-lg">Welcome back, {profile.firstName}! Explore your vibrant performance overview.</p>
+              <p className="text-indigo-600 mt-2 text-lg">Welcome back, {getUserFirstName()}! Explore your vibrant performance overview.</p>
             </div>
 
             {/* Stats Cards - Using vibrant gradients */}
