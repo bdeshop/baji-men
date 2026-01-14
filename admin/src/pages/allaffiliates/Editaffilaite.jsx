@@ -533,7 +533,7 @@ const Editaffilaite = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Commission Rate (%)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bet Commission Rate (%)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -558,7 +558,7 @@ const Editaffilaite = () => {
                       </div>
                       {/* CPA Rate Field */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">CPA Rate (BDT)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Registration Rate (BDT)</label>
                         <input
                           type="number"
                           step="1"

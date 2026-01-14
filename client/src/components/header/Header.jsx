@@ -36,7 +36,7 @@ import play_img from "../../assets/play.png";
 import profile_img from "../../assets/profile.png";
 import menu_img from "../../assets/icon-menu.png";
 import toast, { Toaster } from "react-hot-toast";
-import { FaWhatsapp } from "react-icons/fa";
+import { FaWhatsapp, FaTelegram } from "react-icons/fa";
 
 const APK_FILE = "https://http://localhost:4500.live/onexwin.apk";
 
@@ -1094,15 +1094,32 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       </div>
 
       {/* WhatsApp Floating Button */}
-      <a
-        href={whatsappLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-25 md:bottom-20 right-4 z-[1000] border-[1px] border-gray-200 bg-green-500 p-4 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 animate-bounce hover:animate-pulse"
-        aria-label="Contact Support on WhatsApp"
-      >
-        <FaWhatsapp className="text-white text-2xl" />
-      </a>
+{/* WhatsApp & Telegram Floating Buttons - Vertical Stack */}
+<div className="fixed bottom-25 md:bottom-20 right-4 z-[1000] flex flex-col gap-4">
+  {/* Telegram Button - Top */}
+  <a
+    href="https://t.me/bajiman"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="border-[1px] border-gray-200 bg-blue-500 p-4 rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300 animate-bounce hover:animate-pulse"
+    aria-label="Join Telegram Channel"
+    style={{ animationDelay: '0.1s' }}
+  >
+    <FaTelegram className="text-white text-2xl" />
+  </a>
+  
+  {/* WhatsApp Button - Bottom */}
+  <a
+    href={whatsappLink}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="border-[1px] border-gray-200 bg-green-500 p-4 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 animate-bounce hover:animate-pulse"
+    aria-label="Contact Support on WhatsApp"
+    style={{ animationDelay: '0.2s' }}
+  >
+    <FaWhatsapp className="text-white text-2xl" />
+  </a>
+</div>
 
       {/* Signup Success Popup */}
       {showSignupPopup && (

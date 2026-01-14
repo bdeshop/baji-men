@@ -696,7 +696,7 @@ const Home = () => {
                 </li>
                 <li className="flex items-center space-x-3">
                   <FaPhone className="text-purple-500" />
-                  <span className="text-gray-400">+1 (555) 123-4567</span>
+                  <span className="text-gray-400">+447311133789 ( Whatsapp )</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FaMapMarkerAlt className="text-purple-500" />
