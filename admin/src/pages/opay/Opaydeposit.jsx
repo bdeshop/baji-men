@@ -13,9 +13,9 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-
+import { FaSpinner } from 'react-icons/fa';
 const Opaydeposit = () => {
-  const base_url = import.meta.env.VITE_BASE_API_URL || 'http://localhost:4500';
+const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -509,9 +509,11 @@ const Opaydeposit = () => {
               {/* Loading State */}
               {isLoading ? (
                 <div className="p-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                  <p className="text-gray-600">Loading deposits...</p>
-                  <p className="text-gray-400 text-sm mt-2">Fetching data from server</p>
+                      <div className="flex items-center justify-center h-full">
+                                   <div className="flex justify-center items-center py-8">
+                                                               <FaSpinner className="animate-spin text-orange-500 text-2xl" />
+                                                             </div>
+                              </div>
                 </div>
               ) : deposits.length === 0 ? (
                 <div className="p-12 text-center">

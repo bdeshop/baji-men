@@ -15,7 +15,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const Opayapi = () => {
-  const base_url = import.meta.env.VITE_BASE_API_URL || 'http://localhost:4500';
+  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
