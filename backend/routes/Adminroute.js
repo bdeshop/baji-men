@@ -97,6 +97,75 @@ Adminrouter.get("/deposits/counts", async (req, res) => {
     });
   }
 });
+// ==================== AFFILIATE COUNTS ROUTE ====================
+
+// GET affiliate counts for dashboard/sidebar
+Adminrouter.get("/affiliates/counts", async (req, res) => {
+  try {
+    // Get affiliate counts by status
+    const totalAffiliates = await Affiliate.countDocuments();
+    const activeAffiliates = await Affiliate.countDocuments({ status: "active" });
+    const pendingAffiliates = await Affiliate.countDocuments({ status: "pending" });
+    const suspendedAffiliates = await Affiliate.countDocuments({ status: "suspended" });
+    const bannedAffiliates = await Affiliate.countDocuments({ status: "banned" });
+    
+    // Get verification status counts
+    const unverifiedAffiliates = await Affiliate.countDocuments({ verificationStatus: "unverified" });
+    const pendingVerificationAffiliates = await Affiliate.countDocuments({ verificationStatus: "pending" });
+    const verifiedAffiliates = await Affiliate.countDocuments({ verificationStatus: "verified" });
+    const rejectedAffiliates = await Affiliate.countDocuments({ verificationStatus: "rejected" });
+    
+    // Get new affiliates today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newAffiliatesToday = await Affiliate.countDocuments({
+      createdAt: { $gte: today }
+    });
+
+    // Get new affiliates this week
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const newAffiliatesThisWeek = await Affiliate.countDocuments({
+      createdAt: { $gte: weekAgo }
+    });
+
+    // Get pending payouts count
+    const pendingPayoutsCount = await Payout.countDocuments({ status: "pending" });
+
+    res.json({
+      success: true,
+      counts: {
+        total: totalAffiliates,
+        active: activeAffiliates,
+        pending: pendingAffiliates,
+        suspended: suspendedAffiliates,
+        banned: bannedAffiliates,
+        unverified: unverifiedAffiliates,
+        pendingVerification: pendingVerificationAffiliates,
+        verified: verifiedAffiliates,
+        rejected: rejectedAffiliates,
+        newToday: newAffiliatesToday,
+        newThisWeek: newAffiliatesThisWeek,
+        pendingPayouts: pendingPayoutsCount,
+        
+        // For sidebar display - main count that shows in menu
+        pendingRegistrations: pendingAffiliates + pendingVerificationAffiliates,
+        
+        // Master affiliate counts (if you have separate model)
+        masterAffiliates: await MasterAffiliate.countDocuments({ role: "master_affiliate" }),
+        superAffiliates: await MasterAffiliate.countDocuments({ role: "super_affiliate" }),
+      },
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    console.error("Error fetching affiliate counts:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch affiliate counts",
+      error: error.message,
+    });
+  }
+});
 // Get user information
 Adminrouter.get("/admin-information", adminAuth, async (req, res) => {
   try {

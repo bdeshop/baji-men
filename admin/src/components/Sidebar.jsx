@@ -17,7 +17,11 @@ import {
   FiLogIn,
   FiFileText,
   FiShare2,
-  FiGift
+  FiGift,
+  FiUserPlus,
+  FiDollarSign,
+  FiCheckCircle,
+  FiXCircle
 } from 'react-icons/fi';
 import { RiCoinsLine, RiRefund2Line } from 'react-icons/ri';
 import { useNavigate } from "react-router-dom";
@@ -46,6 +50,16 @@ const Sidebar = ({ isOpen }) => {
     approved: 0,
     rejected: 0,
     history: 0
+  });
+
+  // State for affiliate counts
+  const [affiliateCounts, setAffiliateCounts] = useState({
+    pendingRegistrations: 0,
+    total: 0,
+    active: 0,
+    pendingPayouts: 0,
+    masterAffiliates: 0,
+    superAffiliates: 0
   });
 
   const logout = () => {
@@ -77,6 +91,19 @@ const Sidebar = ({ isOpen }) => {
             approved: depositResponse.data.counts.approved,
             rejected: depositResponse.data.counts.rejected,
             history: depositResponse.data.counts.history
+          });
+        }
+
+        // Fetch affiliate counts
+        const affiliateResponse = await axios.get(`${base_url}/api/admin/affiliates/counts`);
+        if (affiliateResponse.data.success) {
+          setAffiliateCounts({
+            pendingRegistrations: affiliateResponse.data.counts.pendingRegistrations,
+            total: affiliateResponse.data.counts.total,
+            active: affiliateResponse.data.counts.active,
+            pendingPayouts: affiliateResponse.data.counts.pendingPayouts,
+            masterAffiliates: affiliateResponse.data.counts.masterAffiliates,
+            superAffiliates: affiliateResponse.data.counts.superAffiliates
           });
         }
       } catch (error) {
@@ -133,12 +160,34 @@ const Sidebar = ({ isOpen }) => {
     return count;
   };
 
+  // Function to get badge color based on count
+  const getBadgeColor = (count, type = 'default') => {
+    if (count === 0) return 'bg-gray-600';
+    
+    switch(type) {
+      case 'pending':
+        return 'bg-orange-600 animate-pulse';
+      case 'warning':
+        return 'bg-yellow-600';
+      case 'success':
+        return 'bg-green-600';
+      case 'danger':
+        return 'bg-red-600';
+      case 'info':
+        return 'bg-blue-600';
+      case 'affiliate':
+        return 'bg-purple-600 animate-pulse';
+      default:
+        return 'bg-orange-600';
+    }
+  };
+
   // Function to render count badge
-  const CountBadge = ({ count }) => {
+  const CountBadge = ({ count, type = 'default' }) => {
     if (!count || count === 0) return null;
     
     return (
-      <span className="ml-auto bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+      <span className={`ml-auto text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ${getBadgeColor(count, type)}`}>
         {formatCount(count)}
       </span>
     );
@@ -186,6 +235,11 @@ const Sidebar = ({ isOpen }) => {
           <span className="flex items-center gap-3">
             <FiHome className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
             Dashboard
+            {affiliateCounts.pendingRegistrations > 0 && (
+              <span className="ml-auto bg-purple-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                {formatCount(affiliateCounts.pendingRegistrations)}
+              </span>
+            )}
           </span>
         </NavLink>
       </div>
@@ -233,22 +287,26 @@ const Sidebar = ({ isOpen }) => {
             { 
               to: '/deposit/pending', 
               text: 'Pending Deposits',
-              count: depositCounts.pending
+              count: depositCounts.pending,
+              type: 'pending'
             },
             { 
               to: '/deposit/approved', 
               text: 'Approved Deposits',
-              count: depositCounts.approved
+              count: depositCounts.approved,
+              type: 'success'
             },
             { 
               to: '/deposit/rejected', 
               text: 'Rejected Deposits',
-              count: depositCounts.rejected
+              count: depositCounts.rejected,
+              type: 'danger'
             },
             { 
               to: '/deposit/history', 
               text: 'Deposit History',
-              count: depositCounts.history
+              count: depositCounts.history,
+              type: 'info'
             },
           ],
         },
@@ -260,22 +318,26 @@ const Sidebar = ({ isOpen }) => {
             { 
               to: '/withdraw/pending', 
               text: 'Pending Withdrawals',
-              count: withdrawalCounts.pending
+              count: withdrawalCounts.pending,
+              type: 'pending'
             },
             { 
               to: '/withdraw/approved', 
               text: 'Approved Withdrawals',
-              count: withdrawalCounts.approved
+              count: withdrawalCounts.approved,
+              type: 'success'
             },
             { 
               to: '/withdraw/rejected', 
               text: 'Rejected Withdrawals',
-              count: withdrawalCounts.rejected
+              count: withdrawalCounts.rejected,
+              type: 'danger'
             },
             { 
               to: '/withdraw/history', 
               text: 'Withdraw History',
-              count: withdrawalCounts.history
+              count: withdrawalCounts.history,
+              type: 'info'
             },
           ],
         },
@@ -330,10 +392,24 @@ const Sidebar = ({ isOpen }) => {
           label: 'Affiliate Management',
           icon: <FiTrendingUp className="text-[18px]" />,
           key: 'affiliate',
+          count: affiliateCounts.pendingRegistrations, // Show count on main menu item
           links: [
-            { to: '/affiliates/all-affiliates', text: 'All Affiliates' },
-            { to: '/affiliates/payout', text: 'Payouts' },
-            { to: '/affiliates/set-affilaite-payout-amount', text: 'Amount' },
+            { 
+              to: '/affiliates/all-affiliates', 
+              text: 'All Affiliates',
+              count: affiliateCounts.total,
+              type: 'info'
+            },
+            { 
+              to: '/affiliates/payout', 
+              text: 'Payouts',
+              count: affiliateCounts.pendingPayouts,
+              type: 'warning'
+            },
+            { 
+              to: '/affiliates/set-affilaite-payout-amount', 
+              text: 'Payout Settings'
+            },
           ],
         },
         {
@@ -376,7 +452,7 @@ const Sidebar = ({ isOpen }) => {
             { to: '/social-address/social-links', text: 'All Social Links' },
           ],
         },
-      ].map(({ label, icon, key, links }) => (
+      ].map(({ label, icon, key, links, count: menuCount }) => (
         <div key={key} className="mb-2">
           <div
             onClick={() => handleToggle(key)}
@@ -392,18 +468,25 @@ const Sidebar = ({ isOpen }) => {
               </span>
               {label}
             </span>
-            <FiChevronRight
-              className={`transition-all duration-300 ${
-                openMenu === key ? 'rotate-90' : ''
-              } group-hover:scale-110`}
-            />
+            <div className="flex items-center gap-2">
+              {menuCount > 0 && (
+                <span className={`text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ${getBadgeColor(menuCount, key === 'affiliate' ? 'affiliate' : 'default')}`}>
+                  {formatCount(menuCount)}
+                </span>
+              )}
+              <FiChevronRight
+                className={`transition-all duration-300 ${
+                  openMenu === key ? 'rotate-90' : ''
+                } group-hover:scale-110`}
+              />
+            </div>
           </div>
           <div
             className={`ml-4 overflow-hidden transition-all duration-500 ${
               openMenu === key ? 'max-h-96' : 'max-h-0'
             }`}
           >
-            {links.map(({ to, text, count }) => (
+            {links.map(({ to, text, count, type }) => (
               <NavLink
                 key={text}
                 to={to}
@@ -418,7 +501,7 @@ const Sidebar = ({ isOpen }) => {
                 <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-3 group-hover:scale-125 transition-transform duration-300"></div>
                 {text}
                 {count > 0 && (
-                  <span className="ml-auto bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                  <span className={`ml-auto text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ${getBadgeColor(count, type)}`}>
                     {formatCount(count)}
                   </span>
                 )}
@@ -446,10 +529,35 @@ const Sidebar = ({ isOpen }) => {
           </span>
         </NavLink>
         
+        {/* Statistics Summary (Optional) */}
+        <div className="mt-4 p-3 rounded-lg border border-orange-800/30 bg-orange-900/10">
+          <p className="text-xs font-medium text-orange-300 mb-2">Quick Stats:</p>
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-orange-200">Pending Affiliates:</span>
+              <span className={`px-2 py-0.5 rounded-full ${getBadgeColor(affiliateCounts.pendingRegistrations, 'affiliate')} text-white`}>
+                {affiliateCounts.pendingRegistrations}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-orange-200">Pending Deposits:</span>
+              <span className={`px-2 py-0.5 rounded-full ${getBadgeColor(depositCounts.pending, 'pending')} text-white`}>
+                {depositCounts.pending}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-orange-200">Pending Withdrawals:</span>
+              <span className={`px-2 py-0.5 rounded-full ${getBadgeColor(withdrawalCounts.pending, 'pending')} text-white`}>
+                {withdrawalCounts.pending}
+              </span>
+            </div>
+          </div>
+        </div>
+        
         {/* Logout Button */}
         <button 
           onClick={logout} 
-          className="flex items-center w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 text-orange-200 hover:bg-orange-800/40 hover:text-white hover:translate-x-1 mt-2 group"
+          className="flex items-center w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 text-orange-200 hover:bg-orange-800/40 hover:text-white hover:translate-x-1 mt-4 group"
         >
           <span className="flex items-center gap-3">
             <FiSettings className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
