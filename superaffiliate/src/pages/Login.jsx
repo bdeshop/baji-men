@@ -105,7 +105,7 @@ const Login = () => {
             <img
               src={logo}
               alt="Logo"
-              className="w-16 md:w-20"
+              className="w-[120px] md:w-[180px]"
             />
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-white mt-4">Super Affiliate Login</h1>
