@@ -677,7 +677,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                       alt="BDT"
                     />
                     <span className="min-w-[60px]">
-                      {userData?.balance || "0.00"}
+                      {parseFloat(userData?.balance || 0).toFixed(2)}
                     </span>
                   </div>
                   <button
@@ -717,7 +717,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                       alt="BDT"
                     />
                     <span className="text-white min-w-[40px]">
-                      {userData?.balance || "0.00"}
+                     {parseFloat(userData?.balance || 0).toFixed(2)}
                     </span>
                   </div>
                   <button
