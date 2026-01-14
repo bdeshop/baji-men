@@ -237,105 +237,121 @@ const Newgames = () => {
     );
   };
 
-  const handleSaveOrUpdateGame = async (gameApiID) => {
-    const gameToSave = games.find((g) => g._id === gameApiID);
-    console.log("gameToSave",gameToSave)
-    // Validation for new games
-    if (
-      !gameToSave.isSaved &&
-      (!gameToSave.localPortraitImage || !gameToSave.localLandscapeImage)
-    ) {
-      toast.error(
-        "Please upload both portrait and landscape images for a new game."
-      );
-      return;
+const handleSaveOrUpdateGame = async (gameApiID) => {
+  const gameToSave = games.find((g) => g._id === gameApiID);
+  
+  // Validation for new games
+  if (
+    !gameToSave.isSaved &&
+    (!gameToSave.localPortraitImage || !gameToSave.localLandscapeImage)
+  ) {
+    toast.error(
+      "Please upload both portrait and landscape images for a new game."
+    );
+    return;
+  }
+
+  // Validate category for new games
+  if (!gameToSave.isSaved && !gameToSave.localCategory) {
+    toast.error("Please select a category for the game.");
+    return;
+  }
+
+  setSavingGameId(gameApiID);
+
+  try {
+    const formData = new FormData();
+    formData.append("gameApiID", gameToSave._id); // Changed from game_uuid to _id
+    formData.append("name", gameToSave.name);
+    formData.append("provider", gameToSave.provider.name);
+    
+    // Add category to form data
+    const selectedCat = categories.find(cat => 
+      cat._id === gameToSave.localCategory || cat.name === gameToSave.localCategory
+    );
+    if (selectedCat) {
+      formData.append("category", selectedCat.name);
+    } else {
+      formData.append("category", gameToSave.localCategory || "");
+    }
+    
+    formData.append("featured", gameToSave.localFeatured);
+    formData.append("status", gameToSave.localStatus);
+    formData.append("fullScreen", gameToSave.localFullScreen);
+    
+    if (gameToSave.localPortraitImage) {
+      formData.append("portraitImage", gameToSave.localPortraitImage);
+    }
+    if (gameToSave.localLandscapeImage) {
+      formData.append("landscapeImage", gameToSave.localLandscapeImage);
     }
 
-    // Validate category for new games
-    if (!gameToSave.isSaved && !gameToSave.localCategory) {
-      toast.error("Please select a category for the game.");
-      return;
-    }
+    const isUpdate = gameToSave.isSaved;
+    const url = isUpdate
+      ? `${base_url}/api/admin/games/${gameToSave.localId}`
+      : `${base_url}/api/admin/games`;
+    const method = isUpdate ? "PUT" : "POST";
+    const response = await fetch(url, {
+      method: method,
+      body: formData,
+    });
 
-    setSavingGameId(gameApiID);
-
-    try {
-      console.log(gameToSave)
-      const formData = new FormData();
-      formData.append("gameApiID",gameToSave.game_uuid);
-      formData.append("name", gameToSave.name);
-      formData.append("provider", gameToSave.provider.name);
-      
-      // Add category to form data
-      const selectedCat = categories.find(cat => 
-        cat._id === gameToSave.localCategory || cat.name === gameToSave.localCategory
+    const result = await response.json();
+    if (response.ok) {
+      toast.success(
+        `Game "${gameToSave.name}" ${
+          isUpdate ? "updated" : "added"
+        } successfully!`
       );
-      if (selectedCat) {
-        formData.append("category", selectedCat.name);
-      } else {
-        formData.append("category", gameToSave.localCategory || "");
-      }
-      
-      formData.append("featured", gameToSave.localFeatured);
-      formData.append("status", gameToSave.localStatus);
-      formData.append("fullScreen", gameToSave.localFullScreen); // Add fullScreen field
-      
-      if (gameToSave.localPortraitImage) {
-        formData.append("portraitImage", gameToSave.localPortraitImage);
-      }
-      if (gameToSave.localLandscapeImage) {
-        formData.append("landscapeImage", gameToSave.localLandscapeImage);
-      }
-
-      const isUpdate = gameToSave.isSaved;
-      const url = isUpdate
-        ? `${base_url}/api/admin/games/${gameToSave.localId}`
-        : `${base_url}/api/admin/games`;
-      const method = isUpdate ? "PUT" : "POST";
-      const response = await fetch(url, {
-        method: method,
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        toast.success(
-          `Game "${gameToSave.name}" ${
-            isUpdate ? "updated" : "added"
-          } successfully!`
-        );
-        setGames((prevGames) =>
-          prevGames.map((g) =>
-            g._id === gameApiID
-              ? {
-                  ...g,
-                  isSaved: true,
-                  localId: result.game._id,
-                  localCategory: result.game.category,
-                  localFullScreen: result.game.fullScreen || false, // Update with saved fullScreen
-                  localPortraitImage: null,
-                  localLandscapeImage: null,
-                }
-              : g
-          )
-        );
+      setGames((prevGames) =>
+        prevGames.map((g) =>
+          g._id === gameApiID
+            ? {
+                ...g,
+                isSaved: true,
+                localId: result.game._id,
+                localCategory: result.game.category,
+                localFullScreen: result.game.fullScreen || false,
+                localPortraitImage: null,
+                localLandscapeImage: null,
+              }
+            : g
+        )
+      );
+    } else {
+      // Handle duplicate key error specifically
+      if (response.status === 400) {
+        // Check for duplicate key error messages from backend
+        const errorMsg = result.error || "";
+        
+        if (errorMsg.includes("Game API ID already exists") || 
+            errorMsg.includes("duplicate key error") ||
+            errorMsg.includes("E11000")) {
+          toast.error(`⚠️ Game API ID "${gameToSave._id}" is already in use! Please use a different ID.`);
+        } else if (errorMsg.includes("All fields are required")) {
+          toast.error("❌ All fields are required to save the game.");
+        } else if (errorMsg.includes("images are required")) {
+          toast.error("❌ Both portrait and landscape images are required.");
+        } else {
+          // Generic error
+          toast.error(`❌ ${errorMsg || `Failed to ${isUpdate ? "update" : "add"} game.`}`);
+        }
       } else {
         toast.error(
           result.error ||
-            `Failed to ${isUpdate ? "update" : "add"} game "${
+            `❌ Failed to ${isUpdate ? "update" : "add"} game "${
               gameToSave.name
             }".`
         );
       }
-    } catch (error) {
-      console.error("Error saving game:", error);
-      toast.error("An error occurred while saving the game.");
-    } finally {
-      setSavingGameId(null);
     }
-  };
-
+  } catch (error) {
+    console.error("Error saving game:", error);
+    toast.error("❌ An error occurred while saving the game.");
+  } finally {
+    setSavingGameId(null);
+  }
+};
   return (
     <section className="font-nunito h-screen bg-gray-50">
       <Header toggleSidebar={toggleSidebar} />
