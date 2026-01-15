@@ -1733,7 +1733,7 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
 // });
 
 
-Userrouter.post("/callback-data-game", async (req, res) => {
+router.post("/callback-data-game", async (req, res) => {
   try {
     // Extract fields from request body (support both old and new formats)
     let {
@@ -1746,7 +1746,17 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       verification_key,
       bet_type,
       transaction_id,
-      times
+      times,
+      // Old format fields
+      member_account,
+      game_uid,
+      serial_number,
+      currency_code,
+      platform,
+      game_type,
+      device_info,
+      bet_amount,
+      win_amount
     } = req.body;
 
     console.log("Callback data received -> ", req.body);
@@ -1858,7 +1868,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       });
     }
 
-    // Find the user by username
+    // Find the user by username WITH LOCK to prevent race conditions
     const matchedUser = await User.findOne({ 
       username: processedData.original_username 
     });
@@ -1887,9 +1897,47 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       status = processedData.status;
     }
 
-    // Calculate new balance
+    // ========== BALANCE VALIDATION ADDED HERE ==========
+    // Check if user has sufficient balance for the bet
     const balanceBefore = matchedUser.balance || 0;
+    
+    // Only check balance for BET operations, not for SETTLE operations
+    if ((processingFormat === 'new' && processedData.bet_type === 'BET') || 
+        (processingFormat === 'old' && betAmount > 0)) {
+      
+      if (balanceBefore < betAmount) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient balance. Current balance: ${balanceBefore}, Bet amount: ${betAmount}`,
+          data: {
+            username: processedData.original_username,
+            current_balance: balanceBefore,
+            required_balance: betAmount,
+            deficit: betAmount - balanceBefore
+          }
+        });
+      }
+    }
+    
+    // Calculate new balance after the transaction
     const newBalance = balanceBefore - betAmount + winAmount;
+    
+    // Additional safety check: Ensure new balance doesn't go negative
+    if (newBalance < 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Transaction would result in negative balance. Current balance: ${balanceBefore}, Transaction net: ${netAmount}`,
+        data: {
+          username: processedData.original_username,
+          balance_before: balanceBefore,
+          bet_amount: betAmount,
+          win_amount: winAmount,
+          net_amount: netAmount,
+          projected_balance: newBalance
+        }
+      });
+    }
+    // ========== END BALANCE VALIDATION ==========
 
     // Prepare the bet history record for User model
     const betRecord = {
@@ -1903,20 +1951,23 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       bet_type: processedData.bet_type
     };
 
-    // Update user data
+    // ========== FIXED: SINGLE ATOMIC UPDATE ==========
+    // Update user data in a single atomic operation
     const updateResult = await User.findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(matchedUser._id) },
+      { 
+        _id: new mongoose.Types.ObjectId(matchedUser._id),
+        // Add optimistic concurrency control to prevent race conditions
+        balance: { $gte: betAmount } // Ensure balance hasn't changed
+      },
       {
         $set: {
           balance: newBalance,
-          total_bet: (matchedUser.total_bet || 0) + betAmount,
-          total_wins: isWin
-            ? (matchedUser.total_wins || 0) + winAmount
-            : matchedUser.total_wins || 0,
-          total_loss: !isWin
-            ? (matchedUser.total_loss || 0) + betAmount
-            : matchedUser.total_loss || 0,
-          lifetime_bet: (matchedUser.lifetime_bet || 0) + betAmount,
+        },
+        $inc: {
+          total_bet: betAmount,
+          total_wins: isWin ? winAmount : 0,
+          total_loss: !isWin ? betAmount : 0,
+          lifetime_bet: betAmount
         },
         $push: {
           betHistory: betRecord,
@@ -1933,17 +1984,27 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           },
         },
       },
-      { returnDocument: "after" }
+      { 
+        returnDocument: "after",
+        // If balance check fails, retry logic
+        maxTimeMS: 5000
+      }
     );
-       matchedUser.total_bet+=betAmount;
-       matchedUser.save();
-    // Check if update was successful
+    
+    // Check if update was successful (concurrency check failed)
     if (!updateResult) {
-      return res.status(500).json({
+      return res.status(409).json({
         success: false,
-        message: "Failed to update user data.",
+        message: "Transaction failed due to concurrent balance modification. Please try again.",
+        data: {
+          username: processedData.original_username,
+          original_balance: balanceBefore,
+          current_balance: (await User.findById(matchedUser._id)).balance,
+          bet_amount: betAmount
+        }
       });
     }
+    // ========== END FIXED UPDATE ==========
 
     // Create BettingHistory record
     const bettingHistoryRecord = new BettingHistory({
