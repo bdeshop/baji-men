@@ -296,7 +296,7 @@ const Home = () => {
             <div className="flex justify-center">
               <img
                 src="https://bajiliveaffiliate.com/wp-content/uploads/2024/02/bjaff-banner.jpg"
-                alt="http://localhost:4500 Affiliate Program"
+                alt="BajiMan Affiliate Program"
                 className="w-full max-w-2xl h-auto rounded-[5px] border border-gray-800"
               />
             </div>
