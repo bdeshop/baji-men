@@ -444,13 +444,13 @@ const Home = () => {
       {/* ==================== SUPER AFFILIATE SECTION ==================== */}
       <section id="super-affiliate" className="py-20 bg-[#1a1b1b]">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-6">Super Affiliate Program</h2>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-6">Affiliate Program</h2>
           <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-10">
             Take your earnings to the next level with exclusive benefits, higher commissions, and priority support.
           </p>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-[#2a2b2b] p-8 rounded-lg border border-purple-500/20">
-              <h3 className="text-2xl font-bold text-purple-400 mb-3">40% Commission</h3>
+              <h3 className="text-2xl font-bold text-purple-400 mb-3">Upto 60% Commission</h3>
               <p className="text-gray-300">Earn more per referral with enhanced rates.</p>
             </div>
             <div className="bg-[#2a2b2b] p-8 rounded-lg border border-blue-500/20">
@@ -466,29 +466,6 @@ const Home = () => {
       </section>
 
       {/* ==================== MASTER AFFILIATE SECTION ==================== */}
-      <section id="master-affiliate" className="py-20 bg-[#141515]">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-100 mb-6">Master Affiliate Program</h2>
-          <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-10">
-            The pinnacle of affiliate success — unlimited earnings, global influence, and lifetime rewards.
-          </p>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-[#2a2b2b] p-8 rounded-lg border border-yellow-500/20">
-              <h3 className="text-2xl font-bold text-yellow-400 mb-3">50% Revenue Share</h3>
-              <p className="text-gray-300">Lifetime revenue share on all your referrals.</p>
-            </div>
-            <div className="bg-[#2a2b2b] p-8 rounded-lg border border-red-500/20">
-              <h3 className="text-2xl font-bold text-red-400 mb-3">Equity Options</h3>
-              <p className="text-gray-300">Earn equity in BajiMan for top performers.</p>
-            </div>
-            <div className="bg-[#2a2b2b] p-8 rounded-lg border border-teal-500/20">
-              <h3 className="text-2xl font-bold text-teal-400 mb-3">Global Recognition</h3>
-              <p className="text-gray-300">Be featured as a top affiliate worldwide.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ==================== BENEFITS SECTION ==================== */}
       <section id="benefits" className="py-20 bg-[#141515]">
         <div className="container mx-auto px-4">
