@@ -19,33 +19,33 @@ import {
   FaCalendarAlt,
   FaCheckCircle,
   FaTimesCircle,
-  FaHourglassHalf
+  FaHourglassHalf,
+  FaUserTie,
+  FaHandHoldingUsd,
+  FaTrophy,
+  FaPercentage
 } from 'react-icons/fa';
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  Legend
+  Legend,
+  Cell
 } from 'recharts';
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
-import { FiRefreshCw, FiTrendingUp, FiTrendingDown, FiChevronDown } from "react-icons/fi";
+import { FiRefreshCw, FiTrendingUp, FiTrendingDown, FiChevronDown, FiBarChart2 } from "react-icons/fi";
+import { MdAttachMoney, MdAccountBalanceWallet, MdTrendingUp } from "react-icons/md";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [dashboardData, setDashboardData] = useState({});
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(new Date().setDate(new Date().getDate() - 30)),
     endDate: new Date()
@@ -61,6 +61,7 @@ const Dashboard = () => {
   }, [dateRange]);
 
   const fetchDashboardData = async () => {
+    setLoading(true);
     try {
       const params = {
         startDate: dateRange.startDate.toISOString().split('T')[0],
@@ -68,10 +69,13 @@ const Dashboard = () => {
       };
       
       const response = await axios.get(`${base_url}/api/admin/dashboard`, { params });
+      console.log('Dashboard API Response:', response.data); // For debugging
       setDashboardData(response.data || {});
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setDashboardData({});
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -123,37 +127,65 @@ const Dashboard = () => {
     return value !== null && value !== undefined ? value : defaultValue;
   };
 
-  // Prepare data from backend response
-  const summary = {
-    users: {
-      total: getData('summary.users.total', getData('data.users', 0)),
-      today: getData('summary.users.today', 0),
-      active: getData('summary.users.active', getData('data.activeUsers', 0))
-    },
-    financial: {
-      totalBalance: getData('summary.financial.totalBalance', getData('data.totalBalance', 0)),
-      totalDeposit: getData('summary.financial.totalDeposit', getData('data.totalDeposit', getData('data.deposits', 0))),
-      totalWithdraw: getData('summary.financial.totalWithdraw', getData('data.totalWithdraw', getData('data.withdrawals', 0))),
-      totalBet: getData('summary.financial.totalBet', 0),
-      totalBonusBalance: getData('summary.financial.totalBonusBalance', 0)
-    },
-    deposits: {
-      total: getData('summary.deposits.total', getData('data.deposits', 0)),
-      todayAmount: getData('summary.deposits.todayAmount', 0)
-    },
-    withdrawals: {
-      total: getData('summary.withdrawals.total', getData('data.withdrawals', 0)),
-      todayAmount: getData('summary.withdrawals.todayAmount', 0)
-    },
-    games: {
-      total: getData('summary.games.total', getData('data.games', 0)),
-      active: getData('summary.games.active', 0),
-      inactive: getData('summary.games.inactive', 0)
-    },
-    pendingApprovals: {
-      deposits: getData('summary.pendingApprovals.deposits', getData('data.pendingDeposits', 0)),
-      withdrawals: getData('summary.pendingApprovals.withdrawals', getData('data.pendingWithdrawals', 0))
-    }
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-BD', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
+
+  // Prepare dashboard statistics
+  const stats = {
+    // User Statistics
+    totalUsers: getData('data.users.totalUsers', 0),
+    activeUsers: getData('data.users.activeUsers', 0),
+    totalUserBalance: getData('data.users.totalBalance', 0),
+    totalBonusBalance: getData('data.users.totalBonusBalance', 0),
+    
+    // Financial Statistics
+    totalDeposits: getData('data.financial.totalDeposits', 0),
+    totalWithdrawals: getData('data.financial.totalWithdrawals', 0),
+    userTotalDeposit: getData('data.financial.userTotalDeposit', 0),
+    userTotalWithdraw: getData('data.financial.userTotalWithdraw', 0),
+    userTotalBet: getData('data.financial.userTotalBet', 0),
+    userTotalWins: getData('data.financial.userTotalWins', 0),
+    userTotalLoss: getData('data.financial.userTotalLoss', 0),
+    userNetProfit: getData('data.financial.userNetProfit', 0),
+    lifetimeDeposit: getData('data.financial.lifetimeDeposit', 0),
+    lifetimeWithdraw: getData('data.financial.lifetimeWithdraw', 0),
+    lifetimeBet: getData('data.financial.lifetimeBet', 0),
+    
+    // Pending Approvals
+    pendingDeposits: getData('data.pendingApprovals.deposits', 0),
+    pendingWithdrawals: getData('data.pendingApprovals.withdrawals', 0),
+    
+    // Gaming Statistics
+    totalBetAmount: getData('data.gaming.totalBetAmount', 0),
+    totalWinAmount: getData('data.gaming.totalWinAmount', 0),
+    totalNetProfit: getData('data.gaming.totalNetProfit', 0),
+    bettingTotalBetAmount: getData('data.gaming.bettingTotalBetAmount', 0),
+    bettingTotalWinAmount: getData('data.gaming.bettingTotalWinAmount', 0),
+    bettingTotalProfitLoss: getData('data.gaming.bettingTotalProfitLoss', 0),
+    
+    // Affiliate Statistics
+    affiliatePendingEarnings: getData('data.affiliate.totalPendingEarnings', 0),
+    affiliatePaidEarnings: getData('data.affiliate.totalPaidEarnings', 0),
+    affiliateTotalEarnings: getData('data.affiliate.totalEarnings', 0),
+    
+    // Bonus Statistics
+    totalBonusGiven: getData('data.bonus.totalBonusGiven', 0),
+    totalBonusWagered: getData('data.bonus.totalBonusWagered', 0),
+    
+    // Today's Statistics
+    todayDeposits: getData('data.today.deposits', 0),
+    todayWithdrawals: getData('data.today.withdrawals', 0),
+    todayTotalBet: getData('data.today.betting.totalBet', 0),
+    todayTotalWin: getData('data.today.betting.totalWin', 0),
+    
+    // Monthly Statistics
+    monthlyDeposits: getData('data.monthly.deposits', 0),
+    monthlyWithdrawals: getData('data.monthly.withdrawals', 0)
   };
 
   // Professional color palette
@@ -167,121 +199,115 @@ const Dashboard = () => {
     'from-indigo-600 to-indigo-800',
     'from-cyan-600 to-cyan-800',
     'from-rose-600 to-rose-800',
-    'from-amber-600 to-amber-800',
-    'from-emerald-600 to-emerald-800',
-    'from-violet-600 to-violet-800',
-    'from-fuchsia-600 to-fuchsia-800',
-    'from-lime-600 to-lime-800',
-    'from-sky-600 to-sky-800'
+    'from-amber-600 to-amber-800'
   ];
 
-  // Status cards data
+  // Status cards data - UPDATED WITH TOTAL AMOUNTS
   const statusCards = [
     {
       title: 'Total Users',
-      value: summary.users.total || 0,
+      value: formatCurrency(stats.totalUsers),
       icon: <FaUsers className="text-3xl text-white" />,
-      description: `${summary.users.today || 0} new today`,
-      trend: 'up'
-    },
-    {
-      title: 'Total Deposits',
-      value: `৳${(summary.financial.totalDeposit || 0).toLocaleString()}`,
-      icon: <FaMoneyCheckAlt className="text-3xl text-white" />,
-      description: `৳${(summary.deposits.todayAmount || 0).toLocaleString()} today`,
-      trend: 'up'
-    },
-    {
-      title: 'Total Withdrawals',
-      value: `৳${(summary.financial.totalWithdraw || 0).toLocaleString()}`,
-      icon: <FaBangladeshiTakaSign className="text-3xl text-white" />,
-      description: `৳${(summary.withdrawals.todayAmount || 0).toLocaleString()} today`,
-      trend: 'up'
-    },
-    {
-      title: 'Pending Approvals',
-      value: (summary.pendingApprovals.deposits || 0) + (summary.pendingApprovals.withdrawals || 0),
-      icon: <FaClock className="text-3xl text-white" />,
-      description: 'Requires attention',
-      trend: 'neutral'
-    },
-    {
-      title: 'Pending Deposits',
-      value: summary.pendingApprovals.deposits || 0,
-      icon: <FaHourglassHalf className="text-3xl text-white" />,
-      description: `৳${0} pending`,
-      trend: 'neutral'
-    },
-    {
-      title: 'Pending Withdrawals',
-      value: summary.pendingApprovals.withdrawals || 0,
-      icon: <FaHourglassHalf className="text-3xl text-white" />,
-      description: `৳${0} pending`,
-      trend: 'neutral'
-    },
-    {
-      title: 'Active Users',
-      value: summary.users.active || 0,
-      icon: <FaUserCheck className="text-3xl text-white" />,
-      description: `${summary.users.total || 0} total users`,
-      trend: 'up'
+      description: `${stats.activeUsers} active users`,
+      gradient: gradientColors[0],
+      prefix: ''
     },
     {
       title: 'Platform Balance',
-      value: `৳${(summary.financial.totalBalance || 0).toLocaleString()}`,
-      icon: <FaMoneyBillWave className="text-3xl text-white" />,
-      description: 'Total user balances',
-      trend: 'up'
+      value: `৳${formatCurrency(stats.totalUserBalance)}`,
+      icon: <MdAccountBalanceWallet className="text-3xl text-white" />,
+      description: `৳${formatCurrency(stats.totalBonusBalance)} bonus balance`,
+      gradient: gradientColors[1],
+      prefix: '৳'
     },
     {
-      title: 'Total Games',
-      value: summary.games.total || 0,
-      icon: <FaGamepad className="text-3xl text-white" />,
-      description: `${summary.games.active || 0} active games`,
-      trend: 'up'
+      title: 'Total Deposits',
+      value: `৳${formatCurrency(stats.totalDeposits)}`,
+      icon: <FaMoneyCheckAlt className="text-3xl text-white" />,
+      description: `৳${formatCurrency(stats.todayDeposits)} today`,
+      gradient: gradientColors[2],
+      prefix: '৳'
+    },
+    {
+      title: 'Total Withdrawals',
+      value: `৳${formatCurrency(stats.totalWithdrawals)}`,
+      icon: <FaBangladeshiTakaSign className="text-3xl text-white" />,
+      description: `৳${formatCurrency(stats.todayWithdrawals)} today`,
+      gradient: gradientColors[3],
+      prefix: '৳'
     },
     {
       title: 'Total Bets',
-      value: `৳${(summary.financial.totalBet || 0).toLocaleString()}`,
+      value: `৳${formatCurrency(stats.totalBetAmount)}`,
       icon: <FaChartLine className="text-3xl text-white" />,
-      description: 'All-time betting volume',
-      trend: 'up'
-    }
-  ].map((card, index) => ({
-    ...card,
-    gradient: gradientColors[index % gradientColors.length]
-  }));
-
-  // Chart data - using real data from backend
-  const financialData = [
-    { name: 'Deposits', value: summary.financial.totalDeposit || 0 },
-    { name: 'Withdrawals', value: summary.financial.totalWithdraw || 0 },
-    { name: 'Bets', value: summary.financial.totalBet || 0 },
-    { name: 'Balance', value: summary.financial.totalBalance || 0 },
-    { name: 'Bonus', value: summary.financial.totalBonusBalance || 0 }
-  ];
-
-  const depositWithdrawalData = [
-    {
-      name: 'Deposits',
-      value: summary.financial.totalDeposit || 0
+      description: `Net: ৳${formatCurrency(stats.totalNetProfit)}`,
+      gradient: gradientColors[4],
+      prefix: '৳'
     },
     {
-      name: 'Withdrawals',
-      value: summary.financial.totalWithdraw || 0
+      title: 'Pending Deposits',
+      value: `৳${formatCurrency(stats.pendingDeposits)}`,
+      icon: <FaHourglassHalf className="text-3xl text-white" />,
+      description: 'Requires approval',
+      gradient: gradientColors[5],
+      prefix: '৳'
+    },
+    {
+      title: 'Pending Withdrawals',
+      value: `৳${formatCurrency(stats.pendingWithdrawals)}`,
+      icon: <FaClock className="text-3xl text-white" />,
+      description: 'Awaiting processing',
+      gradient: gradientColors[6],
+      prefix: '৳'
+    },
+    {
+      title: 'Affiliate Earnings',
+      value: `৳${formatCurrency(stats.affiliateTotalEarnings)}`,
+      icon: <FaUserTie className="text-3xl text-white" />,
+      description: `৳${formatCurrency(stats.affiliatePendingEarnings)} pending`,
+      gradient: gradientColors[7],
+      prefix: '৳'
+    },
+    {
+      title: 'Total Bonus Given',
+      value: `৳${formatCurrency(stats.totalBonusGiven)}`,
+      icon: <FaTrophy className="text-3xl text-white" />,
+      description: `৳${formatCurrency(stats.totalBonusWagered)} wagered`,
+      gradient: gradientColors[8],
+      prefix: '৳'
+    },
+    {
+      title: 'Monthly Deposits',
+      value: `৳${formatCurrency(stats.monthlyDeposits)}`,
+      icon: <MdTrendingUp className="text-3xl text-white" />,
+      description: `৳${formatCurrency(stats.monthlyWithdrawals)} withdrawals`,
+      gradient: gradientColors[9],
+      prefix: '৳'
     }
   ];
 
-  // Generate sample user registration data (you can replace with real data from backend)
-  const generateUserRegistrationData = () => {
+  // Financial overview data for chart
+  const financialChartData = [
+    { name: 'Deposits', amount: stats.totalDeposits, color: '#3B82F6' },
+    { name: 'Withdrawals', amount: stats.totalWithdrawals, color: '#10B981' },
+    { name: 'Bets', amount: stats.totalBetAmount, color: '#F59E0B' },
+    { name: 'Wins', amount: stats.totalWinAmount, color: '#8B5CF6' },
+    { name: 'User Balance', amount: stats.totalUserBalance, color: '#EF4444' },
+    { name: 'Bonus Balance', amount: stats.totalBonusBalance, color: '#6EE7B7' }
+  ];
+
+  // Daily performance data (mock data - you can replace with real data from backend)
+  const generateDailyPerformanceData = () => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days.map((day, index) => ({
-      date: day,
-      users: Math.floor(Math.random() * 30) + 10 + index * 5
+    return days.map(day => ({
+      day,
+      deposits: Math.floor(Math.random() * 50000) + 20000,
+      withdrawals: Math.floor(Math.random() * 30000) + 10000,
+      bets: Math.floor(Math.random() * 70000) + 30000
     }));
   };
 
-  const userRegistrationData = generateUserRegistrationData();
+  const dailyPerformanceData = generateDailyPerformanceData();
 
   // Custom tooltip for charts
   const CustomTooltip = ({ active, payload, label }) => {
@@ -291,7 +317,7 @@ const Dashboard = () => {
           <p className="font-semibold text-gray-800 mb-2">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.name === 'users' ? entry.value : `৳${entry.value.toLocaleString()}`}
+              {entry.name}: ৳{formatCurrency(entry.value)}
             </p>
           ))}
         </div>
@@ -300,8 +326,37 @@ const Dashboard = () => {
     return null;
   };
 
-  // Colors for charts
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6EE7B7'];
+  // Financial summary items
+  const financialSummaryItems = [
+    { label: 'Total User Deposits', value: stats.userTotalDeposit },
+    { label: 'Total User Withdrawals', value: stats.userTotalWithdraw },
+    { label: 'Lifetime Deposits', value: stats.lifetimeDeposit },
+    { label: 'Lifetime Withdrawals', value: stats.lifetimeWithdraw },
+    { label: 'Total Wins', value: stats.userTotalWins },
+    { label: 'Total Loss', value: stats.userTotalLoss },
+    { label: 'Net Profit/Loss', value: stats.userNetProfit },
+    { label: 'Today\'s Deposits', value: stats.todayDeposits },
+    { label: 'Today\'s Withdrawals', value: stats.todayWithdrawals },
+    { label: 'Today\'s Bets', value: stats.todayTotalBet }
+  ];
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className="font-nunito min-h-screen bg-gray-50">
+        <Header toggleSidebar={toggleSidebar} />
+        <div className="flex pt-[10vh]">
+          <Sidebar isOpen={isSidebarOpen} />
+          <main className={`transition-all duration-300 flex-1 p-8 overflow-y-auto h-[90vh] flex items-center justify-center ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+            </div>
+          </main>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="font-nunito min-h-screen bg-gray-50">
@@ -316,7 +371,7 @@ const Dashboard = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-                <p className="text-gray-600 mt-2">Real-time insights and analytics for your platform.</p>
+                <p className="text-gray-600 mt-2">Real-time financial insights and analytics for your platform.</p>
               </div>
               <div className="flex items-center space-x-4">
                 <button 
@@ -326,6 +381,9 @@ const Dashboard = () => {
                   <FiRefreshCw />
                   Refresh
                 </button>
+                <div className="text-sm text-gray-600">
+                  Last updated: {new Date().toLocaleTimeString()}
+                </div>
               </div>
             </div>
 
@@ -389,7 +447,7 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards - Total Amounts */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-10">
             {statusCards.map((card, index) => (
               <div
@@ -417,10 +475,10 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* Financial Overview */}
+          {/* Financial Overview Chart */}
           <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Financial Overview</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Financial Overview (Total Amounts)</h3>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">Period:</span>
                 <span className="text-sm font-medium text-gray-800">
@@ -431,30 +489,47 @@ const Dashboard = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={350}>
                   <BarChart 
-                    data={financialData} 
-                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    data={financialChartData} 
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                   >
-                    <XAxis dataKey="name" stroke="#6B7280" />
-                    <YAxis stroke="#6B7280" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#6B7280"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="#6B7280"
+                      fontSize={12}
+                      tickFormatter={(value) => `৳${formatCurrency(value)}`}
+                    />
                     <Tooltip 
                       content={<CustomTooltip />}
-                      formatter={(value) => [`৳${value.toLocaleString()}`, 'Amount']}
+                      formatter={(value) => [`৳${formatCurrency(value)}`, 'Amount']}
                     />
-                    <Bar dataKey="value" fill="#3B82F6" radius={[6, 6, 0, 0]} />
+                    <Legend />
+                    <Bar 
+                      dataKey="amount" 
+                      name="Amount" 
+                      radius={[6, 6, 0, 0]}
+                    >
+                      {financialChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               
               <div className="bg-gray-50 rounded-lg p-6 border-[1px] border-gray-200">
                 <h4 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
-                <div className="space-y-4">
-                  {financialData.map((item, index) => (
+                <div className="space-y-3">
+                  {financialSummaryItems.map((item, index) => (
                     <div key={index} className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">{item.name}</span>
-                      <span className="text-sm font-semibold text-gray-900">
-                        ৳{(item.value).toLocaleString()}
+                      <span className="text-sm text-gray-600 truncate">{item.label}</span>
+                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap ml-2">
+                        ৳{formatCurrency(item.value)}
                       </span>
                     </div>
                   ))}
@@ -463,100 +538,179 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Charts Section */}
+          {/* Daily Performance & Gaming Stats */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-            {/* User Registration Trend */}
+            {/* Daily Performance */}
             <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">User Registration Trend (Last 7 Days)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={userRegistrationData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="users" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Deposit vs Withdrawal */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Deposits vs Withdrawals</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={depositWithdrawalData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Performance (Last 7 Days)</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart 
+                  data={dailyPerformanceData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                >
+                  <XAxis dataKey="day" stroke="#6B7280" fontSize={12} />
+                  <YAxis 
+                    stroke="#6B7280"
+                    fontSize={12}
+                    tickFormatter={(value) => `৳${formatCurrency(value)}`}
+                  />
                   <Tooltip 
                     content={<CustomTooltip />}
-                    formatter={(value) => [`৳${value.toLocaleString()}`, 'Amount']}
+                    formatter={(value) => [`৳${formatCurrency(value)}`, 'Amount']}
                   />
-                  <Bar dataKey="value" fill="#10B981" radius={[6, 6, 0, 0]} />
+                  <Legend />
+                  <Bar 
+                    dataKey="deposits" 
+                    name="Deposits" 
+                    fill="#3B82F6" 
+                    radius={[6, 6, 0, 0]} 
+                  />
+                  <Bar 
+                    dataKey="withdrawals" 
+                    name="Withdrawals" 
+                    fill="#10B981" 
+                    radius={[6, 6, 0, 0]} 
+                  />
+                  <Bar 
+                    dataKey="bets" 
+                    name="Bets" 
+                    fill="#F59E0B" 
+                    radius={[6, 6, 0, 0]} 
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
 
-          {/* System Status */}
-          <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">System Status & Performance</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">User Growth</h4>
-                    <p className="text-gray-600 text-sm">Monthly increase</p>
+            {/* Gaming Statistics */}
+            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Gaming Statistics</h3>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Total Bets</h4>
+                    <p className="text-2xl font-bold text-blue-600">
+                      ৳{formatCurrency(stats.bettingTotalBetAmount)}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">All-time betting volume</p>
                   </div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    +12.5%
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">Deposit Rate</h4>
-                    <p className="text-gray-600 text-sm">Success ratio</p>
-                  </div>
-                  <div className="text-2xl font-bold text-green-600">
-                    98.2%
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Total Wins</h4>
+                    <p className="text-2xl font-bold text-green-600">
+                      ৳{formatCurrency(stats.bettingTotalWinAmount)}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">All-time winnings</p>
                   </div>
                 </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">Withdrawal Time</h4>
-                    <p className="text-gray-600 text-sm">Average processing</p>
-                  </div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    2.4h
-                  </div>
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Platform Profit/Loss</h4>
+                  <p className={`text-2xl font-bold ${stats.bettingTotalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {stats.bettingTotalProfitLoss >= 0 ? '+' : ''}৳{formatCurrency(stats.bettingTotalProfitLoss)}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">Net earnings from gaming</p>
                 </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">Platform Health</h4>
-                    <p className="text-gray-600 text-sm">Overall status</p>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-600">
-                    Excellent
-                  </div>
+                <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">User Betting Activity</h4>
+                  <p className="text-2xl font-bold text-orange-600">
+                    ৳{formatCurrency(stats.userTotalBet)}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">Total bets placed by users</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Recent Activity - Only show if data exists */}
+          {/* System Status & Recent Activities */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+            {/* System Status */}
+            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">System Status</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Deposit Success</h4>
+                      <p className="text-gray-600 text-sm">Rate</p>
+                    </div>
+                    <div className="text-xl font-bold text-blue-600">
+                      98.2%
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Withdrawal Time</h4>
+                      <p className="text-gray-600 text-sm">Average</p>
+                    </div>
+                    <div className="text-xl font-bold text-green-600">
+                      2.4h
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Affiliate Payouts</h4>
+                      <p className="text-gray-600 text-sm">Pending</p>
+                    </div>
+                    <div className="text-xl font-bold text-orange-600">
+                      ৳{formatCurrency(stats.affiliatePendingEarnings)}
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Platform Health</h4>
+                      <p className="text-gray-600 text-sm">Status</p>
+                    </div>
+                    <div className="text-xl font-bold text-purple-600">
+                      Excellent
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Statistics</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Avg. Deposit Amount:</span>
+                  <span className="font-semibold text-gray-900">
+                    ৳{formatCurrency(stats.totalDeposits / Math.max(stats.totalUsers, 1))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Avg. Withdrawal Amount:</span>
+                  <span className="font-semibold text-gray-900">
+                    ৳{formatCurrency(stats.totalWithdrawals / Math.max(stats.totalUsers, 1))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Player Win Rate:</span>
+                  <span className="font-semibold text-gray-900">
+                    {stats.totalBetAmount > 0 
+                      ? `${((stats.totalWinAmount / stats.totalBetAmount) * 100).toFixed(1)}%` 
+                      : '0%'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Bonus Utilization:</span>
+                  <span className="font-semibold text-gray-900">
+                    {stats.totalBonusGiven > 0 
+                      ? `${((stats.totalBonusWagered / stats.totalBonusGiven) * 100).toFixed(1)}%` 
+                      : '0%'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activities */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Recent Users */}
             <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
               <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Users</h3>
               <div className="space-y-4">
@@ -585,6 +739,7 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Recent Deposits */}
             <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
               <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Deposits</h3>
               <div className="space-y-4">
@@ -600,7 +755,7 @@ const Dashboard = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-green-600">৳{(deposit.amount || 0).toLocaleString()}</p>
+                        <p className="font-bold text-green-600">৳{formatCurrency(deposit.amount || 0)}</p>
                         <p className="text-sm text-gray-500">
                           {deposit.createdAt ? new Date(deposit.createdAt).toLocaleDateString() : 'N/A'}
                         </p>

@@ -266,43 +266,131 @@ Adminrouter.use(adminAuth);
 // ==================== COMPREHENSIVE DASHBOARD ROUTE ====================
 
 // GET comprehensive dashboard data
+// ==================== COMPREHENSIVE DASHBOARD ROUTE ====================
+
+// GET comprehensive dashboard data with TOTAL AMOUNTS
 Adminrouter.get("/dashboard", async (req, res) => {
   try {
-    // Get all counts in parallel for better performance
+    // Get all TOTAL AMOUNTS in parallel for better performance
     const [
       totalUsers,
       activeUsers,
-      totalDeposits,
-      totalWithdrawals,
-      totalGames,
-      pendingDeposits,
-      pendingWithdrawals
+      totalDepositsAmount,
+      totalWithdrawalsAmount,
+      pendingDepositsAmount,
+      pendingWithdrawalsAmount,
+      userFinancialStats,
+      gameStats,
+      affiliateStats,
+      bonusStats,
+      bettingStats
     ] = await Promise.all([
+      // User counts (still useful for context)
       User.countDocuments(),
       User.countDocuments({ status: "active" }),
-      Deposit.countDocuments(),
-      Withdrawal.countDocuments(),
-      Game.countDocuments(),
-      Deposit.countDocuments({ status: "pending" }),
-      Withdrawal.countDocuments({ status: "pending" })
-    ]);
-
-    // Get financial totals
-    const financialStats = await User.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalBalance: { $sum: "$balance" },
-          totalDeposit: { $sum: "$total_deposit" },
-          totalWithdraw: { $sum: "$total_withdraw" },
-          totalBet: { $sum: "$total_bet" },
+      
+      // TOTAL Deposit Amounts
+      Deposit.aggregate([
+        { $group: { _id: null, totalAmount: { $sum: "$amount" } } }
+      ]),
+      
+      // TOTAL Withdrawal Amounts
+      Withdrawal.aggregate([
+        { $group: { _id: null, totalAmount: { $sum: "$amount" } } }
+      ]),
+      
+      // TOTAL Pending Deposit Amounts
+      Deposit.aggregate([
+        { $match: { status: "pending" } },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" } } }
+      ]),
+      
+      // TOTAL Pending Withdrawal Amounts
+      Withdrawal.aggregate([
+        { $match: { status: "pending" } },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" } } }
+      ]),
+      
+      // User Financial Statistics (TOTALS)
+      User.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalBalance: { $sum: "$balance" },
+            totalBonusBalance: { $sum: "$bonusBalance" },
+            totalDeposit: { $sum: "$total_deposit" },
+            totalWithdraw: { $sum: "$total_withdraw" },
+            totalBet: { $sum: "$total_bet" },
+            totalWins: { $sum: "$total_wins" },
+            totalLoss: { $sum: "$total_loss" },
+            netProfit: { $sum: "$net_profit" },
+            lifetimeDeposit: { $sum: "$lifetime_deposit" },
+            lifetimeWithdraw: { $sum: "$lifetime_withdraw" },
+            lifetimeBet: { $sum: "$lifetime_bet" }
+          }
         }
-      }
+      ]),
+      
+      // Game Statistics (if you want total bets/wins per game)
+      BettingHistory.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalBetAmount: { $sum: "$betAmount" },
+            totalWinAmount: { $sum: "$winAmount" },
+            totalNetProfit: { $sum: { $subtract: ["$winAmount", "$betAmount"] } }
+          }
+        }
+      ]),
+      
+      // Affiliate Statistics (TOTALS)
+      Affiliate.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalPendingEarnings: { $sum: "$pendingEarnings" },
+            totalPaidEarnings: { $sum: "$paidEarnings" },
+            totalEarnings: { $sum: "$totalEarnings" },
+            totalCommissionPaid: { $sum: "$commissionPaid" }
+          }
+        }
+      ]),
+      
+      // Bonus Statistics (TOTALS)
+      User.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalBonusGiven: { $sum: { $ifNull: ["$bonusInfo.totalBonusGiven", 0] } },
+            totalBonusWagered: { $sum: { $ifNull: ["$bonusInfo.bonusWageringTotal", 0] } }
+          }
+        }
+      ]),
+      
+      // Betting Statistics (TOTALS)
+      BettingHistory.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalBetAmountAllTime: { $sum: "$betAmount" },
+            totalWinAmountAllTime: { $sum: "$winAmount" },
+            totalProfitLoss: { 
+              $sum: { 
+                $cond: [
+                  { $eq: ["$status", "win"] },
+                  { $subtract: ["$winAmount", "$betAmount"] },
+                  { $multiply: ["$betAmount", -1] }
+                ]
+              }
+            }
+          }
+        }
+      ])
     ]);
 
     // Get recent activities
     const recentUsers = await User.find()
-      .select("username player_id createdAt")
+      .select("username player_id balance createdAt")
       .sort({ createdAt: -1 })
       .limit(5);
 
@@ -318,30 +406,146 @@ Adminrouter.get("/dashboard", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5);
 
+    // Get today's statistics
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayStats = await Promise.all([
+      Deposit.aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: today },
+            status: { $in: ["approved", "completed"] }
+          } 
+        },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
+      ]),
+      Withdrawal.aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: today },
+            status: { $in: ["completed"] }
+          } 
+        },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
+      ]),
+      BettingHistory.aggregate([
+        { $match: { createdAt: { $gte: today } } },
+        { 
+          $group: { 
+            _id: null, 
+            totalBetAmount: { $sum: "$betAmount" },
+            totalWinAmount: { $sum: "$winAmount" },
+            count: { $sum: 1 }
+          } 
+        }
+      ])
+    ]);
+
+    // Get monthly statistics
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const monthlyStats = await Promise.all([
+      Deposit.aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: startOfMonth },
+            status: { $in: ["approved", "completed"] }
+          } 
+        },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
+      ]),
+      Withdrawal.aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: startOfMonth },
+            status: { $in: ["completed"] }
+          } 
+        },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
+      ])
+    ]);
+
     res.json({
       success: true,
       data: {
-        users: totalUsers,
-        activeUsers: activeUsers,
-        deposits: totalDeposits,
-        withdrawals: totalWithdrawals,
-        games: totalGames,
-        financial: financialStats[0] || {
-          totalBalance: 0,
-          totalDeposit: 0,
-          totalWithdraw: 0,
-          totalBet: 0
+        // User Statistics
+        users: {
+          totalUsers: totalUsers,
+          activeUsers: activeUsers,
+          totalBalance: userFinancialStats[0]?.totalBalance || 0,
+          totalBonusBalance: userFinancialStats[0]?.totalBonusBalance || 0
         },
+        
+        // Financial Statistics
+        financial: {
+          totalDeposits: totalDepositsAmount[0]?.totalAmount || 0,
+          totalWithdrawals: totalWithdrawalsAmount[0]?.totalAmount || 0,
+          userTotalDeposit: userFinancialStats[0]?.totalDeposit || 0,
+          userTotalWithdraw: userFinancialStats[0]?.totalWithdraw || 0,
+          userTotalBet: userFinancialStats[0]?.totalBet || 0,
+          userTotalWins: userFinancialStats[0]?.totalWins || 0,
+          userTotalLoss: userFinancialStats[0]?.totalLoss || 0,
+          userNetProfit: userFinancialStats[0]?.netProfit || 0,
+          lifetimeDeposit: userFinancialStats[0]?.lifetimeDeposit || 0,
+          lifetimeWithdraw: userFinancialStats[0]?.lifetimeWithdraw || 0,
+          lifetimeBet: userFinancialStats[0]?.lifetimeBet || 0
+        },
+        
+        // Pending Amounts
         pendingApprovals: {
-          deposits: pendingDeposits,
-          withdrawals: pendingWithdrawals
+          deposits: pendingDepositsAmount[0]?.totalAmount || 0,
+          withdrawals: pendingWithdrawalsAmount[0]?.totalAmount || 0
+        },
+        
+        // Game/Betting Statistics
+        gaming: {
+          totalBetAmount: gameStats[0]?.totalBetAmount || 0,
+          totalWinAmount: gameStats[0]?.totalWinAmount || 0,
+          totalNetProfit: gameStats[0]?.totalNetProfit || 0,
+          bettingTotalBetAmount: bettingStats[0]?.totalBetAmountAllTime || 0,
+          bettingTotalWinAmount: bettingStats[0]?.totalWinAmountAllTime || 0,
+          bettingTotalProfitLoss: bettingStats[0]?.totalProfitLoss || 0
+        },
+        
+        // Affiliate Statistics
+        affiliate: {
+          totalPendingEarnings: affiliateStats[0]?.totalPendingEarnings || 0,
+          totalPaidEarnings: affiliateStats[0]?.totalPaidEarnings || 0,
+          totalEarnings: affiliateStats[0]?.totalEarnings || 0,
+          totalCommissionPaid: affiliateStats[0]?.totalCommissionPaid || 0
+        },
+        
+        // Bonus Statistics
+        bonus: {
+          totalBonusGiven: bonusStats[0]?.totalBonusGiven || 0,
+          totalBonusWagered: bonusStats[0]?.totalBonusWagered || 0
+        },
+        
+        // Today's Statistics
+        today: {
+          deposits: todayStats[0]?.[0]?.totalAmount || 0,
+          withdrawals: todayStats[1]?.[0]?.totalAmount || 0,
+          betting: {
+            totalBet: todayStats[2]?.[0]?.totalBetAmount || 0,
+            totalWin: todayStats[2]?.[0]?.totalWinAmount || 0
+          }
+        },
+        
+        // Monthly Statistics
+        monthly: {
+          deposits: monthlyStats[0]?.[0]?.totalAmount || 0,
+          withdrawals: monthlyStats[1]?.[0]?.totalAmount || 0
         }
       },
+      
+      // Recent Activities
       recentActivities: {
         users: recentUsers,
         deposits: recentDeposits,
         withdrawals: recentWithdrawals
       },
+      
       timestamp: new Date(),
       generatedAt: new Date().toISOString()
     });
