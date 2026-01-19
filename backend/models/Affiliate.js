@@ -171,7 +171,6 @@ const affiliateSchema = new mongoose.Schema({
     },
     calculatedAmount: {
       type: Number,
-      required: true,
     },
     
     // Timestamps
