@@ -340,24 +340,6 @@ const Dashboard = () => {
     { label: 'Today\'s Bets', value: stats.todayTotalBet }
   ];
 
-  // Loading state
-  if (loading) {
-    return (
-      <section className="font-nunito min-h-screen bg-gray-50">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-8 overflow-y-auto h-[90vh] flex items-center justify-center ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading dashboard data...</p>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <section className="font-nunito min-h-screen bg-gray-50">
       <Header toggleSidebar={toggleSidebar} />

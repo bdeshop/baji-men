@@ -57,6 +57,7 @@ import Opaydeposit from './pages/opay/Opaydeposit'
 import Createbonus from './pages/bonus/Createbonus'
 import Allbonuses from './pages/bonus/Allbonuses'
 import Affiliatedetails from './pages/allaffiliates/Affiliatedetails'
+import Managecommission from './pages/managecommission/Managecommission'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -545,6 +546,15 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Allaffiliates />
+            </ProtectedRoute>
+          }
+        />
+                 <Route 
+          exact 
+          path="/affiliates/manage-commission" 
+          element={
+            <ProtectedRoute>
+              <Managecommission />
             </ProtectedRoute>
           }
         />

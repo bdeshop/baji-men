@@ -202,7 +202,7 @@ const Dashboard = () => {
 
   const statsCards = [
     {
-      title: "Total Balance",
+      title: "Total Earnings",
       value: dashboardStats.totalBalance,
       change: dashboardStats.balanceChange,
       lastMonth: dashboardStats.lastMonthBalance,

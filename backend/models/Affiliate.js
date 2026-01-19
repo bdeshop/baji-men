@@ -34,6 +34,12 @@ const affiliateSchema = new mongoose.Schema({
     trim: true,
     match: [/^\+?[0-9\s\-\(\)]{10,}$/, 'Please enter a valid phone number']
   },
+    minusBalance: {
+    type: Number,
+    default: 0,
+    min: 0,
+    description: 'Negative balance due to chargebacks, adjustments, or penalties'
+  },
  // Role Information
   role: {
     type: String,
@@ -122,7 +128,6 @@ const affiliateSchema = new mongoose.Schema({
     amount: {
       type: Number,
       required: true,
-      min: 0
     },
     type: {
       type: String,
@@ -167,7 +172,6 @@ const affiliateSchema = new mongoose.Schema({
     calculatedAmount: {
       type: Number,
       required: true,
-      min: 0 // Actual commission amount
     },
     
     // Timestamps

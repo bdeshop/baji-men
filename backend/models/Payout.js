@@ -192,7 +192,6 @@ const payoutSchema = new mongoose.Schema({
   },
   netAmount: {
     type: Number,
-    required: true,
     min: 0
   },
   

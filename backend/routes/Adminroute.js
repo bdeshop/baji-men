@@ -10038,4 +10038,1297 @@ Adminrouter.post("/bonuses/validate-code", async (req, res) => {
     });
   }
 });
+
+
+// ==================== AFFILIATE BALANCE ADJUSTMENT ROUTES ====================
+
+// // POST adjust balance for a single affiliate (minusBalance deduction)
+// Adminrouter.post("/affiliates/:id/adjust-balance", async (req, res) => {
+//   try {
+//     const affiliateId = req.params.id;
+//     const { notes } = req.body;
+
+//     const affiliate = await Affiliate.findById(affiliateId);
+//     if (!affiliate) {
+//       return res.status(404).json({ 
+//         success: false, 
+//         error: "Affiliate not found" 
+//       });
+//     }
+
+//     // Check if there's any minusBalance to adjust
+//     if (affiliate.minusBalance <= 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "No negative balance to adjust",
+//         currentMinusBalance: affiliate.minusBalance
+//       });
+//     }
+
+//     // Store old values for audit trail
+//     const oldTotalEarnings = affiliate.totalEarnings;
+//     const oldMinusBalance = affiliate.minusBalance;
+    
+//     // Calculate adjustment based on the relationship between totalEarnings and minusBalance
+//     let adjustmentAmount;
+//     let newTotalEarnings;
+//     let remainingMinusBalance = 0;
+    
+//     if (oldTotalEarnings >= oldMinusBalance) {
+//       // Normal case: totalEarnings is greater than or equal to minusBalance
+//       newTotalEarnings = oldTotalEarnings - oldMinusBalance;
+//       adjustmentAmount = oldMinusBalance;
+//       // minusBalance will be set to 0
+//     } else {
+//       // Special case: minusBalance is greater than totalEarnings
+//       adjustmentAmount = oldTotalEarnings; // Can only deduct up to totalEarnings
+//       newTotalEarnings = 0;
+//       remainingMinusBalance = oldMinusBalance - oldTotalEarnings; // Keep remaining minusBalance
+      
+//       // Optional: If you want to clear minusBalance completely even when totalEarnings is insufficient
+//       // You can either:
+//       // 1. Keep remaining minusBalance (as we're doing here)
+//       // 2. OR set minusBalance to 0 and create negative totalEarnings (not recommended)
+//       // 3. OR set minusBalance to 0 and add a note about the deficit
+//     }
+
+//     // Update affiliate
+//     affiliate.totalEarnings = newTotalEarnings;
+//     affiliate.minusBalance = remainingMinusBalance; // Set to 0 or remaining amount
+    
+//     // Add to earnings history as adjustment
+//     affiliate.earningsHistory.push({
+//       amount: -adjustmentAmount, // Negative amount for deduction
+//       type: 'balance_adjustment',
+//       description: `Balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}`,
+//       status: 'paid',
+//       referredUser: affiliate._id,
+//       sourceId: new mongoose.Types.ObjectId(),
+//       sourceType: 'balance_adjustment',
+//       commissionRate: 0,
+//       sourceAmount: adjustmentAmount,
+//       calculatedAmount: -adjustmentAmount,
+//       earnedAt: new Date(),
+//       paidAt: new Date(),
+//       metadata: {
+//         adjustmentType: 'minus_balance_deduction',
+//         oldTotalEarnings: oldTotalEarnings,
+//         oldMinusBalance: oldMinusBalance,
+//         newTotalEarnings: newTotalEarnings,
+//         remainingMinusBalance: remainingMinusBalance,
+//         notes: notes || '',
+//         processedBy: req.user?.id || 'admin',
+//         isPartialAdjustment: oldTotalEarnings < oldMinusBalance,
+//         deficit: oldMinusBalance - oldTotalEarnings > 0 ? oldMinusBalance - oldTotalEarnings : 0
+//       }
+//     });
+
+//     await affiliate.save();
+
+//     res.json({
+//       success: true,
+//       message: remainingMinusBalance > 0 
+//         ? `Partial balance adjustment completed. ${remainingMinusBalance} BDT minus balance remains.` 
+//         : "Affiliate balance adjusted successfully",
+//       adjustment: {
+//         affiliateId: affiliate._id,
+//         affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+//         oldTotalEarnings: oldTotalEarnings,
+//         oldMinusBalance: oldMinusBalance,
+//         newTotalEarnings: affiliate.totalEarnings,
+//         remainingMinusBalance: affiliate.minusBalance,
+//         adjustmentAmount: adjustmentAmount,
+//         adjustmentDate: new Date(),
+//         isPartialAdjustment: oldTotalEarnings < oldMinusBalance,
+//         deficit: oldMinusBalance - oldTotalEarnings > 0 ? oldMinusBalance - oldTotalEarnings : 0
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Error adjusting affiliate balance:", error);
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to adjust affiliate balance"
+//     });
+//   }
+// });
+
+// // POST adjust balance for ALL affiliates (bulk operation)
+// Adminrouter.post("/affiliates/adjust-all-balances", async (req, res) => {
+//   try {
+//     const { notes, limit = 100, skip = 0 } = req.body;
+
+//     // Get all affiliates with positive minusBalance
+//     const affiliates = await Affiliate.find({
+//       minusBalance: { $gt: 0 }
+//     })
+//     .skip(parseInt(skip))
+//     .limit(parseInt(limit));
+
+//     if (affiliates.length === 0) {
+//       return res.json({
+//         success: true,
+//         message: "No affiliates with negative balance found",
+//         totalProcessed: 0,
+//         totalAdjusted: 0,
+//         totalAmountAdjusted: 0,
+//         totalRemainingMinusBalance: 0,
+//         partialAdjustments: 0
+//       });
+//     }
+
+//     const results = {
+//       totalProcessed: affiliates.length,
+//       totalAdjusted: 0,
+//       totalAmountAdjusted: 0,
+//       totalRemainingMinusBalance: 0,
+//       partialAdjustments: 0,
+//       successful: [],
+//       failed: []
+//     };
+
+//     // Process each affiliate
+//     for (const affiliate of affiliates) {
+//       try {
+//         const oldTotalEarnings = affiliate.totalEarnings;
+//         const oldMinusBalance = affiliate.minusBalance;
+        
+//         // Calculate adjustment based on the relationship between totalEarnings and minusBalance
+//         let adjustmentAmount;
+//         let newTotalEarnings;
+//         let remainingMinusBalance = 0;
+        
+//         if (oldTotalEarnings >= oldMinusBalance) {
+//           // Normal case: totalEarnings is greater than or equal to minusBalance
+//           newTotalEarnings = oldTotalEarnings - oldMinusBalance;
+//           adjustmentAmount = oldMinusBalance;
+//           // minusBalance will be set to 0
+//         } else {
+//           // Special case: minusBalance is greater than totalEarnings
+//           adjustmentAmount = oldTotalEarnings; // Can only deduct up to totalEarnings
+//           newTotalEarnings = 0;
+//           remainingMinusBalance = oldMinusBalance - oldTotalEarnings; // Keep remaining minusBalance
+//           results.partialAdjustments += 1;
+//         }
+
+//         // Update affiliate
+//         affiliate.totalEarnings = newTotalEarnings;
+//         affiliate.minusBalance = remainingMinusBalance;
+        
+//         // Add to earnings history as adjustment
+//         affiliate.earningsHistory.push({
+//           amount: -adjustmentAmount,
+//           type: 'balance_adjustment',
+//           description: `Bulk balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}`,
+//           status: 'paid',
+//           referredUser: affiliate._id,
+//           sourceId: new mongoose.Types.ObjectId(),
+//           sourceType: 'balance_adjustment',
+//           commissionRate: 0,
+//           sourceAmount: adjustmentAmount,
+//           calculatedAmount: -adjustmentAmount,
+//           earnedAt: new Date(),
+//           paidAt: new Date(),
+//           metadata: {
+//             adjustmentType: 'bulk_minus_balance_deduction',
+//             oldTotalEarnings: oldTotalEarnings,
+//             oldMinusBalance: oldMinusBalance,
+//             newTotalEarnings: newTotalEarnings,
+//             remainingMinusBalance: remainingMinusBalance,
+//             notes: notes || '',
+//             processedBy: req.user?.id || 'admin',
+//             bulkOperation: true,
+//             isPartialAdjustment: oldTotalEarnings < oldMinusBalance,
+//             deficit: oldMinusBalance - oldTotalEarnings > 0 ? oldMinusBalance - oldTotalEarnings : 0
+//           }
+//         });
+
+//         await affiliate.save();
+
+//         results.totalAdjusted++;
+//         results.totalAmountAdjusted += adjustmentAmount;
+//         results.totalRemainingMinusBalance += remainingMinusBalance;
+        
+//         results.successful.push({
+//           affiliateId: affiliate._id,
+//           affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+//           adjustmentAmount: adjustmentAmount,
+//           newTotalEarnings: affiliate.totalEarnings,
+//           remainingMinusBalance: affiliate.minusBalance,
+//           isPartial: oldTotalEarnings < oldMinusBalance,
+//           deficit: oldMinusBalance - oldTotalEarnings > 0 ? oldMinusBalance - oldTotalEarnings : 0
+//         });
+
+//       } catch (error) {
+//         console.error(`Error processing affiliate ${affiliate._id}:`, error);
+//         results.failed.push({
+//           affiliateId: affiliate._id,
+//           affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+//           error: error.message
+//         });
+//       }
+//     }
+
+//     // Get next batch if exists
+//     const remainingCount = await Affiliate.countDocuments({
+//       minusBalance: { $gt: 0 },
+//       _id: { $nin: affiliates.map(a => a._id) }
+//     });
+
+//     const response = {
+//       success: true,
+//       message: `Bulk balance adjustment completed. 
+//                 Processed ${results.totalAdjusted} affiliates successfully.
+//                 ${results.partialAdjustments > 0 ? `${results.partialAdjustments} had partial adjustments.` : ''}
+//                 ${results.totalRemainingMinusBalance > 0 ? `Total ${results.totalRemainingMinusBalance} BDT minus balance remains.` : ''}`,
+//       summary: results,
+//       nextBatch: remainingCount > 0 ? {
+//         remaining: remainingCount,
+//         nextSkip: skip + limit,
+//         nextLimit: limit
+//       } : null
+//     };
+
+//     res.json(response);
+
+//   } catch (error) {
+//     console.error("Error in bulk balance adjustment:", error);
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to process bulk balance adjustment"
+//     });
+//   }
+// });
+
+// // POST adjust balance for selected affiliates (multiple selection)
+// Adminrouter.post("/affiliates/adjust-selected-balances", async (req, res) => {
+//   try {
+//     const { affiliateIds, notes } = req.body;
+
+//     if (!affiliateIds || !Array.isArray(affiliateIds) || affiliateIds.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "Valid array of affiliate IDs is required"
+//       });
+//     }
+
+//     // Get selected affiliates with positive minusBalance
+//     const affiliates = await Affiliate.find({
+//       _id: { $in: affiliateIds },
+//       minusBalance: { $gt: 0 }
+//     });
+
+//     if (affiliates.length === 0) {
+//       return res.json({
+//         success: true,
+//         message: "No selected affiliates with negative balance found",
+//         totalProcessed: 0,
+//         totalAdjusted: 0,
+//         totalAmountAdjusted: 0,
+//         totalRemainingMinusBalance: 0,
+//         partialAdjustments: 0
+//       });
+//     }
+
+//     const results = {
+//       totalSelected: affiliateIds.length,
+//       totalProcessed: affiliates.length,
+//       totalAdjusted: 0,
+//       totalAmountAdjusted: 0,
+//       totalRemainingMinusBalance: 0,
+//       partialAdjustments: 0,
+//       successful: [],
+//       failed: []
+//     };
+
+//     // Process each affiliate
+//     for (const affiliate of affiliates) {
+//       try {
+//         const oldTotalEarnings = affiliate.totalEarnings;
+//         const oldMinusBalance = affiliate.minusBalance;
+        
+//         // Calculate adjustment based on the relationship between totalEarnings and minusBalance
+//         let adjustmentAmount;
+//         let newTotalEarnings;
+//         let remainingMinusBalance = 0;
+        
+//         if (oldTotalEarnings >= oldMinusBalance) {
+//           // Normal case: totalEarnings is greater than or equal to minusBalance
+//           newTotalEarnings = oldTotalEarnings - oldMinusBalance;
+//           adjustmentAmount = oldMinusBalance;
+//           // minusBalance will be set to 0
+//         } else {
+//           // Special case: minusBalance is greater than totalEarnings
+//           adjustmentAmount = oldTotalEarnings; // Can only deduct up to totalEarnings
+//           newTotalEarnings = 0;
+//           remainingMinusBalance = oldMinusBalance - oldTotalEarnings; // Keep remaining minusBalance
+//           results.partialAdjustments += 1;
+//         }
+
+//         // Update affiliate
+//         affiliate.totalEarnings = newTotalEarnings;
+//         affiliate.minusBalance = remainingMinusBalance;
+        
+//         // Add to earnings history as adjustment
+//         affiliate.earningsHistory.push({
+//           amount: -adjustmentAmount,
+//           type: 'balance_adjustment',
+//           description: `Selected balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}`,
+//           status: 'paid',
+//           referredUser: affiliate._id,
+//           sourceId: new mongoose.Types.ObjectId(),
+//           sourceType: 'balance_adjustment',
+//           commissionRate: 0,
+//           sourceAmount: adjustmentAmount,
+//           calculatedAmount: -adjustmentAmount,
+//           earnedAt: new Date(),
+//           paidAt: new Date(),
+//           metadata: {
+//             adjustmentType: 'selected_minus_balance_deduction',
+//             oldTotalEarnings: oldTotalEarnings,
+//             oldMinusBalance: oldMinusBalance,
+//             newTotalEarnings: newTotalEarnings,
+//             remainingMinusBalance: remainingMinusBalance,
+//             notes: notes || '',
+//             processedBy: req.user?.id || 'admin',
+//             isPartialAdjustment: oldTotalEarnings < oldMinusBalance,
+//             deficit: oldMinusBalance - oldTotalEarnings > 0 ? oldMinusBalance - oldTotalEarnings : 0
+//           }
+//         });
+
+//         await affiliate.save();
+
+//         results.totalAdjusted++;
+//         results.totalAmountAdjusted += adjustmentAmount;
+//         results.totalRemainingMinusBalance += remainingMinusBalance;
+        
+//         results.successful.push({
+//           affiliateId: affiliate._id,
+//           affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+//           adjustmentAmount: adjustmentAmount,
+//           newTotalEarnings: affiliate.totalEarnings,
+//           remainingMinusBalance: affiliate.minusBalance,
+//           isPartial: oldTotalEarnings < oldMinusBalance,
+//           deficit: oldMinusBalance - oldTotalEarnings > 0 ? oldMinusBalance - oldTotalEarnings : 0
+//         });
+
+//       } catch (error) {
+//         console.error(`Error processing affiliate ${affiliate._id}:`, error);
+//         results.failed.push({
+//           affiliateId: affiliate._id,
+//           affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+//           error: error.message
+//         });
+//       }
+//     }
+
+//     const response = {
+//       success: true,
+//       message: `Balance adjustment completed for selected affiliates. 
+//                 Processed ${results.totalAdjusted} affiliates successfully.
+//                 ${results.partialAdjustments > 0 ? `${results.partialAdjustments} had partial adjustments.` : ''}
+//                 ${results.totalRemainingMinusBalance > 0 ? `Total ${results.totalRemainingMinusBalance} BDT minus balance remains.` : ''}`,
+//       summary: results
+//     };
+
+//     res.json(response);
+
+//   } catch (error) {
+//     console.error("Error adjusting selected affiliate balances:", error);
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to adjust selected affiliate balances"
+//     });
+//   }
+// });
+
+// // Alternative: Force adjustment (clear minusBalance completely even if totalEarnings is insufficient)
+// Adminrouter.post("/affiliates/:id/adjust-balance-force", async (req, res) => {
+//   try {
+//     const affiliateId = req.params.id;
+//     const { notes, clearDeficit = false } = req.body; // clearDeficit option to handle deficit
+
+//     const affiliate = await Affiliate.findById(affiliateId);
+//     if (!affiliate) {
+//       return res.status(404).json({ 
+//         success: false, 
+//         error: "Affiliate not found" 
+//       });
+//     }
+
+//     // Check if there's any minusBalance to adjust
+//     if (affiliate.minusBalance <= 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "No negative balance to adjust",
+//         currentMinusBalance: affiliate.minusBalance
+//       });
+//     }
+
+//     // Store old values for audit trail
+//     const oldTotalEarnings = affiliate.totalEarnings;
+//     const oldMinusBalance = affiliate.minusBalance;
+    
+//     // Calculate adjustment - FORCE VERSION
+//     let adjustmentAmount;
+//     let newTotalEarnings;
+//     let deficit = 0;
+    
+//     if (oldTotalEarnings >= oldMinusBalance) {
+//       // Normal case: totalEarnings is greater than or equal to minusBalance
+//       newTotalEarnings = oldTotalEarnings - oldMinusBalance;
+//       adjustmentAmount = oldMinusBalance;
+//     } else {
+//       // Special case: minusBalance is greater than totalEarnings
+//       if (clearDeficit) {
+//         // Option 1: Clear deficit completely, totalEarnings goes negative
+//         adjustmentAmount = oldMinusBalance;
+//         newTotalEarnings = oldTotalEarnings - oldMinusBalance; // This will be negative
+//         deficit = Math.abs(newTotalEarnings);
+//       } else {
+//         // Option 2: Clear minusBalance, set totalEarnings to 0, track deficit separately
+//         adjustmentAmount = oldTotalEarnings;
+//         newTotalEarnings = 0;
+//         deficit = oldMinusBalance - oldTotalEarnings;
+//       }
+//     }
+
+//     // Update affiliate
+//     affiliate.totalEarnings = newTotalEarnings;
+//     affiliate.minusBalance = 0; // Always clear minusBalance in force mode
+    
+//     // Add to earnings history as adjustment
+//     affiliate.earningsHistory.push({
+//       amount: -adjustmentAmount,
+//       type: 'balance_adjustment_force',
+//       description: `Force balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}${deficit > 0 ? ` (Deficit: ${deficit} BDT)` : ''}`,
+//       status: 'paid',
+//       referredUser: affiliate._id,
+//       sourceId: new mongoose.Types.ObjectId(),
+//       sourceType: 'balance_adjustment_force',
+//       commissionRate: 0,
+//       sourceAmount: adjustmentAmount,
+//       calculatedAmount: -adjustmentAmount,
+//       earnedAt: new Date(),
+//       paidAt: new Date(),
+//       metadata: {
+//         adjustmentType: 'force_minus_balance_deduction',
+//         oldTotalEarnings: oldTotalEarnings,
+//         oldMinusBalance: oldMinusBalance,
+//         newTotalEarnings: newTotalEarnings,
+//         deficit: deficit,
+//         notes: notes || '',
+//         processedBy: req.user?.id || 'admin',
+//         clearDeficit: clearDeficit,
+//         forceMode: true
+//       }
+//     });
+
+//     await affiliate.save();
+
+//     res.json({
+//       success: true,
+//       message: `Force balance adjustment completed${deficit > 0 ? ` with ${deficit} BDT deficit` : ''}`,
+//       adjustment: {
+//         affiliateId: affiliate._id,
+//         affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+//         oldTotalEarnings: oldTotalEarnings,
+//         oldMinusBalance: oldMinusBalance,
+//         newTotalEarnings: affiliate.totalEarnings,
+//         remainingMinusBalance: affiliate.minusBalance,
+//         adjustmentAmount: adjustmentAmount,
+//         adjustmentDate: new Date(),
+//         deficit: deficit,
+//         hasDeficit: deficit > 0,
+//         forceMode: true
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Error in force balance adjustment:", error);
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to force adjust affiliate balance"
+//     });
+//   }
+// });
+
+// // GET adjustment statistics
+// Adminrouter.get("/affiliates/adjustment-stats", async (req, res) => {
+//   try {
+//     const stats = await Affiliate.aggregate([
+//       {
+//         $match: {
+//           minusBalance: { $gt: 0 }
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           totalAffiliates: { $sum: 1 },
+//           totalMinusBalance: { $sum: "$minusBalance" },
+//           totalEarnings: { $sum: "$totalEarnings" },
+//           affiliatesWithDeficit: {
+//             $sum: {
+//               $cond: [{ $lt: ["$totalEarnings", "$minusBalance"] }, 1, 0]
+//             }
+//           },
+//           totalDeficit: {
+//             $sum: {
+//               $cond: [
+//                 { $lt: ["$totalEarnings", "$minusBalance"] },
+//                 { $subtract: ["$minusBalance", "$totalEarnings"] },
+//                 0
+//               ]
+//             }
+//           },
+//           totalAdjustable: {
+//             $sum: {
+//               $cond: [
+//                 { $gte: ["$totalEarnings", "$minusBalance"] },
+//                 "$minusBalance",
+//                 0
+//               ]
+//             }
+//           }
+//         }
+//       }
+//     ]);
+
+//     const result = stats[0] || {
+//       totalAffiliates: 0,
+//       totalMinusBalance: 0,
+//       totalEarnings: 0,
+//       affiliatesWithDeficit: 0,
+//       totalDeficit: 0,
+//       totalAdjustable: 0
+//     };
+
+//     // Calculate percentages
+//     const percentageWithDeficit = result.totalAffiliates > 0 
+//       ? (result.affiliatesWithDeficit / result.totalAffiliates) * 100 
+//       : 0;
+    
+//     const coveragePercentage = result.totalMinusBalance > 0 
+//       ? (result.totalAdjustable / result.totalMinusBalance) * 100 
+//       : 0;
+
+//     res.json({
+//       success: true,
+//       stats: {
+//         ...result,
+//         percentageWithDeficit: percentageWithDeficit.toFixed(2),
+//         coveragePercentage: coveragePercentage.toFixed(2),
+//         fullyCovered: result.totalAdjustable === result.totalMinusBalance,
+//         hasDeficit: result.totalDeficit > 0
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Error fetching adjustment stats:", error);
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to fetch adjustment statistics"
+//     });
+//   }
+// });
+
+
+// POST adjust balance for a single affiliate (minusBalance deduction) - USING pendingEarnings
+Adminrouter.post("/affiliates/:id/adjust-balance", async (req, res) => {
+  try {
+    const affiliateId = req.params.id;
+    const { notes } = req.body;
+
+    const affiliate = await Affiliate.findById(affiliateId);
+    if (!affiliate) {
+      return res.status(404).json({ 
+        success: false, 
+        error: "Affiliate not found" 
+      });
+    }
+
+    // Check if there's any minusBalance to adjust
+    if (affiliate.minusBalance <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No negative balance to adjust",
+        currentMinusBalance: affiliate.minusBalance
+      });
+    }
+
+    // Store old values for audit trail
+    const oldPendingEarnings = affiliate.pendingEarnings || 0;
+    const oldMinusBalance = affiliate.minusBalance;
+    const oldTotalEarnings = affiliate.totalEarnings; // Keep for reference
+    
+    // Calculate adjustment based on the relationship between pendingEarnings and minusBalance
+    let adjustmentAmount;
+    let newPendingEarnings;
+    let remainingMinusBalance = 0;
+    
+    if (oldPendingEarnings >= oldMinusBalance) {
+      // Normal case: pendingEarnings is greater than or equal to minusBalance
+      newPendingEarnings = oldPendingEarnings - oldMinusBalance;
+      adjustmentAmount = oldMinusBalance;
+      // minusBalance will be set to 0
+    } else {
+      // Special case: minusBalance is greater than pendingEarnings
+      adjustmentAmount = oldPendingEarnings; // Can only deduct up to pendingEarnings
+      newPendingEarnings = 0;
+      remainingMinusBalance = oldMinusBalance - oldPendingEarnings; // Keep remaining minusBalance
+      
+      // Optional: If you want to clear minusBalance completely even when pendingEarnings is insufficient
+      // You can either:
+      // 1. Keep remaining minusBalance (as we're doing here)
+      // 2. OR set minusBalance to 0 and create negative pendingEarnings (not recommended)
+      // 3. OR set minusBalance to 0 and deduct from paidEarnings or totalEarnings
+    }
+
+    // Update affiliate - adjust pendingEarnings and totalEarnings
+    affiliate.pendingEarnings = newPendingEarnings;
+    affiliate.totalEarnings = affiliate.totalEarnings - adjustmentAmount;
+    affiliate.minusBalance = remainingMinusBalance; // Set to 0 or remaining amount
+    
+    // Add to earnings history as adjustment
+    affiliate.earningsHistory.push({
+      amount: -adjustmentAmount, // Negative amount for deduction
+      type: 'balance_adjustment',
+      description: `Balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}`,
+      status: 'paid',
+      referredUser: affiliate._id,
+      sourceId: new mongoose.Types.ObjectId(),
+      sourceType: 'balance_adjustment',
+      commissionRate: 0,
+      sourceAmount: adjustmentAmount,
+      calculatedAmount: -adjustmentAmount,
+      earnedAt: new Date(),
+      paidAt: new Date(),
+      metadata: {
+        adjustmentType: 'minus_balance_deduction',
+        oldPendingEarnings: oldPendingEarnings,
+        oldTotalEarnings: oldTotalEarnings,
+        oldMinusBalance: oldMinusBalance,
+        newPendingEarnings: newPendingEarnings,
+        newTotalEarnings: affiliate.totalEarnings,
+        remainingMinusBalance: remainingMinusBalance,
+        notes: notes || '',
+        processedBy: req.user?.id || 'admin',
+        isPartialAdjustment: oldPendingEarnings < oldMinusBalance,
+        deficit: oldMinusBalance - oldPendingEarnings > 0 ? oldMinusBalance - oldPendingEarnings : 0
+      }
+    });
+
+    await affiliate.save();
+
+    res.json({
+      success: true,
+      message: remainingMinusBalance > 0 
+        ? `Partial balance adjustment completed. ${remainingMinusBalance} BDT minus balance remains.` 
+        : "Affiliate balance adjusted successfully",
+      adjustment: {
+        affiliateId: affiliate._id,
+        affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+        oldPendingEarnings: oldPendingEarnings,
+        oldTotalEarnings: oldTotalEarnings,
+        oldMinusBalance: oldMinusBalance,
+        newPendingEarnings: affiliate.pendingEarnings,
+        newTotalEarnings: affiliate.totalEarnings,
+        remainingMinusBalance: affiliate.minusBalance,
+        adjustmentAmount: adjustmentAmount,
+        adjustmentDate: new Date(),
+        isPartialAdjustment: oldPendingEarnings < oldMinusBalance,
+        deficit: oldMinusBalance - oldPendingEarnings > 0 ? oldMinusBalance - oldPendingEarnings : 0
+      }
+    });
+
+  } catch (error) {
+    console.error("Error adjusting affiliate balance:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to adjust affiliate balance"
+    });
+  }
+});
+
+// POST adjust balance for ALL affiliates (bulk operation) - USING pendingEarnings
+Adminrouter.post("/affiliates/adjust-all-balances", async (req, res) => {
+  try {
+    const { notes, limit = 100, skip = 0 } = req.body;
+
+    // Get all affiliates with positive minusBalance
+    const affiliates = await Affiliate.find({
+      minusBalance: { $gt: 0 }
+    })
+    .skip(parseInt(skip))
+    .limit(parseInt(limit));
+
+    if (affiliates.length === 0) {
+      return res.json({
+        success: true,
+        message: "No affiliates with negative balance found",
+        totalProcessed: 0,
+        totalAdjusted: 0,
+        totalAmountAdjusted: 0,
+        totalRemainingMinusBalance: 0,
+        partialAdjustments: 0
+      });
+    }
+
+    const results = {
+      totalProcessed: affiliates.length,
+      totalAdjusted: 0,
+      totalAmountAdjusted: 0,
+      totalRemainingMinusBalance: 0,
+      partialAdjustments: 0,
+      successful: [],
+      failed: []
+    };
+
+    // Process each affiliate
+    for (const affiliate of affiliates) {
+      try {
+        const oldPendingEarnings = affiliate.pendingEarnings || 0;
+        const oldTotalEarnings = affiliate.totalEarnings;
+        const oldMinusBalance = affiliate.minusBalance;
+        
+        // Calculate adjustment based on the relationship between pendingEarnings and minusBalance
+        let adjustmentAmount;
+        let newPendingEarnings;
+        let remainingMinusBalance = 0;
+        
+        if (oldPendingEarnings >= oldMinusBalance) {
+          // Normal case: pendingEarnings is greater than or equal to minusBalance
+          newPendingEarnings = oldPendingEarnings - oldMinusBalance;
+          adjustmentAmount = oldMinusBalance;
+          // minusBalance will be set to 0
+        } else {
+          // Special case: minusBalance is greater than pendingEarnings
+          adjustmentAmount = oldPendingEarnings; // Can only deduct up to pendingEarnings
+          newPendingEarnings = 0;
+          remainingMinusBalance = oldMinusBalance - oldPendingEarnings; // Keep remaining minusBalance
+          results.partialAdjustments += 1;
+        }
+
+        // Update affiliate
+        affiliate.pendingEarnings = newPendingEarnings;
+        affiliate.totalEarnings = affiliate.totalEarnings - adjustmentAmount;
+        affiliate.minusBalance = remainingMinusBalance;
+        
+        // Add to earnings history as adjustment
+        affiliate.earningsHistory.push({
+          amount: -adjustmentAmount,
+          type: 'balance_adjustment',
+          description: `Bulk balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}`,
+          status: 'paid',
+          referredUser: affiliate._id,
+          sourceId: new mongoose.Types.ObjectId(),
+          sourceType: 'balance_adjustment',
+          commissionRate: 0,
+          sourceAmount: adjustmentAmount,
+          calculatedAmount: -adjustmentAmount,
+          earnedAt: new Date(),
+          paidAt: new Date(),
+          metadata: {
+            adjustmentType: 'bulk_minus_balance_deduction',
+            oldPendingEarnings: oldPendingEarnings,
+            oldTotalEarnings: oldTotalEarnings,
+            oldMinusBalance: oldMinusBalance,
+            newPendingEarnings: newPendingEarnings,
+            newTotalEarnings: affiliate.totalEarnings,
+            remainingMinusBalance: remainingMinusBalance,
+            notes: notes || '',
+            processedBy: req.user?.id || 'admin',
+            bulkOperation: true,
+            isPartialAdjustment: oldPendingEarnings < oldMinusBalance,
+            deficit: oldMinusBalance - oldPendingEarnings > 0 ? oldMinusBalance - oldPendingEarnings : 0
+          }
+        });
+
+        await affiliate.save();
+
+        results.totalAdjusted++;
+        results.totalAmountAdjusted += adjustmentAmount;
+        results.totalRemainingMinusBalance += remainingMinusBalance;
+        
+        results.successful.push({
+          affiliateId: affiliate._id,
+          affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+          adjustmentAmount: adjustmentAmount,
+          oldPendingEarnings: oldPendingEarnings,
+          newPendingEarnings: affiliate.pendingEarnings,
+          oldTotalEarnings: oldTotalEarnings,
+          newTotalEarnings: affiliate.totalEarnings,
+          remainingMinusBalance: affiliate.minusBalance,
+          isPartial: oldPendingEarnings < oldMinusBalance,
+          deficit: oldMinusBalance - oldPendingEarnings > 0 ? oldMinusBalance - oldPendingEarnings : 0
+        });
+
+      } catch (error) {
+        console.error(`Error processing affiliate ${affiliate._id}:`, error);
+        results.failed.push({
+          affiliateId: affiliate._id,
+          affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+          error: error.message
+        });
+      }
+    }
+
+    // Get next batch if exists
+    const remainingCount = await Affiliate.countDocuments({
+      minusBalance: { $gt: 0 },
+      _id: { $nin: affiliates.map(a => a._id) }
+    });
+
+    const response = {
+      success: true,
+      message: `Bulk balance adjustment completed. 
+                Processed ${results.totalAdjusted} affiliates successfully.
+                ${results.partialAdjustments > 0 ? `${results.partialAdjustments} had partial adjustments.` : ''}
+                ${results.totalRemainingMinusBalance > 0 ? `Total ${results.totalRemainingMinusBalance} BDT minus balance remains.` : ''}`,
+      summary: results,
+      nextBatch: remainingCount > 0 ? {
+        remaining: remainingCount,
+        nextSkip: skip + limit,
+        nextLimit: limit
+      } : null
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error("Error in bulk balance adjustment:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process bulk balance adjustment"
+    });
+  }
+});
+
+// POST adjust balance for selected affiliates (multiple selection) - USING pendingEarnings
+Adminrouter.post("/affiliates/adjust-selected-balances", async (req, res) => {
+  try {
+    const { affiliateIds, notes } = req.body;
+
+    if (!affiliateIds || !Array.isArray(affiliateIds) || affiliateIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Valid array of affiliate IDs is required"
+      });
+    }
+
+    // Get selected affiliates with positive minusBalance
+    const affiliates = await Affiliate.find({
+      _id: { $in: affiliateIds },
+      minusBalance: { $gt: 0 }
+    });
+
+    if (affiliates.length === 0) {
+      return res.json({
+        success: true,
+        message: "No selected affiliates with negative balance found",
+        totalProcessed: 0,
+        totalAdjusted: 0,
+        totalAmountAdjusted: 0,
+        totalRemainingMinusBalance: 0,
+        partialAdjustments: 0
+      });
+    }
+
+    const results = {
+      totalSelected: affiliateIds.length,
+      totalProcessed: affiliates.length,
+      totalAdjusted: 0,
+      totalAmountAdjusted: 0,
+      totalRemainingMinusBalance: 0,
+      partialAdjustments: 0,
+      successful: [],
+      failed: []
+    };
+
+    // Process each affiliate
+    for (const affiliate of affiliates) {
+      try {
+        const oldPendingEarnings = affiliate.pendingEarnings || 0;
+        const oldTotalEarnings = affiliate.totalEarnings;
+        const oldMinusBalance = affiliate.minusBalance;
+        
+        // Calculate adjustment based on the relationship between pendingEarnings and minusBalance
+        let adjustmentAmount;
+        let newPendingEarnings;
+        let remainingMinusBalance = 0;
+        
+        if (oldPendingEarnings >= oldMinusBalance) {
+          // Normal case: pendingEarnings is greater than or equal to minusBalance
+          newPendingEarnings = oldPendingEarnings - oldMinusBalance;
+          adjustmentAmount = oldMinusBalance;
+          // minusBalance will be set to 0
+        } else {
+          // Special case: minusBalance is greater than pendingEarnings
+          adjustmentAmount = oldPendingEarnings; // Can only deduct up to pendingEarnings
+          newPendingEarnings = 0;
+          remainingMinusBalance = oldMinusBalance - oldPendingEarnings; // Keep remaining minusBalance
+          results.partialAdjustments += 1;
+        }
+
+        // Update affiliate
+        affiliate.pendingEarnings = newPendingEarnings;
+        affiliate.totalEarnings = affiliate.totalEarnings - adjustmentAmount;
+        affiliate.minusBalance = remainingMinusBalance;
+        
+        // Add to earnings history as adjustment
+        affiliate.earningsHistory.push({
+          amount: -adjustmentAmount,
+          type: 'balance_adjustment',
+          description: `Selected balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}`,
+          status: 'paid',
+          referredUser: affiliate._id,
+          sourceId: new mongoose.Types.ObjectId(),
+          sourceType: 'balance_adjustment',
+          commissionRate: 0,
+          sourceAmount: adjustmentAmount,
+          calculatedAmount: -adjustmentAmount,
+          earnedAt: new Date(),
+          paidAt: new Date(),
+          metadata: {
+            adjustmentType: 'selected_minus_balance_deduction',
+            oldPendingEarnings: oldPendingEarnings,
+            oldTotalEarnings: oldTotalEarnings,
+            oldMinusBalance: oldMinusBalance,
+            newPendingEarnings: newPendingEarnings,
+            newTotalEarnings: affiliate.totalEarnings,
+            remainingMinusBalance: remainingMinusBalance,
+            notes: notes || '',
+            processedBy: req.user?.id || 'admin',
+            isPartialAdjustment: oldPendingEarnings < oldMinusBalance,
+            deficit: oldMinusBalance - oldPendingEarnings > 0 ? oldMinusBalance - oldPendingEarnings : 0
+          }
+        });
+
+        await affiliate.save();
+
+        results.totalAdjusted++;
+        results.totalAmountAdjusted += adjustmentAmount;
+        results.totalRemainingMinusBalance += remainingMinusBalance;
+        
+        results.successful.push({
+          affiliateId: affiliate._id,
+          affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+          adjustmentAmount: adjustmentAmount,
+          oldPendingEarnings: oldPendingEarnings,
+          newPendingEarnings: affiliate.pendingEarnings,
+          oldTotalEarnings: oldTotalEarnings,
+          newTotalEarnings: affiliate.totalEarnings,
+          remainingMinusBalance: affiliate.minusBalance,
+          isPartial: oldPendingEarnings < oldMinusBalance,
+          deficit: oldMinusBalance - oldPendingEarnings > 0 ? oldMinusBalance - oldPendingEarnings : 0
+        });
+
+      } catch (error) {
+        console.error(`Error processing affiliate ${affiliate._id}:`, error);
+        results.failed.push({
+          affiliateId: affiliate._id,
+          affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+          error: error.message
+        });
+      }
+    }
+
+    const response = {
+      success: true,
+      message: `Balance adjustment completed for selected affiliates. 
+                Processed ${results.totalAdjusted} affiliates successfully.
+                ${results.partialAdjustments > 0 ? `${results.partialAdjustments} had partial adjustments.` : ''}
+                ${results.totalRemainingMinusBalance > 0 ? `Total ${results.totalRemainingMinusBalance} BDT minus balance remains.` : ''}`,
+      summary: results
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error("Error adjusting selected affiliate balances:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to adjust selected affiliate balances"
+    });
+  }
+});
+
+// Alternative: Force adjustment (clear minusBalance completely) - USING pendingEarnings
+Adminrouter.post("/affiliates/:id/adjust-balance-force", async (req, res) => {
+  try {
+    const affiliateId = req.params.id;
+    const { notes, clearDeficit = false, deductFrom = 'pending' } = req.body; // deductFrom: 'pending', 'paid', or 'both'
+
+    const affiliate = await Affiliate.findById(affiliateId);
+    if (!affiliate) {
+      return res.status(404).json({ 
+        success: false, 
+        error: "Affiliate not found" 
+      });
+    }
+
+    // Check if there's any minusBalance to adjust
+    if (affiliate.minusBalance <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No negative balance to adjust",
+        currentMinusBalance: affiliate.minusBalance
+      });
+    }
+
+    // Store old values for audit trail
+    const oldPendingEarnings = affiliate.pendingEarnings || 0;
+    const oldPaidEarnings = affiliate.paidEarnings || 0;
+    const oldTotalEarnings = affiliate.totalEarnings;
+    const oldMinusBalance = affiliate.minusBalance;
+    
+    // Calculate adjustment - FORCE VERSION
+    let adjustmentAmount;
+    let newPendingEarnings = oldPendingEarnings;
+    let newPaidEarnings = oldPaidEarnings;
+    let newTotalEarnings = oldTotalEarnings;
+    let remainingMinusBalance = oldMinusBalance;
+    let deficit = 0;
+    
+    if (deductFrom === 'pending') {
+      // Deduct only from pendingEarnings
+      if (oldPendingEarnings >= oldMinusBalance) {
+        adjustmentAmount = oldMinusBalance;
+        newPendingEarnings = oldPendingEarnings - adjustmentAmount;
+        remainingMinusBalance = 0;
+      } else {
+        adjustmentAmount = oldPendingEarnings;
+        newPendingEarnings = 0;
+        remainingMinusBalance = oldMinusBalance - adjustmentAmount;
+        deficit = remainingMinusBalance;
+        if (clearDeficit) {
+          remainingMinusBalance = 0;
+        }
+      }
+      newTotalEarnings = oldTotalEarnings - adjustmentAmount;
+      
+    } else if (deductFrom === 'paid') {
+      // Deduct from paidEarnings
+      if (oldPaidEarnings >= oldMinusBalance) {
+        adjustmentAmount = oldMinusBalance;
+        newPaidEarnings = oldPaidEarnings - adjustmentAmount;
+        remainingMinusBalance = 0;
+      } else {
+        adjustmentAmount = oldPaidEarnings;
+        newPaidEarnings = 0;
+        remainingMinusBalance = oldMinusBalance - adjustmentAmount;
+        deficit = remainingMinusBalance;
+        if (clearDeficit) {
+          remainingMinusBalance = 0;
+        }
+      }
+      newTotalEarnings = oldTotalEarnings - adjustmentAmount;
+      
+    } else if (deductFrom === 'both') {
+      // Deduct from both pending and paid earnings (prioritize pending first)
+      adjustmentAmount = 0;
+      remainingMinusBalance = oldMinusBalance;
+      
+      // First deduct from pendingEarnings
+      if (oldPendingEarnings > 0) {
+        const pendingDeduction = Math.min(oldPendingEarnings, remainingMinusBalance);
+        newPendingEarnings = oldPendingEarnings - pendingDeduction;
+        adjustmentAmount += pendingDeduction;
+        remainingMinusBalance -= pendingDeduction;
+      }
+      
+      // If still have minusBalance, deduct from paidEarnings
+      if (remainingMinusBalance > 0 && oldPaidEarnings > 0) {
+        const paidDeduction = Math.min(oldPaidEarnings, remainingMinusBalance);
+        newPaidEarnings = oldPaidEarnings - paidDeduction;
+        adjustmentAmount += paidDeduction;
+        remainingMinusBalance -= paidDeduction;
+      }
+      
+      // Check for deficit
+      if (remainingMinusBalance > 0) {
+        deficit = remainingMinusBalance;
+        if (clearDeficit) {
+          remainingMinusBalance = 0;
+        }
+      }
+      
+      newTotalEarnings = oldTotalEarnings - adjustmentAmount;
+    }
+
+    // Update affiliate
+    affiliate.pendingEarnings = newPendingEarnings;
+    affiliate.paidEarnings = newPaidEarnings;
+    affiliate.totalEarnings = newTotalEarnings;
+    affiliate.minusBalance = remainingMinusBalance;
+    
+    // Add to earnings history as adjustment
+    affiliate.earningsHistory.push({
+      amount: -adjustmentAmount,
+      type: 'balance_adjustment_force',
+      description: `Force balance adjustment: Minus balance deduction ${notes ? `- ${notes}` : ''}${deficit > 0 ? ` (Deficit: ${deficit} BDT)` : ''}`,
+      status: 'paid',
+      referredUser: affiliate._id,
+      sourceId: new mongoose.Types.ObjectId(),
+      sourceType: 'balance_adjustment_force',
+      commissionRate: 0,
+      sourceAmount: adjustmentAmount,
+      calculatedAmount: -adjustmentAmount,
+      earnedAt: new Date(),
+      paidAt: new Date(),
+      metadata: {
+        adjustmentType: 'force_minus_balance_deduction',
+        oldPendingEarnings: oldPendingEarnings,
+        oldPaidEarnings: oldPaidEarnings,
+        oldTotalEarnings: oldTotalEarnings,
+        oldMinusBalance: oldMinusBalance,
+        newPendingEarnings: newPendingEarnings,
+        newPaidEarnings: newPaidEarnings,
+        newTotalEarnings: newTotalEarnings,
+        remainingMinusBalance: remainingMinusBalance,
+        deficit: deficit,
+        notes: notes || '',
+        processedBy: req.user?.id || 'admin',
+        clearDeficit: clearDeficit,
+        deductFrom: deductFrom,
+        forceMode: true
+      }
+    });
+
+    await affiliate.save();
+
+    res.json({
+      success: true,
+      message: `Force balance adjustment completed${deficit > 0 ? ` with ${deficit} BDT deficit` : ''}`,
+      adjustment: {
+        affiliateId: affiliate._id,
+        affiliateName: `${affiliate.firstName} ${affiliate.lastName}`,
+        oldPendingEarnings: oldPendingEarnings,
+        oldPaidEarnings: oldPaidEarnings,
+        oldTotalEarnings: oldTotalEarnings,
+        oldMinusBalance: oldMinusBalance,
+        newPendingEarnings: affiliate.pendingEarnings,
+        newPaidEarnings: affiliate.paidEarnings,
+        newTotalEarnings: affiliate.totalEarnings,
+        remainingMinusBalance: affiliate.minusBalance,
+        adjustmentAmount: adjustmentAmount,
+        adjustmentDate: new Date(),
+        deficit: deficit,
+        hasDeficit: deficit > 0,
+        deductFrom: deductFrom,
+        forceMode: true
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in force balance adjustment:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to force adjust affiliate balance"
+    });
+  }
+});
+
+// GET adjustment statistics - UPDATED for pendingEarnings
+Adminrouter.get("/affiliates/adjustment-stats", async (req, res) => {
+  try {
+    const stats = await Affiliate.aggregate([
+      {
+        $match: {
+          minusBalance: { $gt: 0 }
+        }
+      },
+      {
+        $addFields: {
+          pendingEarnings: { $ifNull: ["$pendingEarnings", 0] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalAffiliates: { $sum: 1 },
+          totalMinusBalance: { $sum: "$minusBalance" },
+          totalPendingEarnings: { $sum: "$pendingEarnings" },
+          totalEarnings: { $sum: "$totalEarnings" },
+          affiliatesWithDeficit: {
+            $sum: {
+              $cond: [{ $lt: ["$pendingEarnings", "$minusBalance"] }, 1, 0]
+            }
+          },
+          totalDeficit: {
+            $sum: {
+              $cond: [
+                { $lt: ["$pendingEarnings", "$minusBalance"] },
+                { $subtract: ["$minusBalance", "$pendingEarnings"] },
+                0
+              ]
+            }
+          },
+          totalAdjustable: {
+            $sum: {
+              $cond: [
+                { $gte: ["$pendingEarnings", "$minusBalance"] },
+                "$minusBalance",
+                { $min: ["$pendingEarnings", "$minusBalance"] }
+              ]
+            }
+          },
+          maxPossibleAdjustment: {
+            $sum: {
+              $min: ["$pendingEarnings", "$minusBalance"]
+            }
+          }
+        }
+      }
+    ]);
+
+    const result = stats[0] || {
+      totalAffiliates: 0,
+      totalMinusBalance: 0,
+      totalPendingEarnings: 0,
+      totalEarnings: 0,
+      affiliatesWithDeficit: 0,
+      totalDeficit: 0,
+      totalAdjustable: 0,
+      maxPossibleAdjustment: 0
+    };
+
+    // Calculate percentages
+    const percentageWithDeficit = result.totalAffiliates > 0 
+      ? (result.affiliatesWithDeficit / result.totalAffiliates) * 100 
+      : 0;
+    
+    const coveragePercentage = result.totalMinusBalance > 0 
+      ? (result.maxPossibleAdjustment / result.totalMinusBalance) * 100 
+      : 0;
+    
+    const pendingCoveragePercentage = result.totalPendingEarnings > 0
+      ? (result.maxPossibleAdjustment / result.totalPendingEarnings) * 100
+      : 0;
+
+    res.json({
+      success: true,
+      stats: {
+        ...result,
+        percentageWithDeficit: percentageWithDeficit.toFixed(2),
+        coveragePercentage: coveragePercentage.toFixed(2),
+        pendingCoveragePercentage: pendingCoveragePercentage.toFixed(2),
+        fullyCovered: result.totalAdjustable === result.totalMinusBalance,
+        hasDeficit: result.totalDeficit > 0,
+        adjustmentEfficiency: result.totalMinusBalance > 0 
+          ? (result.totalAdjustable / result.totalMinusBalance) * 100 
+          : 0
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching adjustment stats:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch adjustment statistics"
+    });
+  }
+});
+
 module.exports = Adminrouter;

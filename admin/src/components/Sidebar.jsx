@@ -401,6 +401,10 @@ const Sidebar = ({ isOpen }) => {
               type: 'info'
             },
             { 
+              to: '/affiliates/manage-commission', 
+              text: 'Manage Commission'
+            },
+            { 
               to: '/affiliates/payout', 
               text: 'Payouts',
               count: affiliateCounts.pendingPayouts,

@@ -273,6 +273,10 @@ const UserSchema = new Schema({
       type: Number,
       default: 0
     },
+    affiliatedeposit:{
+      type: Number,
+      default: 0
+    },
     lifetime_withdraw:{
         type: Number,
         default: 0
