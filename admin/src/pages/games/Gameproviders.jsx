@@ -346,7 +346,7 @@ const Gameproviders = () => {
                       <FaGlobe className="text-gray-400" />
                     </div>
                     <input
-                      type="url"
+                      type="text"
                       name="website"
                       value={formData.website}
                       onChange={handleInputChange}
