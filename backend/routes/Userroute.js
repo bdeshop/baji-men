@@ -2773,10 +2773,6 @@ Userrouter.get("/bonuses/available", authenticateToken, async (req, res) => {
       startDate: { $lte: new Date() }
     };
 
-    // Filter by bonus type if provided
-    if (bonusType && bonusType !== 'all') {
-      query.bonusType = bonusType;
-    }
 
     // Check applicableTo criteria
     const user = req.user;
@@ -2843,9 +2839,6 @@ function getBonusDescription(bonus) {
     description += `Maximum bonus: ${bonus.maxBonus.toFixed(2)} BDT. `;
   }
   
-  if (bonus.wageringRequirement > 0) {
-    description += `Wagering requirement: ${bonus.wageringRequirement}x. `;
-  }
   
   description += `Valid for ${bonus.validityDays} days.`;
   
