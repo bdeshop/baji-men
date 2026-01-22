@@ -473,6 +473,9 @@ activeBonuses: [{
         default: 0
     },
     referralUsers: [{
+        username:{
+               type:String,
+        },
         user: { 
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"

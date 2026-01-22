@@ -68,10 +68,7 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setUser(data.data);
-      } else {
-        // Token is invalid, remove it
-
-      }
+      } 
     } catch (error) {
       console.error("Auth check failed:", error);
     } finally {

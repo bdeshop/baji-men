@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { FaPlus, FaCalendarAlt, FaPercentage, FaMoneyBill, FaDice, FaGift, FaSpinner, FaSave, FaTimes, FaInfoCircle } from 'react-icons/fa';
+import { FaCalendarAlt, FaPercentage, FaDice, FaGift, FaSpinner, FaSave, FaTimes, FaInfoCircle } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
-const Createbonus = () => {
+
+const Editbonus = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
+
   const [bonusTypes, setBonusTypes] = useState([
     'welcome', 'deposit', 'reload', 'cashback', 'free_spin', 'special', 'manual'
   ]);
+
   const [applicableToOptions, setApplicableToOptions] = useState([
     'all', 'new', 'existing'
   ]);
+
   const [formData, setFormData] = useState({
     name: '',
     bonusCode: '',
@@ -28,24 +36,91 @@ const Createbonus = () => {
     status: 'active',
     applicableTo: 'all',
     startDate: new Date().toISOString().split('T')[0],
-    endDate: ''
+    endDate: '',
+    createdBy: null
   });
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const navigate = useNavigate();
-  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
+  const [errors, setErrors] = useState({});
+  const [originalData, setOriginalData] = useState(null);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  // Fetch bonus data on component mount
+  useEffect(() => {
+    const fetchBonusData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${base_url}/api/admin/bonuses/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch bonus data');
+        }
+
+        if (data.success && data.bonus) {
+          const bonus = data.bonus;
+          
+          // Format dates for input fields
+          const startDate = bonus.startDate 
+            ? new Date(bonus.startDate).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0];
+            
+          const endDate = bonus.endDate 
+            ? new Date(bonus.endDate).toISOString().split('T')[0]
+            : '';
+
+          setFormData({
+            name: bonus.name || '',
+            bonusCode: bonus.bonusCode || '',
+            bonusType: bonus.bonusType || 'deposit',
+            amount: bonus.amount || 0,
+            percentage: bonus.percentage || 0,
+            minDeposit: bonus.minDeposit || 0,
+            maxBonus: bonus.maxBonus !== undefined ? bonus.maxBonus : null,
+            wageringRequirement: bonus.wageringRequirement || 0,
+            validityDays: bonus.validityDays || 30,
+            status: bonus.status || 'active',
+            applicableTo: bonus.applicableTo || 'all',
+            startDate: startDate,
+            endDate: endDate,
+            createdBy: bonus.createdBy || null
+          });
+
+          setOriginalData(bonus);
+        }
+      } catch (error) {
+        toast.error(error.message || 'Failed to load bonus data');
+        console.error('Error fetching bonus:', error);
+        // Redirect to bonuses list if not found
+        setTimeout(() => navigate('/admin/bonuses'), 2000);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchBonusData();
+    }
+  }, [id, base_url, navigate]);
 
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
     
     // Convert number inputs to appropriate types
-    const processedValue = type === 'number' 
-      ? (value === '' ? '' : parseFloat(value))
-      : value;
+    let processedValue;
+    if (type === 'number') {
+      processedValue = value === '' ? '' : parseFloat(value);
+      // Handle NaN cases
+      if (isNaN(processedValue)) processedValue = '';
+    } else {
+      processedValue = value;
+    }
 
     setFormData(prev => ({
       ...prev,
@@ -58,14 +133,12 @@ const Createbonus = () => {
     }
   };
 
-  // Generate random bonus code
-  const generateBonusCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setFormData(prev => ({ ...prev, bonusCode: code }));
+  // Handle radio button changes
+  const handleRadioChange = (name, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   // Validate form
@@ -130,7 +203,7 @@ const Createbonus = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
+  // Handle form submission (Update)
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -142,8 +215,8 @@ const Createbonus = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${base_url}/api/admin/bonuses`, {
-        method: 'POST',
+      const response = await fetch(`${base_url}/api/admin/bonuses/${id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
@@ -160,36 +233,54 @@ const Createbonus = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create bonus');
+        throw new Error(data.error || 'Failed to update bonus');
       }
 
-      toast.success('Bonus created successfully!');
+      toast.success('Bonus updated successfully!');
       
-      // Reset form
-      setFormData({
-        name: '',
-        bonusCode: '',
-        bonusType: 'deposit',
-        amount: 0,
-        percentage: 0,
-        minDeposit: 0,
-        maxBonus: null,
-        wageringRequirement: 0,
-        validityDays: 30,
-        status: 'active',
-        applicableTo: 'all',
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: ''
-      });
-
-      // Navigate to bonuses list after 2 seconds
+      // Update original data
+      setOriginalData(data.bonus);
+      
+      // Navigate back to bonuses list after 2 seconds
+      setTimeout(() => navigate('/admin/bonuses'), 2000);
 
     } catch (error) {
-      toast.error(error.message || 'Failed to create bonus');
-      console.error('Error creating bonus:', error);
+      toast.error(error.message || 'Failed to update bonus');
+      console.error('Error updating bonus:', error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle cancel/edit mode
+  const handleCancel = () => {
+    if (originalData) {
+      const startDate = originalData.startDate 
+        ? new Date(originalData.startDate).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+        
+      const endDate = originalData.endDate 
+        ? new Date(originalData.endDate).toISOString().split('T')[0]
+        : '';
+
+      setFormData({
+        name: originalData.name || '',
+        bonusCode: originalData.bonusCode || '',
+        bonusType: originalData.bonusType || 'deposit',
+        amount: originalData.amount || 0,
+        percentage: originalData.percentage || 0,
+        minDeposit: originalData.minDeposit || 0,
+        maxBonus: originalData.maxBonus !== undefined ? originalData.maxBonus : null,
+        wageringRequirement: originalData.wageringRequirement || 0,
+        validityDays: originalData.validityDays || 30,
+        status: originalData.status || 'active',
+        applicableTo: originalData.applicableTo || 'all',
+        startDate: startDate,
+        endDate: endDate,
+        createdBy: originalData.createdBy || null
+      });
+    }
+    setErrors({});
   };
 
   // Calculate bonus amount based on percentage
@@ -245,6 +336,7 @@ const Createbonus = () => {
             <div className="flex items-center justify-center h-full">
               <div className="flex justify-center items-center py-8">
                 <FaSpinner className="animate-spin text-orange-500 text-2xl" />
+                <span className="ml-3 text-gray-700">Loading bonus data...</span>
               </div>
             </div>
           </main>
@@ -269,11 +361,25 @@ const Createbonus = () => {
             <div className="mb-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create New Bonus</h1>
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                    Edit Bonus: {originalData?.name || formData.name}
+                  </h1>
                   <p className="text-sm md:text-base text-gray-500 mt-1">
-                    Create attractive bonuses to engage and reward your players
+                    Update bonus details and settings
                   </p>
+                  {originalData?.createdBy && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Created by: {originalData.createdBy.username} • 
+                      Last updated: {new Date(originalData.updatedAt || originalData.createdAt).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
+                <button
+                  onClick={() => navigate('/admin/bonuses')}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center gap-2 text-sm"
+                >
+                  <FaTimes /> Back to List
+                </button>
               </div>
             </div>
 
@@ -332,29 +438,20 @@ const Createbonus = () => {
 
                     {/* Bonus Code */}
                     <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Bonus Code
-                        </label>
-                        <button
-                          type="button"
-                          onClick={generateBonusCode}
-                          className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
-                        >
-                          <FaPlus className="text-xs" /> Generate Code
-                        </button>
-                      </div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bonus Code
+                      </label>
                       <input
                         type="text"
                         name="bonusCode"
                         value={formData.bonusCode}
                         onChange={handleInputChange}
-                        placeholder="WELCOME2024 (leave blank to auto-generate)"
+                        placeholder="WELCOME2024"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-theme_color uppercase"
                         maxLength={20}
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Use uppercase letters and numbers. Auto-generated code will be 8 characters.
+                        Uppercase letters and numbers only
                       </p>
                     </div>
 
@@ -529,7 +626,6 @@ const Createbonus = () => {
                             name="startDate"
                             value={formData.startDate}
                             onChange={handleInputChange}
-                            min={new Date().toISOString().split('T')[0]}
                             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg outline-theme_color"
                           />
                         </div>
@@ -570,9 +666,8 @@ const Createbonus = () => {
                           <input
                             type="radio"
                             name="status"
-                            value="active"
                             checked={formData.status === 'active'}
-                            onChange={handleInputChange}
+                            onChange={() => handleRadioChange('status', 'active')}
                             className="h-4 w-4 text-orange-600 outline-theme_color"
                           />
                           <span className="ml-2 text-sm text-gray-700">Active</span>
@@ -581,9 +676,8 @@ const Createbonus = () => {
                           <input
                             type="radio"
                             name="status"
-                            value="inactive"
                             checked={formData.status === 'inactive'}
-                            onChange={handleInputChange}
+                            onChange={() => handleRadioChange('status', 'inactive')}
                             className="h-4 w-4 text-orange-600 outline-theme_color"
                           />
                           <span className="ml-2 text-sm text-gray-700">Inactive</span>
@@ -645,19 +739,19 @@ const Createbonus = () => {
                 </div>
 
                 {/* Form Actions */}
-                <div className="mt-8 flex flex-col-reverse md:flex-row justify-end gap-4">
+                <div className="mt-8 flex flex-col md:flex-row justify-end gap-4">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>
-                        Creating...
+                        <FaSpinner className="animate-spin" /> Updating...
                       </>
                     ) : (
                       <>
-                        Create Bonus
+                        Update Bonus
                       </>
                     )}
                   </button>
@@ -671,4 +765,4 @@ const Createbonus = () => {
   );
 };
 
-export default Createbonus;
+export default Editbonus;

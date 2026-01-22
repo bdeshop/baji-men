@@ -864,6 +864,7 @@ Authrouter.post("/signup", async (req, res) => {
           },
           $push: {
             referralUsers: {
+              username:newUser.username,
               user: newUser._id,
               joinedAt: new Date(),
               earnedAmount: 50

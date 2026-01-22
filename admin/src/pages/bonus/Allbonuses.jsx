@@ -441,14 +441,6 @@ const Allbonuses = () => {
                     Manage and monitor all platform bonuses
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={openValidateModal}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <FaCheckCircle /> Validate Code
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -675,9 +667,6 @@ const Allbonuses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-3">
-                              <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusColor(bonus.status)}`}>
-                                {bonus.status}
-                              </span>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                   type="checkbox"
@@ -700,27 +689,20 @@ const Allbonuses = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
-                              <button 
+                        <Link
+                                to={`/deposit-bonus/view-bonus/${bonus._id}`}
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-blue-600 text-white rounded-lg text-[16px] hover:bg-blue-700 shadow-sm"
                                 title="View details"
-                                onClick={() => viewBonusDetails(bonus)}
                               >
                                 <FaEye />
-                              </button>
+                              </Link>
                               <Link
-                                to={`/edit-bonus/${bonus._id}`}
+                                to={`/deposit-bonus/edit-bonus/${bonus._id}`}
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-orange-600 text-white rounded-lg text-[16px] hover:bg-orange-700 shadow-sm"
                                 title="Edit bonus"
                               >
                                 <FaEdit />
                               </Link>
-                              <button 
-                                className="p-2 px-[8px] py-[7px] cursor-pointer bg-green-600 text-white rounded-lg text-[16px] hover:bg-green-700 shadow-sm"
-                                title="Assign to user"
-                                onClick={() => openAssignModal(bonus)}
-                              >
-                                <FaExternalLinkAlt />
-                              </button>
                               <button 
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-red-600 text-white rounded-lg text-[16px] hover:bg-red-700 shadow-sm"
                                 onClick={() => handleDelete(bonus._id)}

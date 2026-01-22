@@ -58,6 +58,8 @@ import Createbonus from './pages/bonus/Createbonus'
 import Allbonuses from './pages/bonus/Allbonuses'
 import Affiliatedetails from './pages/allaffiliates/Affiliatedetails'
 import Managecommission from './pages/managecommission/Managecommission'
+import Editbonus from './pages/bonus/Editbonus'
+import Viewbonus from './pages/bonus/Viewbonus'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -663,6 +665,28 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+
+        <Route 
+          exact 
+          path="/deposit-bonus/edit-bonus/:id" 
+          element={
+            <ProtectedRoute>
+              <Editbonus />
+            </ProtectedRoute>
+          }
+        />
+         <Route 
+          exact 
+          path="/deposit-bonus/view-bonus/:id" 
+          element={
+            <ProtectedRoute>
+              <Viewbonus />
+            </ProtectedRoute>
+          }
+        />
+
+
+       
         {/* Catch all route - redirect to dashboard if authenticated, otherwise to login */}
         <Route 
           path="*" 

@@ -121,7 +121,7 @@ const Myreferel = () => {
                   {/* QR */}
                   <div className="w-[200px] sm:w-[200px] sm:h-[200px] bg-white p-2  border border-gray-200 flex items-center justify-center">
                     <QRCode 
-                      value={userData?.referralCode || ""} 
+                      value={`https://bajiman.com/register?ref=${userData?.referralCode || ""}`} 
                       size={70}
                       className="w-full h-full"
                     />
@@ -151,7 +151,7 @@ const Myreferel = () => {
                         navigator.share?.({
                           title: 'Join me!',
                           text: 'Use my referral code to sign up',
-                          url: `https://yourapp.com/ref/${userData?.referralCode || ""}`
+                          url: `https://bajiman.com/register?ref=${userData?.referralCode || ""}`
                         }).catch(() => copyToClipboard());
                       }}
                     >
@@ -164,7 +164,7 @@ const Myreferel = () => {
                         navigator.share?.({
                           title: 'Join me!',
                           text: 'Use my referral code to sign up',
-                          url: `https://yourapp.com/ref/${userData?.referralCode || ""}`
+                        url: `https://bajiman.com/register?ref=${userData?.referralCode || ""}`
                         }).catch(() => copyToClipboard());
                       }}
                     >
@@ -221,28 +221,28 @@ const Myreferel = () => {
 
                 {/* Referred Users Table */}
                 {userData?.referralUsers?.length > 0 ? (
-                  <div className="bg-[#23AA81] p-4 sm:p-6  shadow-sm border border-gray-700 mb-6">
+                  <div className="bg-[#23AA81] p-4 sm:p-6  shadow-sm border text-white border-green-500 mb-6">
                     <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">Referred Users</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs sm:text-sm">
                         <thead>
-                          <tr className="border-b border-gray-700">
-                            <th className="text-left py-3 px-2 sm:px-4 text-gray-400 font-medium">User ID</th>
-                            <th className="text-left py-3 px-2 sm:px-4 text-gray-400 font-medium">Joined Date</th>
-                            <th className="text-right py-3 px-2 sm:px-4 text-gray-400 font-medium">Earned Amount</th>
+                          <tr className="border-b border-green-500 border-gray-700">
+                            <th className="text-left py-3 px-2 sm:px-4  text-white font-medium">User ID</th>
+                            <th className="text-left py-3 px-2 sm:px-4 text-white font-medium">Joined Date</th>
+                            <th className="text-right py-3 px-2 sm:px-4 text-white font-medium">Earned Amount</th>
                           </tr>
                         </thead>
                         <tbody>
                           {userData.referralUsers.map((ref, index) => (
-                            <tr key={index} className="border-b border-gray-700 hover:bg-gray-700/50">
-                              <td className="py-3 px-2 sm:px-4 text-white">
-                                {ref.user?.$oid ? ref.user.$oid.substring(0, 8) + "..." : "N/A"}
+                            <tr key={index} className="border-b border-green-500 hover:bg-gray-700/50">
+                              <td className="py-3 px-2 sm:px-4 ">
+                                {ref.username || "N/A"}
                               </td>
                               <td className="py-3 px-2 sm:px-4 text-gray-300">
-                                {new Date(ref.joinedAt?.$date).toLocaleDateString()}
+                                {new Date(ref.joinedAt).toLocaleDateString()}
                               </td>
                               <td className="py-3 px-2 sm:px-4 text-right font-medium text-white">
-                                ${ref.earnedAmount || 0}
+                                {ref.earnedAmount || 0} TK
                               </td>
                             </tr>
                           ))}
@@ -257,12 +257,6 @@ const Myreferel = () => {
                   </div>
                 )}
 
-                {/* History Button */}
-                <div className="flex justify-end">
-                  <button className="bg-theme_color px-3 sm:px-4 py-2.5 cursor-pointer text-xs sm:text-sm  text-white transition-colors">
-                    Cash reward history
-                  </button>
-                </div>
               </>
             ) : (
               // Info Tab Content

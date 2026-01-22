@@ -2,28 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import { 
-  FaDollarSign, 
   FaUsers, 
   FaMoneyCheckAlt, 
   FaClock, 
-  FaChartLine, 
-  FaGamepad,
-  FaShoppingBag,
-  FaImage,
-  FaTags,
-  FaUserCheck,
-  FaUserTimes,
-  FaMoneyBillWave,
-  FaExchangeAlt,
-  FaFilter,
-  FaCalendarAlt,
-  FaCheckCircle,
-  FaTimesCircle,
+  FaChartLine,
   FaHourglassHalf,
   FaUserTie,
-  FaHandHoldingUsd,
-  FaTrophy,
-  FaPercentage
+  FaCalendarAlt
 } from 'react-icons/fa';
 import {
   BarChart,
@@ -36,8 +21,8 @@ import {
   Cell
 } from 'recharts';
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
-import { FiRefreshCw, FiTrendingUp, FiTrendingDown, FiChevronDown, FiBarChart2 } from "react-icons/fi";
-import { MdAttachMoney, MdAccountBalanceWallet, MdTrendingUp } from "react-icons/md";
+import { FiRefreshCw, FiTrendingUp, FiTrendingDown, FiChevronDown } from "react-icons/fi";
+import { MdAccountBalanceWallet, MdTrendingUp } from "react-icons/md";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -68,8 +53,10 @@ const Dashboard = () => {
         endDate: dateRange.endDate.toISOString().split('T')[0]
       };
       
+      console.log('Fetching data with params:', params); // Debug log
+      
       const response = await axios.get(`${base_url}/api/admin/dashboard`, { params });
-      console.log('Dashboard API Response:', response.data); // For debugging
+      console.log('Dashboard API Response:', response.data);
       setDashboardData(response.data || {});
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -82,31 +69,45 @@ const Dashboard = () => {
   const handleFilterChange = (type) => {
     setFilterType(type);
     const today = new Date();
-    let startDate;
+    let startDate = new Date(today);
     
     switch(type) {
       case 'today':
-        startDate = new Date();
+        startDate = new Date(today);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case '7days':
-        startDate = new Date(today.setDate(today.getDate() - 7));
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 7);
         break;
       case '30days':
-        startDate = new Date(today.setDate(today.getDate() - 30));
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 30);
         break;
       case '90days':
-        startDate = new Date(today.setDate(today.getDate() - 90));
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 90);
         break;
       case 'custom':
+        setShowFilters(true);
         return;
       default:
-        startDate = new Date(today.setDate(today.getDate() - 30));
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 30);
     }
+    
+    console.log('Setting date range:', { startDate, endDate: today }); // Debug log
     
     setDateRange({
       startDate,
       endDate: new Date()
     });
+    setShowFilters(false);
+  };
+
+  const handleCustomDateApply = () => {
+    setFilterType('custom');
+    fetchDashboardData();
   };
 
   // Helper function to safely extract data with defaults
@@ -202,7 +203,7 @@ const Dashboard = () => {
     'from-amber-600 to-amber-800'
   ];
 
-  // Status cards data - UPDATED WITH TOTAL AMOUNTS
+  // Status cards data
   const statusCards = [
     {
       title: 'Total Users',
@@ -271,7 +272,7 @@ const Dashboard = () => {
     {
       title: 'Total Bonus Given',
       value: `৳${formatCurrency(stats.totalBonusGiven)}`,
-      icon: <FaTrophy className="text-3xl text-white" />,
+      icon: <MdTrendingUp className="text-3xl text-white" />,
       description: `৳${formatCurrency(stats.totalBonusWagered)} wagered`,
       gradient: gradientColors[8],
       prefix: '৳'
@@ -296,7 +297,7 @@ const Dashboard = () => {
     { name: 'Bonus Balance', amount: stats.totalBonusBalance, color: '#6EE7B7' }
   ];
 
-  // Daily performance data (mock data - you can replace with real data from backend)
+  // Daily performance data
   const generateDailyPerformanceData = () => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days.map(day => ({
@@ -353,15 +354,18 @@ const Dashboard = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-                <p className="text-gray-600 mt-2">Real-time financial insights and analytics for your platform.</p>
+                <p className="text-gray-600 mt-2">
+                  Data from {dateRange.startDate.toLocaleDateString()} to {dateRange.endDate.toLocaleDateString()}
+                </p>
               </div>
               <div className="flex items-center space-x-4">
                 <button 
                   onClick={fetchDashboardData}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                  disabled={loading}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <FiRefreshCw />
-                  Refresh
+                  <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+                  {loading ? 'Loading...' : 'Refresh'}
                 </button>
                 <div className="text-sm text-gray-600">
                   Last updated: {new Date().toLocaleTimeString()}
@@ -371,30 +375,24 @@ const Dashboard = () => {
 
             {/* Date Filters */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {['today', '7days', '30days', '90days'].map((type) => (
+              {['today', '7days', '30days', '90days', 'custom'].map((type) => (
                 <button
                   key={type}
                   onClick={() => handleFilterChange(type)}
+                  disabled={loading}
                   className={`px-4 py-2 rounded-lg transition-all ${
                     filterType === type
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {type === 'today' && 'Today'}
                   {type === '7days' && 'Last 7 Days'}
                   {type === '30days' && 'Last 30 Days'}
                   {type === '90days' && 'Last 90 Days'}
+                  {type === 'custom' && 'Custom Range'}
                 </button>
               ))}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2"
-              >
-                <FaCalendarAlt />
-                Custom Range
-                <FiChevronDown className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-              </button>
             </div>
 
             {showFilters && (
@@ -407,6 +405,7 @@ const Dashboard = () => {
                       onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       dateFormat="yyyy-MM-dd"
+                      maxDate={dateRange.endDate}
                     />
                   </div>
                   <div>
@@ -416,342 +415,379 @@ const Dashboard = () => {
                       onChange={(date) => setDateRange(prev => ({ ...prev, endDate: date }))}
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       dateFormat="yyyy-MM-dd"
+                      minDate={dateRange.startDate}
+                      maxDate={new Date()}
                     />
                   </div>
-                  <button
-                    onClick={() => handleFilterChange('custom')}
-                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg"
-                  >
-                    Apply
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCustomDateApply}
+                      disabled={loading}
+                      className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all border border-gray-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
+                <p className="text-sm text-gray-500 mt-3">
+                  Selected range: {dateRange.startDate.toLocaleDateString()} - {dateRange.endDate.toLocaleDateString()}
+                </p>
               </div>
             )}
           </div>
 
-          {/* Stats Cards - Total Amounts */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-10">
-            {statusCards.map((card, index) => (
-              <div
-                key={index}
-                className={`relative bg-gradient-to-r ${card.gradient} rounded-lg p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 min-h-[140px] flex flex-col`}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold uppercase tracking-wide opacity-90">{card.title}</p>
-                    <h2 className="text-2xl font-bold mt-1 truncate">{card.value}</h2>
-                  </div>
-                  <div className="p-3 border-[1px] border-gray-200 text-gray-700 bg-opacity-20 rounded-full flex-shrink-0">
-                    {card.icon}
-                  </div>
-                </div>
-                <div className="flex items-center mt-auto text-sm opacity-90">
-                  {card.trend === 'up' ? (
-                    <FiTrendingUp className="mr-1 text-green-300" />
-                  ) : card.trend === 'down' ? (
-                    <FiTrendingDown className="mr-1 text-red-300" />
-                  ) : null}
-                  <span className="truncate">{card.description}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Financial Overview Chart */}
-          <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Financial Overview (Total Amounts)</h3>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">Period:</span>
-                <span className="text-sm font-medium text-gray-800">
-                  {dateRange.startDate.toLocaleDateString()} - {dateRange.endDate.toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart 
-                    data={financialChartData} 
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+          {/* Loading State */}
+          {loading ? (
+        <div className="flex justify-center items-center h-64">
+    <div className="text-center">
+      {/* 3-part circular loader */}
+      <div className="relative w-16 h-16 mx-auto">
+        {/* Part 1 */}
+        <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+        
+        {/* Part 2 - Top-right segment */}
+        <div className="absolute inset-0 border-4 border-transparent rounded-full border-t-blue-500 animate-spin"></div>
+        
+        {/* Part 3 - Bottom-left segment */}
+        <div className="absolute inset-0 border-4 border-transparent rounded-full border-b-blue-500 animate-pulse"></div>
+        
+        {/* Part 4 - Right segment (optional 3rd part) */}
+        <div className="absolute inset-0 border-4 border-transparent rounded-full border-r-blue-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+      </div>
+      <p className="mt-4 text-gray-600">Loading data...</p>
+    </div>
+  </div>
+          ) : (
+            <>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-10">
+                {statusCards.map((card, index) => (
+                  <div
+                    key={index}
+                    className={`relative bg-gradient-to-r ${card.gradient} rounded-lg p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 min-h-[140px] flex flex-col`}
                   >
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="#6B7280"
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke="#6B7280"
-                      fontSize={12}
-                      tickFormatter={(value) => `৳${formatCurrency(value)}`}
-                    />
-                    <Tooltip 
-                      content={<CustomTooltip />}
-                      formatter={(value) => [`৳${formatCurrency(value)}`, 'Amount']}
-                    />
-                    <Legend />
-                    <Bar 
-                      dataKey="amount" 
-                      name="Amount" 
-                      radius={[6, 6, 0, 0]}
-                    >
-                      {financialChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold uppercase tracking-wide opacity-90">{card.title}</p>
+                        <h2 className="text-2xl font-bold mt-1 truncate">{card.value}</h2>
+                      </div>
+                      <div className="p-3 border-[1px] border-gray-200 text-gray-700 bg-opacity-20 rounded-full flex-shrink-0">
+                        {card.icon}
+                      </div>
+                    </div>
+                    <div className="flex items-center mt-auto text-sm opacity-90">
+                      {card.trend === 'up' ? (
+                        <FiTrendingUp className="mr-1 text-green-300" />
+                      ) : card.trend === 'down' ? (
+                        <FiTrendingDown className="mr-1 text-red-300" />
+                      ) : null}
+                      <span className="truncate">{card.description}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Financial Overview Chart */}
+              <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">Financial Overview</h3>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm text-gray-600">Period:</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {dateRange.startDate.toLocaleDateString()} - {dateRange.endDate.toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2">
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart 
+                        data={financialChartData} 
+                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                      >
+                        <XAxis 
+                          dataKey="name" 
+                          stroke="#6B7280"
+                          fontSize={12}
+                        />
+                        <YAxis 
+                          stroke="#6B7280"
+                          fontSize={12}
+                          tickFormatter={(value) => `৳${formatCurrency(value)}`}
+                        />
+                        <Tooltip 
+                          content={<CustomTooltip />}
+                        />
+                        <Legend />
+                        <Bar 
+                          dataKey="amount" 
+                          name="Amount (৳)" 
+                          radius={[6, 6, 0, 0]}
+                        >
+                          {financialChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-6 border-[1px] border-gray-200">
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
+                    <div className="space-y-3">
+                      {financialSummaryItems.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 truncate">{item.label}</span>
+                          <span className="text-sm font-semibold text-gray-900 whitespace-nowrap ml-2">
+                            ৳{formatCurrency(item.value)}
+                          </span>
+                        </div>
                       ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              
-              <div className="bg-gray-50 rounded-lg p-6 border-[1px] border-gray-200">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
-                <div className="space-y-3">
-                  {financialSummaryItems.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 truncate">{item.label}</span>
-                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap ml-2">
-                        ৳{formatCurrency(item.value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Daily Performance & Gaming Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-            {/* Daily Performance */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Performance (Last 7 Days)</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart 
-                  data={dailyPerformanceData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
-                  <XAxis dataKey="day" stroke="#6B7280" fontSize={12} />
-                  <YAxis 
-                    stroke="#6B7280"
-                    fontSize={12}
-                    tickFormatter={(value) => `৳${formatCurrency(value)}`}
-                  />
-                  <Tooltip 
-                    content={<CustomTooltip />}
-                    formatter={(value) => [`৳${formatCurrency(value)}`, 'Amount']}
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey="deposits" 
-                    name="Deposits" 
-                    fill="#3B82F6" 
-                    radius={[6, 6, 0, 0]} 
-                  />
-                  <Bar 
-                    dataKey="withdrawals" 
-                    name="Withdrawals" 
-                    fill="#10B981" 
-                    radius={[6, 6, 0, 0]} 
-                  />
-                  <Bar 
-                    dataKey="bets" 
-                    name="Bets" 
-                    fill="#F59E0B" 
-                    radius={[6, 6, 0, 0]} 
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Gaming Statistics */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Gaming Statistics</h3>
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Total Bets</h4>
-                    <p className="text-2xl font-bold text-blue-600">
-                      ৳{formatCurrency(stats.bettingTotalBetAmount)}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">All-time betting volume</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Total Wins</h4>
-                    <p className="text-2xl font-bold text-green-600">
-                      ৳{formatCurrency(stats.bettingTotalWinAmount)}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">All-time winnings</p>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Platform Profit/Loss</h4>
-                  <p className={`text-2xl font-bold ${stats.bettingTotalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {stats.bettingTotalProfitLoss >= 0 ? '+' : ''}৳{formatCurrency(stats.bettingTotalProfitLoss)}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">Net earnings from gaming</p>
-                </div>
-                <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">User Betting Activity</h4>
-                  <p className="text-2xl font-bold text-orange-600">
-                    ৳{formatCurrency(stats.userTotalBet)}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">Total bets placed by users</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* System Status & Recent Activities */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-            {/* System Status */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">System Status</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Deposit Success</h4>
-                      <p className="text-gray-600 text-sm">Rate</p>
-                    </div>
-                    <div className="text-xl font-bold text-blue-600">
-                      98.2%
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Withdrawal Time</h4>
-                      <p className="text-gray-600 text-sm">Average</p>
-                    </div>
-                    <div className="text-xl font-bold text-green-600">
-                      2.4h
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Affiliate Payouts</h4>
-                      <p className="text-gray-600 text-sm">Pending</p>
-                    </div>
-                    <div className="text-xl font-bold text-orange-600">
-                      ৳{formatCurrency(stats.affiliatePendingEarnings)}
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Platform Health</h4>
-                      <p className="text-gray-600 text-sm">Status</p>
-                    </div>
-                    <div className="text-xl font-bold text-purple-600">
-                      Excellent
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Quick Stats */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Statistics</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Avg. Deposit Amount:</span>
-                  <span className="font-semibold text-gray-900">
-                    ৳{formatCurrency(stats.totalDeposits / Math.max(stats.totalUsers, 1))}
-                  </span>
+              {/* Daily Performance & Gaming Stats */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                {/* Daily Performance */}
+                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Performance (Last 7 Days)</h3>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart 
+                      data={dailyPerformanceData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <XAxis dataKey="day" stroke="#6B7280" fontSize={12} />
+                      <YAxis 
+                        stroke="#6B7280"
+                        fontSize={12}
+                        tickFormatter={(value) => `৳${formatCurrency(value)}`}
+                      />
+                      <Tooltip 
+                        content={<CustomTooltip />}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="deposits" 
+                        name="Deposits" 
+                        fill="#3B82F6" 
+                        radius={[6, 6, 0, 0]} 
+                      />
+                      <Bar 
+                        dataKey="withdrawals" 
+                        name="Withdrawals" 
+                        fill="#10B981" 
+                        radius={[6, 6, 0, 0]} 
+                      />
+                      <Bar 
+                        dataKey="bets" 
+                        name="Bets" 
+                        fill="#F59E0B" 
+                        radius={[6, 6, 0, 0]} 
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Avg. Withdrawal Amount:</span>
-                  <span className="font-semibold text-gray-900">
-                    ৳{formatCurrency(stats.totalWithdrawals / Math.max(stats.totalUsers, 1))}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Player Win Rate:</span>
-                  <span className="font-semibold text-gray-900">
-                    {stats.totalBetAmount > 0 
-                      ? `${((stats.totalWinAmount / stats.totalBetAmount) * 100).toFixed(1)}%` 
-                      : '0%'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Bonus Utilization:</span>
-                  <span className="font-semibold text-gray-900">
-                    {stats.totalBonusGiven > 0 
-                      ? `${((stats.totalBonusWagered / stats.totalBonusGiven) * 100).toFixed(1)}%` 
-                      : '0%'}
-                  </span>
+
+                {/* Gaming Statistics */}
+                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Gaming Statistics</h3>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Total Bets</h4>
+                        <p className="text-2xl font-bold text-blue-600">
+                          ৳{formatCurrency(stats.bettingTotalBetAmount)}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">All-time betting volume</p>
+                      </div>
+                      <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Total Wins</h4>
+                        <p className="text-2xl font-bold text-green-600">
+                          ৳{formatCurrency(stats.bettingTotalWinAmount)}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">All-time winnings</p>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">Platform Profit/Loss</h4>
+                      <p className={`text-2xl font-bold ${stats.bettingTotalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {stats.bettingTotalProfitLoss >= 0 ? '+' : ''}৳{formatCurrency(stats.bettingTotalProfitLoss)}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">Net earnings from gaming</p>
+                    </div>
+                    <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">User Betting Activity</h4>
+                      <p className="text-2xl font-bold text-orange-600">
+                        ৳{formatCurrency(stats.userTotalBet)}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">Total bets placed by users</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Recent Activities */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Recent Users */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Users</h3>
-              <div className="space-y-4">
-                {getData('recentActivities.users', []).length > 0 ? (
-                  getData('recentActivities.users', []).slice(0, 5).map((user, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                          <FaUserCheck className="text-blue-600" />
-                        </div>
+              {/* System Status & Quick Stats */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                {/* System Status */}
+                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">System Status</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">{user.username || 'Unknown'}</p>
-                          <p className="text-sm text-gray-600">{user.player_id || 'N/A'}</p>
+                          <h4 className="font-semibold text-gray-900">Deposit Success</h4>
+                          <p className="text-gray-600 text-sm">Rate</p>
+                        </div>
+                        <div className="text-xl font-bold text-blue-600">
+                          98.2%
                         </div>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                    </div>
+                    <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Withdrawal Time</h4>
+                          <p className="text-gray-600 text-sm">Average</p>
+                        </div>
+                        <div className="text-xl font-bold text-green-600">
+                          2.4h
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Affiliate Payouts</h4>
+                          <p className="text-gray-600 text-sm">Pending</p>
+                        </div>
+                        <div className="text-xl font-bold text-orange-600">
+                          ৳{formatCurrency(stats.affiliatePendingEarnings)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Platform Health</h4>
+                          <p className="text-gray-600 text-sm">Status</p>
+                        </div>
+                        <div className="text-xl font-bold text-purple-600">
+                          Excellent
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Statistics</h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Avg. Deposit Amount:</span>
+                      <span className="font-semibold text-gray-900">
+                        ৳{formatCurrency(stats.totalDeposits / Math.max(stats.totalUsers, 1))}
                       </span>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No recent user data available
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Recent Deposits */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Deposits</h3>
-              <div className="space-y-4">
-                {getData('recentActivities.deposits', []).length > 0 ? (
-                  getData('recentActivities.deposits', []).slice(0, 5).map((deposit, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {deposit.userId?.username || 'Unknown User'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {deposit.method || 'N/A'} • {deposit.status || 'N/A'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">৳{formatCurrency(deposit.amount || 0)}</p>
-                        <p className="text-sm text-gray-500">
-                          {deposit.createdAt ? new Date(deposit.createdAt).toLocaleDateString() : 'N/A'}
-                        </p>
-                      </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Avg. Withdrawal Amount:</span>
+                      <span className="font-semibold text-gray-900">
+                        ৳{formatCurrency(stats.totalWithdrawals / Math.max(stats.totalUsers, 1))}
+                      </span>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No recent deposit data available
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Player Win Rate:</span>
+                      <span className="font-semibold text-gray-900">
+                        {stats.totalBetAmount > 0 
+                          ? `${((stats.totalWinAmount / stats.totalBetAmount) * 100).toFixed(1)}%` 
+                          : '0%'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Bonus Utilization:</span>
+                      <span className="font-semibold text-gray-900">
+                        {stats.totalBonusGiven > 0 
+                          ? `${((stats.totalBonusWagered / stats.totalBonusGiven) * 100).toFixed(1)}%` 
+                          : '0%'}
+                      </span>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
+
+              {/* Recent Activities */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Recent Users */}
+                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Users</h3>
+                  <div className="space-y-4">
+                    {getData('recentActivities.users', []).length > 0 ? (
+                      getData('recentActivities.users', []).slice(0, 5).map((user, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                              <FaUsers className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{user.username || 'Unknown'}</p>
+                              <p className="text-sm text-gray-600">{user.player_id || 'N/A'}</p>
+                            </div>
+                          </div>
+                          <span className="text-sm text-gray-500">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        No recent user data available
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent Deposits */}
+                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Deposits</h3>
+                  <div className="space-y-4">
+                    {getData('recentActivities.deposits', []).length > 0 ? (
+                      getData('recentActivities.deposits', []).slice(0, 5).map((deposit, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {deposit.userId?.username || 'Unknown User'}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {deposit.method || 'N/A'} • {deposit.status || 'N/A'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-green-600">৳{formatCurrency(deposit.amount || 0)}</p>
+                            <p className="text-sm text-gray-500">
+                              {deposit.createdAt ? new Date(deposit.createdAt).toLocaleDateString() : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        No recent deposit data available
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </section>
