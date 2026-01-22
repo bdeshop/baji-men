@@ -366,7 +366,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">CPA Rate</h3>
-                  <p className="text-2xl font-bold">{formatCurrency(dashboardStats.cpaRate)}</p>
+                  <p className="text-2xl font-bold">{dashboardStats.cpaRate}</p>
                   <p className="text-xs text-gray-500">Per registration</p>
                 </div>
               </div>
