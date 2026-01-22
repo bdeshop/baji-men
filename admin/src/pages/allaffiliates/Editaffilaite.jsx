@@ -621,7 +621,7 @@ const Editaffilaite = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Commission Type:</span>
-                          <span className="font-medium">{selectedAffiliate.commissionType}</span>
+                          <span className="font-medium">Revenue Share</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">CPA Rate:</span>
