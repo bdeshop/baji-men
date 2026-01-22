@@ -247,7 +247,7 @@ const Earnings = () => {
         date: earning.date || earning.earnedAt,
         daysAgo: Math.floor((new Date() - new Date(earning.date || earning.earnedAt)) / (1000 * 60 * 60 * 24)),
         amount: earning.amount,
-        commissionRate: (earning.commissionRate || 0) * 100, // Convert to percentage
+        commissionRate: (earning.commissionRate || 0), // Convert to percentage
         status: earning.status,
         type: earning.type,
         description: earning.description,
@@ -719,8 +719,8 @@ const Earnings = () => {
                             {formatCurrency(transaction.sourceAmount)}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(transaction.status)}
+                        <td className="px-4 md:px-6 py-4 text-green-500 whitespace-nowrap">
+                          Completed
                         </td>
                       </tr>
                     ))}
@@ -768,7 +768,7 @@ const Earnings = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">Bet Commission</span>
                   <span className="font-bold text-cyan-400">
-                    {(earningsData.commissionRate * 100).toFixed(1)}%
+                    {(earningsData.commissionRate).toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
