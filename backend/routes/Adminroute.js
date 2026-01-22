@@ -6661,19 +6661,10 @@ Adminrouter.put("/affiliates/:id/verification-status", async (req, res) => {
 Adminrouter.put("/affiliates/:id/commission", async (req, res) => {
   try {
     const { commissionRate, commissionType, cpaRate, depositRate } = req.body;
-
+    console.log(req.body)
     const affiliate = await Affiliate.findById(req.params.id);
     if (!affiliate) {
       return res.status(404).json({ error: "Affiliate not found" });
-    }
-
-    if (commissionRate !== undefined) {
-      if (commissionRate < 0.01 || commissionRate > 0.5) {
-        return res
-          .status(400)
-          .json({ error: "Commission rate must be between 1% and 50%" });
-      }
-      affiliate.commissionRate = commissionRate;
     }
 
     if (depositRate !== undefined) {
@@ -6688,13 +6679,15 @@ Adminrouter.put("/affiliates/:id/commission", async (req, res) => {
     if (commissionType) {
       affiliate.commissionType = commissionType;
     }
-
+        
     if (cpaRate !== undefined) {
       if (cpaRate < 0) {
         return res.status(400).json({ error: "CPA rate cannot be negative" });
       }
       affiliate.cpaRate = cpaRate;
     }
+
+    affiliate.commissionRate=commissionRate;
 
     await affiliate.save();
 

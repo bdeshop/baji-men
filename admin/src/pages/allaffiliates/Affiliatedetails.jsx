@@ -522,41 +522,11 @@ const Affiliatedetails = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                        <select
-                          value={editForm.status}
-                          onChange={(e) => setEditForm({...editForm, status: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="active">Active</option>
-                          <option value="suspended">Suspended</option>
-                          <option value="banned">Banned</option>
-                          <option value="inactive">Inactive</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Verification Status</label>
-                        <select
-                          value={editForm.verificationStatus}
-                          onChange={(e) => setEditForm({...editForm, verificationStatus: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="unverified">Unverified</option>
-                          <option value="pending">Pending</option>
-                          <option value="verified">Verified</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                      </div>
-                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Bet Commission Rate (%)</label>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0"
-                          max="50"
-                          value={editForm.commissionRate * 100}
-                          onChange={(e) => setEditForm({...editForm, commissionRate: parseFloat(e.target.value) / 100})}
+                          value={editForm.commissionRate}
+                          onChange={(e) => setEditForm({...editForm, commissionRate: parseFloat(e.target.value)})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -564,11 +534,8 @@ const Affiliatedetails = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Deposit Rate (%)</label>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0"
-                          max="50"
-                          value={editForm.depositRate * 100}
-                          onChange={(e) => setEditForm({...editForm, depositRate: parseFloat(e.target.value) / 100})}
+                          value={editForm.depositRate}
+                          onChange={(e) => setEditForm({...editForm, depositRate: parseFloat(e.target.value)})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -577,24 +544,10 @@ const Affiliatedetails = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Registration Rate (BDT)</label>
                         <input
                           type="number"
-                          step="1"
-                          min="0"
                           value={editForm.cpaRate || 0}
-                          onChange={(e) => setEditForm({...editForm, cpaRate: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => setEditForm({...editForm, cpaRate: parseFloat(e.target.value)})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Commission Type</label>
-                        <select
-                          value={editForm.commissionType}
-                          onChange={(e) => setEditForm({...editForm, commissionType: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="revenue_share">Revenue Share</option>
-                          <option value="cpa">CPA</option>
-                          <option value="hybrid">Hybrid</option>
-                        </select>
                       </div>
                     </div>
                     <div className="flex justify-end space-x-3">
@@ -652,15 +605,15 @@ const Affiliatedetails = () => {
                       <div className="space-y-3">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Commission Rate:</span>
-                          <span className="font-medium">{(selectedAffiliate.commissionRate * 100).toFixed(2)}%</span>
+                          <span className="font-medium">{(selectedAffiliate.commissionRate).toFixed(2)}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Deposit Rate:</span>
-                          <span className="font-medium">{(selectedAffiliate.depositRate * 100).toFixed(2)}%</span>
+                          <span className="font-medium">{(selectedAffiliate.depositRate).toFixed(2)}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Commission Type:</span>
-                          <span className="font-medium">{selectedAffiliate.commissionType}</span>
+                          <span className="font-medium">Revenue Share</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">CPA Rate:</span>

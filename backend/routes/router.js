@@ -699,7 +699,7 @@ router.get("/notice", async (req, res) => {
 // GET all menu games
 router.get("/menu-games", async (req, res) => {
   try {
-    const games = await MenuGame.find()
+    const games = await MenuGame.find({status:true})
       .populate("category", "name")
     res.json(games);
   } catch (error) {

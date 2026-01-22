@@ -525,11 +525,8 @@ const Editaffilaite = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Bet Commission Rate (%)</label>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0"
-                          max="50"
-                          value={editForm.commissionRate * 100}
-                          onChange={(e) => setEditForm({...editForm, commissionRate: parseFloat(e.target.value) / 100})}
+                          value={editForm.commissionRate}
+                          onChange={(e) => setEditForm({...editForm, commissionRate: parseFloat(e.target.value)})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -537,11 +534,8 @@ const Editaffilaite = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Deposit Rate (%)</label>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0"
-                          max="50"
-                          value={editForm.depositRate * 100}
-                          onChange={(e) => setEditForm({...editForm, depositRate: parseFloat(e.target.value) / 100})}
+                          value={editForm.depositRate}
+                          onChange={(e) => setEditForm({...editForm, depositRate: parseFloat(e.target.value)})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -550,10 +544,8 @@ const Editaffilaite = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Registration Rate (BDT)</label>
                         <input
                           type="number"
-                          step="1"
-                          min="0"
                           value={editForm.cpaRate || 0}
-                          onChange={(e) => setEditForm({...editForm, cpaRate: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => setEditForm({...editForm, cpaRate: parseFloat(e.target.value)})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -613,11 +605,11 @@ const Editaffilaite = () => {
                       <div className="space-y-3">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Commission Rate:</span>
-                          <span className="font-medium">{(selectedAffiliate.commissionRate * 100).toFixed(2)}%</span>
+                          <span className="font-medium">{(selectedAffiliate.commissionRate).toFixed(2)}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Deposit Rate:</span>
-                          <span className="font-medium">{(selectedAffiliate.depositRate * 100).toFixed(2)}%</span>
+                          <span className="font-medium">{(selectedAffiliate.depositRate).toFixed(2)}%</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Commission Type:</span>

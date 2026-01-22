@@ -2805,7 +2805,7 @@ Userrouter.get("/bonuses/available", authenticateToken, async (req, res) => {
       applicableTo: bonus.applicableTo,
       description: getBonusDescription(bonus)
     }));
-
+console.log(formattedBonuses)
     res.json({
       success: true,
       data: formattedBonuses

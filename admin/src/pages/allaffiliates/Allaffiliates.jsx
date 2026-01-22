@@ -160,8 +160,8 @@ const AllAffiliates = () => {
     if (newStatus === 'active') {
       setSelectedAffiliateId(id);
       setCommissionForm({
-        bet: (affiliate.commissionRate * 100).toFixed(0) || 10,
-        deposit: (affiliate.depositRate * 100).toFixed(0) || 0,
+        bet: (affiliate.commissionRate).toFixed(0) || 10,
+        deposit: (affiliate.depositRate).toFixed(0) || 0,
         registration: affiliate.cpaRate || 0
       });
       setShowCommissionModal(true);
@@ -300,10 +300,10 @@ const AllAffiliates = () => {
         company: data.company || '',
         website: data.website || '',
         promoMethod: data.promoMethod || '',
-        commissionRate: data.commissionRate * 100 || 0,
+        commissionRate: data.commissionRate|| 0,
         commissionType: data.commissionType || '',
         cpaRate: data.cpaRate || 0,
-        depositRate: data.depositRate * 100 || 0,
+        depositRate: data.depositRate|| 0,
         status: data.status || '',
         verificationStatus: data.verificationStatus || '',
         paymentMethod: data.paymentMethod || '',
@@ -335,8 +335,8 @@ const AllAffiliates = () => {
     try {
       const updateData = {
         ...editForm,
-        commissionRate: editForm.commissionRate / 100,
-        depositRate: editForm.depositRate / 100,
+        commissionRate: editForm.commissionRate,
+        depositRate: editForm.depositRate,
       };
 
       const response = await fetch(`${base_url}/api/admin/affiliates/${selectedAffiliateId}`, {
@@ -579,7 +579,7 @@ const AllAffiliates = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{affiliate.pendingEarnings?.toFixed(2) || 0} BDT</div>
-                            <div className="text-xs text-gray-500">Commission: {(affiliate.commissionRate * 100).toFixed(0)}%</div>
+                            <div className="text-xs text-gray-500">Commission: {(affiliate.commissionRate).toFixed(0)}%</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${
@@ -750,8 +750,8 @@ const AllAffiliates = () => {
                     'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
                   },
                   body: JSON.stringify({
-                    commissionRate: commissionForm.bet / 100,
-                    depositRate: commissionForm.deposit / 100,
+                    commissionRate: commissionForm.bet,
+                    depositRate: commissionForm.deposit,
                     cpaRate: commissionForm.registration,
                     commissionType: 'hybrid' // Set to hybrid for multiple rate types
                   })
@@ -779,8 +779,8 @@ const AllAffiliates = () => {
                     return {
                       ...a,
                       status: 'active',
-                      commissionRate: commissionForm.bet / 100,
-                      depositRate: commissionForm.deposit / 100,
+                      commissionRate: commissionForm.bet,
+                      depositRate: commissionForm.deposit,
                       cpaRate: commissionForm.registration
                     };
                   }
@@ -806,9 +806,6 @@ const AllAffiliates = () => {
                     value={commissionForm.bet}
                     onChange={handleCommissionChange}
                     className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    min="1"
-                    max="50"
-                    step="0.1"
                     required
                   />
                 </div>
@@ -820,9 +817,6 @@ const AllAffiliates = () => {
                     value={commissionForm.deposit}
                     onChange={handleCommissionChange}
                     className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    min="0"
-                    max="50"
-                    step="0.1"
                     required
                   />
                 </div>
@@ -834,8 +828,6 @@ const AllAffiliates = () => {
                     value={commissionForm.registration}
                     onChange={handleCommissionChange}
                     className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    min="0"
-                    step="0.01"
                     required
                   />
                 </div>
@@ -1155,11 +1147,11 @@ const AllAffiliates = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Conversion Rate:</span>
-                      <span className="font-medium">{(selectedAffiliate.conversionRate * 100).toFixed(2)}%</span>
+                      <span className="font-medium">{(selectedAffiliate.conversionRate).toFixed(2)}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Deposit Rate:</span>
-                      <span className="font-medium">{(selectedAffiliate.depositRate * 100).toFixed(0)}%</span>
+                      <span className="font-medium">{(selectedAffiliate.depositRate).toFixed(0)}%</span>
                     </div>
                   </div>
                 </div>
