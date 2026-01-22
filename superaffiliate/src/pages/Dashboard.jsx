@@ -97,7 +97,7 @@ const Dashboard = () => {
         const parsedData = JSON.parse(affiliateData);
         setProfile({
           ...parsedData,
-          cpaRate: parsedData.cpaRate || 200,
+          cpaRate: parsedData.cpaRate,
           totalPayout: parsedData.totalPayout || 0,
           pendingPayout: parsedData.pendingPayout || 0
         });
@@ -137,7 +137,7 @@ const Dashboard = () => {
           lastMonthPeriodChange: stats.lastMonthPeriodChange || 0,
           lastMonthExpenses: stats.lastMonthExpenses || 0,
           lastMonthIncome: stats.lastMonthIncome || 0,
-          cpaRate: stats.cpaRate || 200,
+          cpaRate: stats.cpaRate,
           totalPayout: stats.totalPayout || 0,
           pendingPayout: stats.pendingPayout || 0,
           clicks: stats.clicks || 0,
