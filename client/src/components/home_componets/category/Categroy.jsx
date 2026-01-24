@@ -32,7 +32,7 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuthStatus = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("usertoken");
 
     if (!token) {
       setLoading(false);
@@ -351,7 +351,6 @@ const CategoryContent = () => {
                gameName.includes("exlusive");
       });
       
-      console.log("Filtered exclusive games:", exclusiveGamesData);
       setExclusiveGames(exclusiveGamesData);
       setProviders([]);
     } catch (error) {

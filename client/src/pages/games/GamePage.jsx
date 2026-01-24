@@ -46,7 +46,7 @@ const GamePage = () => {
     const fetchData = async () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("usertoken");
 
         if (!token) {
           setError("Authentication token not found");
@@ -95,7 +95,7 @@ const GamePage = () => {
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${localStorage.getItem("usertoken")}`,
             },
           }
         );
@@ -116,7 +116,7 @@ const GamePage = () => {
     if (gameuuid && userData) {
       fetchGameLink();
     }
-  }, [gameuuid]);
+  }, [gameuuid, userData, API_BASE_URL]);
 
   // Professional Unified Loader Component
   const ProfessionalLoader = ({ message = "গেম লোড হচ্ছে", subMessage = "অনুগ্রহ করে একটু অপেক্ষা করুন..." }) => (

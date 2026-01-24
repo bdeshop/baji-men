@@ -121,7 +121,7 @@ const Withdraw = () => {
     const fetchData = async () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("usertoken");
 
         if (!token) {
           setError("Authentication token not found");
@@ -284,7 +284,7 @@ const Withdraw = () => {
     try {
       // API call for withdrawal
       const user = JSON.parse(localStorage.getItem("user"));
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
 
       const response = await axios.post(
         `${API_BASE_URL}/api/user/withdraw`,
@@ -364,7 +364,7 @@ const Withdraw = () => {
   const handleRefreshBalance = async () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
 
       if (!token) {
         setError("Authentication token not found");

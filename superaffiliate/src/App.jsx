@@ -74,8 +74,6 @@ export const BrandingProvider = ({ children }) => {
       
       // Add to document head
       document.head.appendChild(favicon);
-
-      console.log("Favicon set to:", faviconUrl);
     }
   };
 
@@ -92,8 +90,6 @@ export const BrandingProvider = ({ children }) => {
       
       // Dispatch event for components that might be listening
       window.dispatchEvent(new Event('brandingUpdate'));
-
-      console.log("Logo set to:", logoUrl);
     }
   };
 

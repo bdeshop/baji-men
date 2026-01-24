@@ -1204,109 +1204,13 @@ Userrouter.post("/getGameLink", async (req, res) => {
     // this is for 1xwin
       const postData = {
         home_url: "https://bajiman.com",
-        token: "20a1822b54f68e9e3a92fc5a8516fe0a",
+        token: "665ec86d74fcb110d5a60421002b82df",
         username: username + "45",
         money: money,
         gameid: req.body.gameID,
       };
 
-      // ? for game bajibos.com
-      // const postData = {
-      //   home_url: "https://bajibos.com",
-      //   token: "62dd4c99767302be8969ffcf7bc8e4c2",
-      //   username: username + "45",
-      //   money: money,
-      //   gameid: req.body.gameID,
-      // };
-
-      // ? for game baji
-      // const postData = {
-      //   home_url: "https://gamebaji71.com",
-      //   token: "99a6ebbc83c0e30c9a0c5237f3d907bd",
-      //   username: username + "45",
-      //   money: money,
-      //   gameid: req.body.gameID,
-      // };
-
-      // ? for trickboy.xyz
-      // const postData = {
-      //   home_url: "https://trickboy.xyz",
-      //   token: "bf5891d45c356824ba6df15c9c15575d",
-      //   username: username + "45",
-      //   money: money,
-      //   gameid: req.body.gameID,
-      // };
-
-      // ? for game baji444
-      // const postData = {
-      //   home_url: "https://baji444.online",
-      //   token: "a19a058e5c9ee29a23c1300866271928",
-      //   username: username + "45",
-      //   money: money,
-      //   gameid: req.body.gameID,
-      // };
-
-      // ? for trickboy.xyz
-      // const postData = {
-      //   home_url: "https://trickboy.xyz",
-      //   token: "bf5891d45c356824ba6df15c9c15575d",
-      //   username: username+"45",
-      //   money: money,
-      //   gameid: req.body.gameID
-      // };
-
-      // ? for melbet99
-      // const postData = {
-      //   home_url: "https://melbet99.com",
-      //   token: "ab315e58c891ce8f875652af5d4e45c1",
-      //   username: username+"45",
-      //   money: money,
-      //   gameid: req.body.gameID
-      // };
-
-      // ? for  lclb.net
-      // const postData = {
-      //   home_url: "https://lclb.net",
-      //   token: "b18e2542823e4df498ce17e8eb2d1c49",
-      //   username: username+"45",
-      //   money: money,
-      //   gameid: req.body.gameID
-      // };
-
-      // // ? for  lclb.net
-      // const postData = {
-      //   home_url: "https://jstlive.net",
-      //   token: "c7fae069ce61bcd3bda9a8dfe330a83a",
-      //   username: username+"45",
-      //   money: money,
-      //   gameid: req.body.gameID
-      // };
-
       console.log("this is log ");
-
-      // ? for  babu666.live
-      // const postData = {
-      //   home_url: "https://babu666.live",
-      //   token: "25034d2094f6312bd0e49f713efb5e45",
-      //   username: username + "45",
-      //   money: money,
-      //   gameid: req.body.gameID,
-      // };
-
-
-     
-      // ? for  malta99.com
-      // https://api.malta99.com/games/callback-data-game
-      // const postData = {
-      //   home_url: "https://malta99.com",
-      //   token: "846fd1fb8e07fa445eae69ddaa633db4",
-      //   username: username + "45",
-      //   money: money,
-      //   gameid: req.body.gameID,
-      // };
-
-      // x-dstgame-key
-      // 'x-dstgame-key: yourlicensekey'
 
       console.log("Sending POST request to joyhobe.com with data:", postData);
 
@@ -3177,6 +3081,10 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     });
   }
 });
+
+
+
+
 // ----------------betting-records------------------------
 Userrouter.get("/betting-records/:userId", authenticateToken,async(req,res)=>{
       const bettingrecords=await BettingHistory.find({user_id:req.params.userId}).sort({createdAt:-1});

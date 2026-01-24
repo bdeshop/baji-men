@@ -341,7 +341,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   };
 
   const checkAuthStatus = () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("usertoken");
     const user = localStorage.getItem("user");
 
     if (token && user) {
@@ -376,7 +376,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     
     try {
       setIsRefreshingBalance(true);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       
       const response = await axios.get(
@@ -396,7 +396,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("usertoken");
     localStorage.removeItem("user");
     setIsLoggedIn(false);
     setUserData(null);

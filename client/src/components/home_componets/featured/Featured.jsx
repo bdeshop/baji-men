@@ -29,7 +29,7 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuthStatus = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("usertoken");
 
     if (!token) {
       setLoading(false);

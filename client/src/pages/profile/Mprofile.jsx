@@ -31,7 +31,7 @@ const Mprofile = () => {
 
   // Get user and token from localStorage
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("usertoken");
 
   // Fetch user data
   const checkAuthAndFetchData = async () => {
@@ -85,7 +85,7 @@ const Mprofile = () => {
     setIsLoggingOut(true);
     
     // Clear localStorage data
-    localStorage.removeItem("token");
+    localStorage.removeItem("usertoken");
     localStorage.removeItem("user");
     
     // Clear axios default headers

@@ -113,7 +113,7 @@ const Deposit = () => {
           `${API_BASE_URL}/api/user/all-information/${user.id}`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${localStorage.getItem("usertoken")}`,
             },
           }
         );
@@ -176,7 +176,7 @@ const Deposit = () => {
 
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
 
       if (!token) {
         throw new Error("Authentication token not found");
@@ -231,7 +231,7 @@ const Deposit = () => {
 
       if (err.response?.status === 401) {
         errorMessage = "Authentication failed. Please login again.";
-        localStorage.removeItem("token");
+        localStorage.removeItem("usertoken");
         localStorage.removeItem("user");
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
@@ -251,7 +251,7 @@ const Deposit = () => {
   const handleRefreshBalance = async () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
 
       if (!token) {
         setError("Authentication token not found");

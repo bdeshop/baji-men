@@ -28,7 +28,6 @@ export default function Login() {
   // API base URL
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
 
-  // Fetch branding data on component mount
   useEffect(() => {
     fetchBrandingData();
   }, []);
@@ -43,17 +42,14 @@ export default function Login() {
         setDynamicLogo(logoUrl);
       }
     } catch (error) {
-      console.error("Error fetching branding data:", error);
       setDynamicLogo(logo);
     }
   };
 
-  // Check for referral codes in URL parameters on component mount
   useEffect(() => {
     const userReferralCode = searchParams.get('ref');
     const affiliateCodeFromUrl = searchParams.get('aff');
     
-    console.log('URL Params:', { userReferralCode, affiliateCodeFromUrl });
 
     if (affiliateCodeFromUrl) {
       setAffiliateCode(affiliateCodeFromUrl.toUpperCase());
@@ -65,7 +61,6 @@ export default function Login() {
     }
   }, [searchParams]);
 
-  // Track affiliate click separately
   const trackAffiliateClick = async (affiliateCode) => {
     const source = searchParams.get('source');
     const campaign = searchParams.get('campaign');
@@ -79,13 +74,11 @@ export default function Login() {
         medium: medium || 'referral',
         landingPage: window.location.pathname
       });
-      console.log('Affiliate click tracked successfully for:', affiliateCode);
     } catch (error) {
       console.error('Failed to track affiliate click:', error);
     }
   };
 
-  // Check if referral code is valid
   const checkReferralCode = async () => {
     if (!referralCode) {
       setReferralError("Please enter a referral code");
@@ -117,7 +110,6 @@ export default function Login() {
     }
   };
 
-  // Handles the form submission logic for Sign Up
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
     setPhoneError("");
@@ -194,7 +186,6 @@ export default function Login() {
           draggable: true,
         });
 
-        // Show appropriate referral success message
         if (response.data.user.isAffiliateReferred) {
           toast.success('Welcome! You were referred by an affiliate.', {
             position: "top-right",
@@ -207,7 +198,6 @@ export default function Login() {
           });
         }
         
-        // Store token in localStorage
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('usertoken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -223,7 +213,6 @@ export default function Login() {
         setReferralValid(false);
         setReferrerInfo(null);
 
-        // Redirect to dashboard or home page after successful signup
         setTimeout(() => {
           window.location.href = '/';
         }, 1000);
@@ -248,7 +237,6 @@ export default function Login() {
     }
   };
 
-  // Handles the form submission logic for Log In
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginError("");
@@ -291,11 +279,10 @@ export default function Login() {
           draggable: true,
         });
 
-        // Store token in localStorage
         localStorage.setItem('token', response.data.token);
+        localStorage.setItem('usertoken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
 
-        // Redirect to dashboard or home page after successful login
         setTimeout(() => {
           window.location.href = '/';
         }, 1000);
@@ -303,7 +290,6 @@ export default function Login() {
         toast.error(`${response.data.message}`);
       }
     } catch (error) {
-      console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
       setLoginError(errorMessage);
       

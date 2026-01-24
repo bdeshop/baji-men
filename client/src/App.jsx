@@ -22,35 +22,29 @@ import Mprofile from "./pages/profile/Mprofile";
 import GamePage from "./pages/games/GamePage";
 import Allgames from "./pages/allgames/Allgames";
 
-// Create Auth Context
 const AuthContext = createContext();
 
-// Custom hook to use the auth context
 export const useAuth = () => {
   return useContext(AuthContext);
 };
 
-// Create Branding Context
 const BrandingContext = createContext();
 
-// Custom hook to use the branding context
 export const useBranding = () => {
   return useContext(BrandingContext);
 };
 
-// Auth Provider Component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
   useEffect(() => {
-    // Check if user is logged in on app load
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("usertoken");
 
     if (!token) {
       setLoading(false);
@@ -58,7 +52,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      // Validate token with backend
       const response = await fetch(`${base_url}/api/user/my-information`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -96,7 +89,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Branding Provider Component
 export const BrandingProvider = ({ children }) => {
   const [branding, setBranding] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -142,8 +134,6 @@ export const BrandingProvider = ({ children }) => {
       
       // Add to document head
       document.head.appendChild(favicon);
-
-      console.log("Favicon set to:", faviconUrl);
     }
   };
 
@@ -160,24 +150,20 @@ export const BrandingProvider = ({ children }) => {
   );
 };
 
-// Protected Route Component (only for authenticated users)
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("usertoken");
 
   return user && token ? children : <Navigate to="/login" replace />;
 };
 
-// Public Route Component (redirect to home if already logged in)
-// Only used for auth pages like login/register
 const AuthRoute = ({ children }) => {
   const { user } = useAuth();
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("usertoken");
 
   return user && token ? <Navigate to="/" replace /> : children;
 };
 
-// Public Route Component (accessible to all users)
 const PublicRoute = ({ children }) => {
   return children;
 };

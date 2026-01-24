@@ -22,7 +22,7 @@ const Myreferel = () => {
 
   const fetchUserData = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
       const userinfo = JSON.parse(localStorage.getItem("user"));
       
       if (!token) {

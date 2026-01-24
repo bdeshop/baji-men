@@ -62,7 +62,7 @@ const Deposit = () => {
           `${API_BASE_URL}/api/user/all-information/${user.id}`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${localStorage.getItem("usertoken")}`,
             },
           }
         );
@@ -88,7 +88,7 @@ const Deposit = () => {
     const fetchAvailableBonuses = async () => {
       try {
         setBonusLoading(true);
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("usertoken");
         const response = await axios.get(
           `${API_BASE_URL}/api/user/bonuses/available`,
           {
@@ -241,7 +241,7 @@ const handleSubmit = async (e) => {
       
       // Save deposit record with pending status
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("usertoken");
         const user = JSON.parse(localStorage.getItem("user"));
 
         // Prepare deposit record according to your backend route
@@ -389,7 +389,7 @@ const handleSubmit = async (e) => {
   const handleRefreshBalance = async () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("usertoken");
 
       if (!token) {
         setError("Authentication token not found");
