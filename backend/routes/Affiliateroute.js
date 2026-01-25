@@ -1183,7 +1183,6 @@ Affiliateroute.get("/dashboard", authenticateAffiliate, async (req, res) => {
     // Get recent transactions (last 10 earnings)
     const recentTransactions = affiliate.earningsHistory
       .sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt))
-      .slice(0, 10)
       .map(earning => ({
         id: earning._id,
         type: earning.type,

@@ -18,6 +18,10 @@ import {
   FaArrowUp,
   FaArrowDown,
   FaPercent,
+  FaChevronLeft,
+  FaChevronRight,
+  FaStepBackward,
+  FaStepForward,
 } from 'react-icons/fa';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
@@ -33,6 +37,7 @@ const Earnings = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [transactionsPerPage] = useState(10); // Number of transactions per page
   const [payoutHistory, setPayoutHistory] = useState({
     total: 0,
     page: 1,
@@ -291,7 +296,8 @@ const Earnings = () => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      second: 'numeric'
     });
   };
 
@@ -365,6 +371,7 @@ const Earnings = () => {
     toast.success('Data refreshed!');
   };
 
+  // Filter transactions based on search and status
   const filteredTransactions = earningsData.transactions.filter(transaction => {
     const matchesSearch =
       (transaction.referralName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -374,7 +381,46 @@ const Earnings = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const totalPages = Math.ceil(payoutHistory.total / payoutHistory.limit);
+  // Pagination logic for transactions
+  const indexOfLastTransaction = currentPage * transactionsPerPage;
+  const indexOfFirstTransaction = indexOfLastTransaction - transactionsPerPage;
+  const currentTransactions = filteredTransactions.slice(indexOfFirstTransaction, indexOfLastTransaction);
+  const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
+
+  // Change page
+  const paginate = (pageNumber) => {
+    if (pageNumber < 1 || pageNumber > totalPages) return;
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Generate page numbers
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxPagesToShow = 5;
+    
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+      let endPage = startPage + maxPagesToShow - 1;
+      
+      if (endPage > totalPages) {
+        endPage = totalPages;
+        startPage = Math.max(1, endPage - maxPagesToShow + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+    }
+    
+    return pageNumbers;
+  };
+
+  const totalPagesPayout = Math.ceil(payoutHistory.total / payoutHistory.limit);
 
   return (
     <div className="min-h-screen bg-[#000514] text-white font-sans selection:bg-cyan-500 selection:text-black">
@@ -628,26 +674,26 @@ const Earnings = () => {
 
             <div className="overflow-x-auto">
               {isLoading ? (
-        <div className="p-8 text-center">
-    {/* Simple 3-part circle spinner */}
-    <div className="relative inline-flex items-center justify-center">
-      {/* Outer ring - part 1 */}
-      <div className="w-12 h-12 rounded-full border-2 border-transparent border-t-cyan-500 animate-spin"></div>
-      
-      {/* Middle ring - part 2 */}
-      <div className="absolute w-8 h-8 rounded-full border-2 border-transparent border-r-blue-500 animate-spin" 
-           style={{animationDuration: '1.5s'}}></div>
-      
-      {/* Inner ring - part 3 */}
-      <div className="absolute w-4 h-4 rounded-full border-2 border-transparent border-b-purple-500 animate-spin" 
-           style={{animationDuration: '2s'}}></div>
-      
-      {/* Center dot */}
-      <div className="absolute w-2 h-2 bg-white rounded-full animate-pulse"></div>
-    </div>
-    
-    <p className="text-gray-400 mt-4">Loading earnings history...</p>
-  </div>
+                <div className="p-8 text-center">
+                  {/* Simple 3-part circle spinner */}
+                  <div className="relative inline-flex items-center justify-center">
+                    {/* Outer ring - part 1 */}
+                    <div className="w-12 h-12 rounded-full border-2 border-transparent border-t-cyan-500 animate-spin"></div>
+                    
+                    {/* Middle ring - part 2 */}
+                    <div className="absolute w-8 h-8 rounded-full border-2 border-transparent border-r-blue-500 animate-spin" 
+                         style={{animationDuration: '1.5s'}}></div>
+                    
+                    {/* Inner ring - part 3 */}
+                    <div className="absolute w-4 h-4 rounded-full border-2 border-transparent border-b-purple-500 animate-spin" 
+                         style={{animationDuration: '2s'}}></div>
+                    
+                    {/* Center dot */}
+                    <div className="absolute w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                  
+                  <p className="text-gray-400 mt-4">Loading earnings history...</p>
+                </div>
               ) : filteredTransactions.length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-400">No earnings history found</p>
@@ -658,74 +704,183 @@ const Earnings = () => {
                   </p>
                 </div>
               ) : (
-                <table className="w-full">
-                  <thead className="bg-white/5">
-                    <tr>
-                      <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
-                        Date
-                      </th>
-                      <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
-                        Type & Description
-                      </th>
-                      <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
-                        Amount
-                      </th>
-                      <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10">
-                    {filteredTransactions.map((transaction) => (
-                      <tr key={transaction.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium">
-                              {formatDate(transaction.date)}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {transaction.daysAgo === 0 ? 'Today' : `${transaction.daysAgo}d ago`}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            {getTypeBadge(transaction.type)}
+                <>
+                  <table className="w-full">
+                    <thead className="bg-white/5">
+                      <tr>
+                        <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
+                          Date
+                        </th>
+                        <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
+                          Type & Description
+                        </th>
+                        <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
+                          Amount
+                        </th>
+                        <th className="px-4 md:px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                      {currentTransactions.map((transaction) => (
+                        <tr key={transaction.id} className="hover:bg-white/5 transition-colors">
+                          <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                             <div>
                               <div className="text-sm font-medium">
-                                {getEarningTypeLabel(transaction.type)}
+                                {formatDate(transaction.date)}
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {transaction.description || 'Commission earned'}
+                              <div className="text-xs text-gray-500">
+                                {transaction.daysAgo === 0 ? 'Today' : `${transaction.daysAgo}d ago`}
                               </div>
-                              {transaction.metadata && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {transaction.metadata.betType && `Bet: ${transaction.metadata.betType}`}
-                                  {transaction.metadata.depositMethod &&
-                                    `Deposit: ${transaction.metadata.depositMethod}`}
-                                  {transaction.metadata.withdrawalMethod &&
-                                    `Withdrawal: ${transaction.metadata.withdrawalMethod}`}
-                                </div>
-                              )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-cyan-400">
-                            {formatCurrency(transaction.amount)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {transaction.commissionRate.toFixed(1)}% of{' '}
-                            {formatCurrency(transaction.sourceAmount)}
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4 text-green-500 whitespace-nowrap">
-                          Completed
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                          <td className="px-4 md:px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              {getTypeBadge(transaction.type)}
+                              <div>
+                                <div className="text-sm font-medium">
+                                  {getEarningTypeLabel(transaction.type)}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {transaction.description || 'Commission earned'}
+                                </div>
+                                {transaction.metadata && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {transaction.metadata.betType && `Bet: ${transaction.metadata.betType}`}
+                                    {transaction.metadata.depositMethod &&
+                                      `Deposit: ${transaction.metadata.depositMethod}`}
+                                    {transaction.metadata.withdrawalMethod &&
+                                      `Withdrawal: ${transaction.metadata.withdrawalMethod}`}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-cyan-400">
+                              {formatCurrency(transaction.amount)}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {transaction.commissionRate.toFixed(1)}% of{' '}
+                              {formatCurrency(transaction.sourceAmount)}
+                            </div>
+                          </td>
+                          <td className="px-4 md:px-6 py-4 text-green-500 whitespace-nowrap">
+                            Completed
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="p-4 md:p-6 border-t border-white/10">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="text-sm text-gray-400">
+                          Showing <span className="font-semibold text-white">{indexOfFirstTransaction + 1}</span> to{' '}
+                          <span className="font-semibold text-white">
+                            {Math.min(indexOfLastTransaction, filteredTransactions.length)}
+                          </span>{' '}
+                          of <span className="font-semibold text-white">{filteredTransactions.length}</span> transactions
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {/* First Page Button */}
+                          <button
+                            onClick={() => paginate(1)}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-md ${
+                              currentPage === 1
+                                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                : 'bg-white/10 text-cyan-400 hover:bg-cyan-500/20'
+                            }`}
+                          >
+                            <FaStepBackward className="w-3 h-3" />
+                          </button>
+
+                          {/* Previous Page Button */}
+                          <button
+                            onClick={() => paginate(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-md ${
+                              currentPage === 1
+                                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                : 'bg-white/10 text-cyan-400 hover:bg-cyan-500/20'
+                            }`}
+                          >
+                            <FaChevronLeft className="w-3 h-3" />
+                          </button>
+
+                          {/* Page Numbers */}
+                          {getPageNumbers().map((number) => (
+                            <button
+                              key={number}
+                              onClick={() => paginate(number)}
+                              className={`px-3 py-1 rounded-md ${
+                                currentPage === number
+                                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold'
+                                  : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                              }`}
+                            >
+                              {number}
+                            </button>
+                          ))}
+
+                          {/* Next Page Button */}
+                          <button
+                            onClick={() => paginate(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`p-2 rounded-md ${
+                              currentPage === totalPages
+                                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                : 'bg-white/10 text-cyan-400 hover:bg-cyan-500/20'
+                            }`}
+                          >
+                            <FaChevronRight className="w-3 h-3" />
+                          </button>
+
+                          {/* Last Page Button */}
+                          <button
+                            onClick={() => paginate(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className={`p-2 rounded-md ${
+                              currentPage === totalPages
+                                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                : 'bg-white/10 text-cyan-400 hover:bg-cyan-500/20'
+                            }`}
+                          >
+                            <FaStepForward className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <div className="text-sm text-gray-400">
+                          Page <span className="font-semibold text-white">{currentPage}</span> of{' '}
+                          <span className="font-semibold text-white">{totalPages}</span>
+                        </div>
+                      </div>
+
+                      {/* Items Per Page Selector */}
+                      <div className="flex items-center justify-center mt-4 gap-2">
+                        <span className="text-sm text-gray-400">Show:</span>
+                        <select
+                          value={transactionsPerPage}
+                          onChange={(e) => {
+                            setCurrentPage(1);
+                            // You could update transactionsPerPage state if you want dynamic selection
+                          }}
+                          className="px-3 py-1 bg-white/10 border border-white/20 rounded-md text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                        >
+                          <option value={5} className="bg-[#000514]">5 per page</option>
+                          <option value={10} className="bg-[#000514]">10 per page</option>
+                          <option value={25} className="bg-[#000514]">25 per page</option>
+                          <option value={50} className="bg-[#000514]">50 per page</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
