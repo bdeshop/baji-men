@@ -3179,7 +3179,7 @@ if (hasAffiliateCode) {
       console.log(`✅ Affiliate commission of ${commissionAmount} BDT added to affiliate ${affiliate.affiliateCode} pending earnings.`);
       console.log(`   - Earnings history record created for user: ${matchedUser.username}`);
     }
-  }else{
+  } else if (affiliatedeposit <=0 && isWin === true) {
     const affiliate = await Affiliate.findOne({
       affiliateCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
       status: 'active'
