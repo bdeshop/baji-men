@@ -3130,7 +3130,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 if (hasAffiliateCode) {
   const affiliatedeposit = matchedUser.affiliatedeposit || 0; // Added default value
   
-  // Create clear variables for win/lose conditions
   const isUserWin = isWin; // Already defined above as: const isWin = processedData.bet_type === 'SETTLE';
   const isUserLose = !isWin; // This is when bet_type === 'BET'
   const betAmountForCommission = betAmount; // The amount to calculate commission from
