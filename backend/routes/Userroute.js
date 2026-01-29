@@ -2898,6 +2898,345 @@ Userrouter.post("/getGameLink", async (req, res) => {
 // });
 
 
+// Userrouter.post("/callback-data-game", async (req, res) => {
+//   try {
+//     // Extract fields from request body
+//     let { username, provider_code, amount, game_code, bet_type, transaction_id, verification_key, times } = req.body;
+
+//     if (!username || !provider_code || !amount || !game_code || !bet_type) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields missing: username, provider_code, amount, game_code, and bet_type are required.",
+//       });
+//     }
+
+//     // Process username
+//     username = username.substring(0, 45);
+//     username = username.substring(0, username.length - 2);
+    
+//     const findgame = await Game.findOne({ gameApiID: game_code });
+
+//     // Prepare processed data
+//     const processedData = {
+//       member_account: username,
+//       original_username: username,
+//       bet_amount: bet_type === 'BET' ? parseFloat(amount) : 0,
+//       win_amount: bet_type === 'SETTLE' ? parseFloat(amount) : 0,
+//       game_uid: game_code,
+//       serial_number: transaction_id || `TXN_${Date.now()}`,
+//       currency_code: 'BDT',
+//       platform: 'casino',
+//       game_type: provider_code,
+//       device_info: 'web',
+//       bet_type: bet_type,
+//       provider_code: provider_code,
+//       verification_key: verification_key,
+//       times: times,
+//       game_name: findgame?.name || "no game"
+//     };
+
+//     // Check for duplicate transaction
+//     const existingBet = await BettingHistory.findOne({
+//       serial_number: processedData.serial_number
+//     });
+
+//     if (existingBet) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Duplicate transaction - serial number already exists.",
+//       });
+//     }
+
+//     // Find user
+//     const matchedUser = await User.findOne({
+//       username: processedData.original_username
+//     });
+
+//     if (!matchedUser) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found!",
+//       });
+//     }
+
+//     // Check if user has affiliate code
+//     const hasAffiliateCode = !!matchedUser.registrationSource?.affiliateCode;
+
+//     // Calculate amounts based on bet type
+//     const betAmount = processedData.bet_type === 'BET' ? processedData.bet_amount : 0;
+//     const winAmount = processedData.bet_type === 'SETTLE' ? processedData.win_amount : 0;
+//     const netAmount = winAmount - betAmount;
+//     const isWin = processedData.bet_type === 'SETTLE';
+//     const status = isWin ? 'won' : 'lost';
+
+//     // Balance validation
+//     const balanceBefore = matchedUser.balance || 0;
+
+//     // Check if user has sufficient balance for the bet
+//     if (processedData.bet_type === 'BET' && balanceBefore < betAmount) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Insufficient balance. Current balance: ${balanceBefore}, Bet amount: ${betAmount}`,
+//         data: {
+//           username: processedData.original_username,
+//           current_balance: balanceBefore,
+//           required_balance: betAmount,
+//           deficit: betAmount - balanceBefore
+//         }
+//       });
+//     }
+
+//     // Calculate new balance after the transaction
+//     const newBalance = balanceBefore - betAmount + winAmount;
+
+//     // Additional safety check: Ensure new balance doesn't go negative
+//     if (newBalance < 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Transaction would result in negative balance. Current balance: ${balanceBefore}, Transaction net: ${netAmount}`,
+//         data: {
+//           username: processedData.original_username,
+//           balance_before: balanceBefore,
+//           bet_amount: betAmount,
+//           win_amount: winAmount,
+//           net_amount: netAmount,
+//           projected_balance: newBalance
+//         }
+//       });
+//     }
+
+//     // Prepare the bet history record for User model
+//     const betRecord = {
+//       betAmount: betAmount,
+//       betResult: isWin ? "win" : "loss",
+//       transaction_id: processedData.serial_number,
+//       game_id: processedData.game_uid,
+//       bet_time: new Date(),
+//       status: "completed",
+//       provider_code: processedData.provider_code,
+//       bet_type: processedData.bet_type
+//     };
+
+//     // Prepare user update data
+//     const userUpdateData = {
+//       $set: {
+//         balance: newBalance,
+//       },
+//       $inc: {
+//         total_bet: betAmount,
+//         total_wins: isWin ? winAmount : 0,
+//         total_loss: !isWin ? betAmount : 0,
+//         lifetime_bet: betAmount
+//       },
+//       $push: {
+//         betHistory: betRecord,
+//         transactionHistory: {
+//           type: isWin ? "win" : "bet",
+//           amount: isWin ? winAmount : betAmount,
+//           balanceBefore: balanceBefore,
+//           balanceAfter: newBalance,
+//           description: isWin
+//             ? `Won ${winAmount} in game ${processedData.game_uid}`
+//             : `Bet ${betAmount} in game ${processedData.game_uid}`,
+//           referenceId: processedData.serial_number,
+//           createdAt: new Date(),
+//         },
+//       },
+//     };
+
+//     // Execute user update with concurrency control
+//     const updateResult = await User.findOneAndUpdate(
+//       {
+//         _id: new mongoose.Types.ObjectId(matchedUser._id),
+//         balance: { $gte: betAmount } // Ensure balance hasn't changed
+//       },
+//       userUpdateData,
+//       {
+//         returnDocument: "after",
+//         maxTimeMS: 5000
+//       }
+//     );
+
+//     // Check if update was successful
+//     if (!updateResult) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Transaction failed due to concurrent balance modification. Please try again.",
+//         data: {
+//           username: processedData.original_username,
+//           original_balance: balanceBefore,
+//           current_balance: (await User.findById(matchedUser._id)).balance,
+//           bet_amount: betAmount
+//         }
+//       });
+//     }
+
+//     // Create BettingHistory record
+//     const bettingHistoryRecord = new BettingHistory({
+//       member_account: processedData.member_account,
+//       original_username: processedData.original_username,
+//       user_id: matchedUser._id,
+//       bet_amount: betAmount,
+//       win_amount: winAmount,
+//       net_amount: netAmount,
+//       game_uid: processedData.game_uid,
+//       serial_number: processedData.serial_number,
+//       currency_code: processedData.currency_code,
+//       status: status,
+//       balance_before: balanceBefore,
+//       balance_after: newBalance,
+//       transaction_time: new Date(),
+//       processed_at: new Date(),
+//       platform: processedData.platform,
+//       game_type: processedData.game_type,
+//       device_info: processedData.device_info,
+//       provider_code: processedData.provider_code,
+//       bet_type: processedData.bet_type,
+//       processing_format: 'new',
+//       has_affiliate_code: hasAffiliateCode
+//     });
+
+//     // Save BettingHistory record
+//     await bettingHistoryRecord.save();
+
+//     // Apply bet to wagering (for bonus requirements)
+//     await updateResult.applyBetToWagering(betAmount);
+
+//     // Send success response
+//     const responseData = {
+//       success: true,
+//       data: {
+//         username: processedData.original_username,
+//         balance: updateResult.balance,
+//         win_amount: winAmount,
+//         bet_amount: betAmount,
+//         game_uid: processedData.game_uid,
+//         serial_number: processedData.serial_number,
+//         bet_type: processedData.bet_type,
+//         provider_code: processedData.provider_code,
+//         gameRecordId: updateResult.betHistory[updateResult.betHistory.length - 1]?._id,
+//         bettingHistoryId: bettingHistoryRecord._id,
+//         processing_format: 'new',
+//         has_affiliate_code: hasAffiliateCode
+//       },
+//     };
+
+//     console.log(`✅ Transaction completed successfully for user: ${processedData.original_username}`);
+//     console.log(`   - Balance before: ${balanceBefore}, after: ${updateResult.balance}`);
+//     console.log(`   - Net amount: ${netAmount}`);
+//     console.log(`   - Has affiliate code: ${hasAffiliateCode ? 'YES' : 'NO'}`);
+    
+//     // -------------------------------------affiliate-commission-system------------------------------------------
+// if (hasAffiliateCode) {
+//   const affiliatedeposit = matchedUser.affiliatedeposit || 0; // Added default value
+  
+//   const isUserWin = isWin; // Already defined above as: const isWin = processedData.bet_type === 'SETTLE';
+//   const isUserLose = !isWin; // This is when bet_type === 'BET'
+//   const betAmountForCommission = betAmount; // The amount to calculate commission from
+  
+//   // Find the active affiliate
+//   const affiliate = await Affiliate.findOne({
+//     affiliateCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
+//     status: 'active'
+//   });
+  
+//   if (affiliate) {
+//     // Clear commission calculation variables
+//     let commissionAmount = 0;
+//     let commissionType = '';
+//     let description = '';
+//     let status = 'pending';
+//     let metadataNotes = '';
+    
+//     // CASE 1: User loses AND has positive affiliatedeposit
+//     if (isUserLose && affiliatedeposit > 0) {
+//       commissionAmount = (betAmountForCommission / 100) * affiliate.commissionRate;
+//       commissionType = 'bet_commission';
+//       description = `Commission from user ${matchedUser.username}'s losing bet`;
+//       status = 'pending';
+//       metadataNotes = `Commission from losing bet of ${betAmountForCommission} BDT`;
+      
+//       // Update affiliate earnings
+//       affiliate.pendingEarnings += commissionAmount;
+//       affiliate.totalEarnings += commissionAmount;
+      
+//       // Reduce the affiliatedeposit
+//       const newAffiliateDeposit = Math.max(0, affiliatedeposit - betAmountForCommission);
+//       matchedUser.affiliatedeposit = newAffiliateDeposit;
+//       await matchedUser.save();
+      
+//       console.log(`✅ Affiliate commission of ${commissionAmount} BDT added to affiliate ${affiliate.affiliateCode} pending earnings.`);
+//       console.log(`   - Affiliate deposit reduced from ${affiliatedeposit} to ${newAffiliateDeposit}`);
+      
+//     } 
+//     // CASE 2: User wins AND affiliatedeposit is depleted (0 or negative)
+//     else if (isUserWin && affiliatedeposit <= 0) {
+//       commissionAmount = (winAmount / 100) * affiliate.commissionRate;
+//       commissionType = 'bet_deduction';
+//       description = `Deduction from user ${matchedUser.username}'s winning bet`;
+//       status = 'cancelled'; // Using 'cancelled' for deductions
+//       metadataNotes = `Deduction from winning bet of ${winAmount} BDT (affiliate deposit limit reached)`;
+      
+//       // Update affiliate minusBalance
+//       affiliate.minusBalance += commissionAmount;
+      
+//       console.log(`✅ Affiliate commission deduction of ${commissionAmount} BDT added to affiliate ${affiliate.affiliateCode} minus balance.`);
+//     }
+    
+//     // Create earnings history record if commission was calculated
+//     if (commissionAmount > 0) {
+//       const earningsHistoryRecord = {
+//         amount: commissionAmount,
+//         type: commissionType,
+//         description: description,
+//         status: status,
+//         referredUser: matchedUser._id,
+//         sourceId: bettingHistoryRecord._id,
+//         sourceType: 'bet',
+//         commissionRate: affiliate.commissionRate,
+//         sourceAmount: isUserLose ? betAmountForCommission : winAmount,
+//         calculatedAmount: commissionAmount,
+//         earnedAt: new Date(),
+//         metadata: {
+//           betType: processedData.bet_type,
+//           gameType: processedData.game_type,
+//           gameCode: processedData.game_uid,
+//           gameName: processedData.game_name,
+//           provider: processedData.provider_code,
+//           currency: 'BDT',
+//           notes: metadataNotes,
+//           isDeduction: commissionType === 'bet_deduction',
+//           userWon: isUserWin,
+//           userLost: isUserLose,
+//           affiliatedepositBefore: affiliatedeposit,
+//           affiliatedepositAfter: matchedUser.affiliatedeposit
+//         }
+//       };
+      
+//       // Push to earnings history
+//       affiliate.earningsHistory.push(earningsHistoryRecord);
+//       await affiliate.save();
+      
+//       console.log(`   - Earnings history record created: ${commissionType} for ${commissionAmount} BDT`);
+//     }
+//   }
+// }
+// // -------------------------------------affiliate-commission-system------------------------------------------
+// // -------------------------------------affiliate-commission-system------------------------------------------
+//     // -------------------------------------affiliate-commission-system------------------------------------------
+
+//     res.json(responseData);
+
+//   } catch (error) {
+//     console.error("❌ Error in callback-data-game:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// });
+
 Userrouter.post("/callback-data-game", async (req, res) => {
   try {
     // Extract fields from request body
@@ -2962,11 +3301,54 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     // Check if user has affiliate code
     const hasAffiliateCode = !!matchedUser.registrationSource?.affiliateCode;
 
-    // Calculate amounts based on bet type
-    const betAmount = processedData.bet_type === 'BET' ? processedData.bet_amount : 0;
-    const winAmount = processedData.bet_type === 'SETTLE' ? processedData.win_amount : 0;
-    const netAmount = winAmount - betAmount;
-    const isWin = processedData.bet_type === 'SETTLE';
+    // Find the original BET transaction to calculate net win
+    let originalBetAmount = 0;
+    let isWin = false;
+    let winAmount = 0;
+    let betAmount = 0;
+    let netAmount = 0;
+    
+    if (processedData.bet_type === 'SETTLE') {
+      // For SETTLE, find the original BET transaction
+      const originalBetTransaction = await BettingHistory.findOne({
+        member_account: processedData.member_account,
+        game_uid: processedData.game_uid,
+        bet_type: 'BET',
+        serial_number: { $ne: processedData.serial_number } // Different transaction ID
+      }).sort({ transaction_time: -1 }); // Get the most recent BET
+
+      if (originalBetTransaction) {
+        originalBetAmount = originalBetTransaction.bet_amount || 0;
+        betAmount = originalBetAmount;
+        winAmount = processedData.win_amount;
+        
+        // Determine if this is a win (settle amount > bet amount)
+        isWin = winAmount > originalBetAmount;
+        
+        // Calculate net win amount (only positive difference)
+        netAmount = isWin ? (winAmount - originalBetAmount) : 0;
+        
+        console.log(`📊 SETTLE Transaction Analysis:`);
+        console.log(`   - Original bet amount: ${originalBetAmount}`);
+        console.log(`   - Settlement amount: ${winAmount}`);
+        console.log(`   - Is win: ${isWin} (${winAmount} > ${originalBetAmount})`);
+        console.log(`   - Net win amount: ${netAmount}`);
+      } else {
+        // If no original bet found, treat settle amount as win amount
+        betAmount = 0;
+        winAmount = processedData.win_amount;
+        isWin = winAmount > 0;
+        netAmount = winAmount;
+        console.log(`⚠️ No original BET found for SETTLE transaction. Treating ${winAmount} as win amount.`);
+      }
+    } else {
+      // For BET type
+      betAmount = processedData.bet_amount;
+      winAmount = 0;
+      isWin = false;
+      netAmount = -betAmount; // Negative for bet placement
+    }
+
     const status = isWin ? 'won' : 'lost';
 
     // Balance validation
@@ -3014,7 +3396,9 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       bet_time: new Date(),
       status: "completed",
       provider_code: processedData.provider_code,
-      bet_type: processedData.bet_type
+      bet_type: processedData.bet_type,
+      winAmount: winAmount,
+      netWinAmount: netAmount // Store net win separately
     };
 
     // Prepare user update data
@@ -3036,7 +3420,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           balanceBefore: balanceBefore,
           balanceAfter: newBalance,
           description: isWin
-            ? `Won ${winAmount} in game ${processedData.game_uid}`
+            ? `Won ${winAmount} in game ${processedData.game_uid} (Net: +${netAmount})`
             : `Bet ${betAmount} in game ${processedData.game_uid}`,
           referenceId: processedData.serial_number,
           createdAt: new Date(),
@@ -3079,6 +3463,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       bet_amount: betAmount,
       win_amount: winAmount,
       net_amount: netAmount,
+      original_bet_amount: processedData.bet_type === 'SETTLE' ? originalBetAmount : 0,
       game_uid: processedData.game_uid,
       serial_number: processedData.serial_number,
       currency_code: processedData.currency_code,
@@ -3093,7 +3478,9 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       provider_code: processedData.provider_code,
       bet_type: processedData.bet_type,
       processing_format: 'new',
-      has_affiliate_code: hasAffiliateCode
+      has_affiliate_code: hasAffiliateCode,
+      is_win: isWin,
+      net_win_amount: netAmount
     });
 
     // Save BettingHistory record
@@ -3110,6 +3497,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         balance: updateResult.balance,
         win_amount: winAmount,
         bet_amount: betAmount,
+        net_win_amount: netAmount,
         game_uid: processedData.game_uid,
         serial_number: processedData.serial_number,
         bet_type: processedData.bet_type,
@@ -3117,7 +3505,8 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         gameRecordId: updateResult.betHistory[updateResult.betHistory.length - 1]?._id,
         bettingHistoryId: bettingHistoryRecord._id,
         processing_format: 'new',
-        has_affiliate_code: hasAffiliateCode
+        has_affiliate_code: hasAffiliateCode,
+        is_win: isWin
       },
     };
 
@@ -3125,13 +3514,14 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     console.log(`   - Balance before: ${balanceBefore}, after: ${updateResult.balance}`);
     console.log(`   - Net amount: ${netAmount}`);
     console.log(`   - Has affiliate code: ${hasAffiliateCode ? 'YES' : 'NO'}`);
+    console.log(`   - Is win: ${isWin}`);
     
     // -------------------------------------affiliate-commission-system------------------------------------------
 if (hasAffiliateCode) {
   const affiliatedeposit = matchedUser.affiliatedeposit || 0; // Added default value
   
-  const isUserWin = isWin; // Already defined above as: const isWin = processedData.bet_type === 'SETTLE';
-  const isUserLose = !isWin; // This is when bet_type === 'BET'
+  const isUserWin = isWin; // Already calculated above
+  const isUserLose = !isWin; // Opposite of win
   const betAmountForCommission = betAmount; // The amount to calculate commission from
   
   // Find the active affiliate
@@ -3171,16 +3561,18 @@ if (hasAffiliateCode) {
     } 
     // CASE 2: User wins AND affiliatedeposit is depleted (0 or negative)
     else if (isUserWin && affiliatedeposit <= 0) {
-      commissionAmount = (winAmount / 100) * affiliate.commissionRate;
+      // Use NET win amount for commission calculation, not total win amount
+      commissionAmount = (netAmount / 100) * affiliate.commissionRate;
       commissionType = 'bet_deduction';
       description = `Deduction from user ${matchedUser.username}'s winning bet`;
       status = 'cancelled'; // Using 'cancelled' for deductions
-      metadataNotes = `Deduction from winning bet of ${winAmount} BDT (affiliate deposit limit reached)`;
+      metadataNotes = `Deduction from net win of ${netAmount} BDT (affiliate deposit limit reached)`;
       
       // Update affiliate minusBalance
       affiliate.minusBalance += commissionAmount;
       
       console.log(`✅ Affiliate commission deduction of ${commissionAmount} BDT added to affiliate ${affiliate.affiliateCode} minus balance.`);
+      console.log(`   - Commission based on net win amount: ${netAmount} BDT (not total win: ${winAmount} BDT)`);
     }
     
     // Create earnings history record if commission was calculated
@@ -3194,7 +3586,7 @@ if (hasAffiliateCode) {
         sourceId: bettingHistoryRecord._id,
         sourceType: 'bet',
         commissionRate: affiliate.commissionRate,
-        sourceAmount: isUserLose ? betAmountForCommission : winAmount,
+        sourceAmount: isUserLose ? betAmountForCommission : netAmount,
         calculatedAmount: commissionAmount,
         earnedAt: new Date(),
         metadata: {
@@ -3209,7 +3601,10 @@ if (hasAffiliateCode) {
           userWon: isUserWin,
           userLost: isUserLose,
           affiliatedepositBefore: affiliatedeposit,
-          affiliatedepositAfter: matchedUser.affiliatedeposit
+          affiliatedepositAfter: matchedUser.affiliatedeposit,
+          netWinAmount: netAmount,
+          totalWinAmount: winAmount,
+          betAmount: betAmount
         }
       };
       
@@ -3222,8 +3617,6 @@ if (hasAffiliateCode) {
   }
 }
 // -------------------------------------affiliate-commission-system------------------------------------------
-// -------------------------------------affiliate-commission-system------------------------------------------
-    // -------------------------------------affiliate-commission-system------------------------------------------
 
     res.json(responseData);
 
@@ -3236,14 +3629,223 @@ if (hasAffiliateCode) {
     });
   }
 });
+// Refund/CancelBet route
+Userrouter.post("/refund", async (req, res) => {
+  try {
+    const {
+      account_id,
+      username: rawUsername,
+      provider_code,
+      amount,                // এখানে integer আসবে
+      game_code,
+      verification_key,
+      bet_type,
+      transaction_id,
+      times,
+    } = req.body;
 
+    console.log("Refund/CancelBET callback received →", {
+      account_id,
+      rawUsername,
+      provider_code,
+      amount,
+      bet_type,
+      transaction_id,
+    });
 
+    // Required fields + bet_type check
+    if (
+      !rawUsername ||
+      amount === undefined ||
+      bet_type !== "CANCELBET"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields or invalid bet_type (only CANCELBET allowed)",
+      });
+    }
 
+    // Amount কে integer হিসেবে validate করা (যদি string আসে তাহলে convert)
+    const amountBDT = Number(amount);   // string হলে number-এ কনভার্ট
+    if (!Number.isInteger(amountBDT) || amountBDT < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be a non-negative integer (in BDT)",
+      });
+    }
+
+    // Username clean — শুধুমাত্র শেষের "45" কেটে ফেলা
+    let cleanUsername = rawUsername.trim();
+    if (cleanUsername.endsWith("45")) {
+      cleanUsername = cleanUsername.slice(0, -2); // Remove last 2 characters
+    }
+
+    if (!cleanUsername) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid username format",
+      });
+    }
+
+    console.log("Username processing:", {
+      original: rawUsername,
+      cleaned: cleanUsername,
+    });
+
+    console.log("Searching user for refund:", cleanUsername);
+
+    // Find user by username
+    const player = await User.findOne({ username: cleanUsername });
+
+    if (!player) {
+      console.log("User NOT found for refund:", cleanUsername);
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+        debug: { searched: cleanUsername, original: rawUsername },
+      });
+    }
+
+    console.log(
+      "Player found for refund:",
+      player.username,
+      "Current Balance:",
+      player.balance,
+      "User ID:",
+      player._id
+    );
+
+    const refundAmount = amountBDT;  // Direct BDT amount
+    const previousBalance = player.balance || 0;
+    const newBalance = previousBalance + refundAmount;
+
+    // Generate a unique transaction ID if not provided
+    const refundTransactionId = transaction_id || `REFUND_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Update user balance and transaction history
+    const updatedPlayer = await User.findOneAndUpdate(
+      { _id: player._id },
+      {
+        $set: { 
+          balance: newBalance,
+          net_profit: (player.net_profit || 0) + refundAmount
+        },
+        $inc: { 
+          total_wins: refundAmount,
+          lifetime_bet: 0 // No bet for refund
+        },
+        $push: { 
+          // Add to betHistory
+          betHistory: {
+            betAmount: 0,
+            betResult: "refund",
+            transaction_id: refundTransactionId,
+            game_id: game_code || "refund_game",
+            bet_time: new Date(),
+            status: "refunded",
+            provider_code: provider_code,
+            bet_type: "CANCELBET"
+          },
+          // Add to transactionHistory
+          transactionHistory: {
+            type: "refund",
+            amount: refundAmount,
+            balanceBefore: previousBalance,
+            balanceAfter: newBalance,
+            description: `Refund/CANCELBET: ${game_code || 'Game'} via ${provider_code || 'Provider'}`,
+            referenceId: refundTransactionId,
+            createdAt: new Date(),
+          },
+          // Optional: Add to profitLossHistory if you want to track
+          profitLossHistory: {
+            type: "profit",
+            amount: refundAmount,
+            reason: `Refund for game ${game_code}`,
+            date: new Date()
+          }
+        }
+      },
+      { 
+        new: true,
+        runValidators: true 
+      }
+    );
+
+    // Create BettingHistory record if BettingHistory model exists
+    try {
+      const bettingHistoryRecord = new BettingHistory({
+        member_account: rawUsername,
+        original_username: cleanUsername,
+        user_id: player._id,
+        bet_amount: 0,
+        win_amount: refundAmount,
+        net_amount: refundAmount,
+        game_uid: game_code || "refund_game",
+        serial_number: refundTransactionId,
+        currency_code: 'BDT',
+        status: 'refunded',
+        balance_before: previousBalance,
+        balance_after: newBalance,
+        transaction_time: new Date(),
+        processed_at: new Date(),
+        platform: 'casino',
+        game_type: provider_code || 'refund',
+        device_info: 'web',
+        provider_code: provider_code,
+        bet_type: 'CANCELBET',
+        processing_format: 'refund',
+        refund_details: {
+          original_transaction_id: transaction_id,
+          verification_key: verification_key,
+          times: times
+        }
+      });
+
+      await bettingHistoryRecord.save();
+      console.log("BettingHistory record created for refund");
+    } catch (bettingHistoryError) {
+      console.log("Note: BettingHistory record not created:", bettingHistoryError.message);
+      // Continue even if BettingHistory fails
+    }
+
+    // Apply bet to wagering (0 amount for refund)
+    if (updatedPlayer.applyBetToWagering) {
+      await updatedPlayer.applyBetToWagering(0);
+    }
+
+    return res.json({
+      success: true,
+      message: "Refund processed successfully (CANCELBET)",
+      data: {
+        original_username: rawUsername,
+        matched_username: player.username,
+        user_id: player._id,
+        previous_balance: previousBalance,
+        refunded_amount: refundAmount,
+        new_balance: newBalance,
+        amount_bdt: amountBDT,
+        transaction_id: refundTransactionId,
+        username_processing: {
+          received: rawUsername,
+          cleaned_to: cleanUsername,
+          method: "removed '45' suffix"
+        },
+        timestamp: new Date()
+      },
+    });
+  } catch (error) {
+    console.error("Refund callback error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during refund processing",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
 // ----------------betting-records------------------------
 Userrouter.get("/betting-records/:userId", authenticateToken,async(req,res)=>{
       const bettingrecords=await BettingHistory.find({user_id:req.params.userId}).sort({createdAt:-1});
-      res.status(200).json({success:true,data:bettingrecords});
-      
+      res.status(200).json({success:true,data:bettingrecords});   
 })
 
 // Add this near the top with other model imports

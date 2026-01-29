@@ -533,7 +533,7 @@ activeBonuses: [{
     betHistory: [
         {
             betAmount: { type: Number, required: true },
-            betResult: { type: String, enum: ['win', 'loss'], required: true },
+            betResult: { type: String, required: true },
             transaction_id: { type: String, required: true },
             game_id: { type: String, required: true },
             bet_time: { type: Date, required: true },
@@ -647,7 +647,6 @@ depositHistory: [{
     transactionHistory: [{
         type: {
             type: String,
-            enum: ['deposit', 'withdrawal', 'bonus', 'bet', 'win', 'penalty', 'affiliate_commission'],
             required: true
         },
         amount: {
