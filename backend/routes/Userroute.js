@@ -2366,7 +2366,6 @@ Userrouter.post("/getGameLink", async (req, res) => {
 //   }
 // });
 
-const mongoose = require('mongoose');
 
 Userrouter.post("/callback-data-game", async (req, res) => {
   try {
