@@ -3564,6 +3564,18 @@ if (hasAffiliateCode) {
       console.log(`✅ Affiliate commission of ${commissionAmount} BDT added to affiliate ${affiliate.affiliateCode} pending earnings.`);
       console.log(`   - Affiliate deposit reduced from ${affiliatedeposit} to ${newAffiliateDeposit}`);
 
+               }else if(isUserWin && affiliatedeposit <= 0){
+                        commissionAmount = (netAmount / 100) * affiliate.commissionRate;
+      commissionType = 'bet_deduction';
+      description = `Deduction from user ${matchedUser.username}'s winning bet`;
+      status = 'cancelled'; // Using 'cancelled' for deductions
+      metadataNotes = `Deduction from net win of ${netAmount} BDT (affiliate deposit limit reached)`;
+      
+      // Update affiliate minusBalance
+      affiliate.minusBalance += commissionAmount;
+      
+      console.log(`✅ Affiliate commission deduction of ${commissionAmount} BDT added to affiliate ${affiliate.affiliateCode} minus balance.`);
+      console.log(`   - Commission based on net win amount: ${netAmount} BDT (not total win: ${winAmount} BDT)`);  
                }
         
     }
