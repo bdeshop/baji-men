@@ -61,8 +61,8 @@ const Header = ({ toggleSidebar }) => {
     }).then((result) => {
       if (result.isConfirmed) {
         // Remove localStorage data
-        localStorage.removeItem('loanadmin');
-        localStorage.removeItem('loantoken');
+        localStorage.removeItem('affiliate');
+        localStorage.removeItem('affiliatetoken');
 
         // Optional: show a success message
         toast.success("You have been logged out.");
