@@ -2264,6 +2264,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
         // CASE 1: User loses AND has positive affiliatedeposit
         if (isUserLose && affiliatedeposit > 0) {
+          console.log("------------------------------lose bet ------------------------------")
           // Calculate commission with precise decimal - NO ROUNDING
           commissionAmount = (betAmountForCommission * affiliate.commissionRate) / 100;
           commissionType = 'bet_commission';
@@ -2282,6 +2283,8 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         }
         // CASE 2: User wins AND affiliatedeposit is depleted
         else if (isUserWin && affiliatedeposit <= 0) {
+          console.log("------------------------------win bet ------------------------------")
+
           // Calculate commission based on net win with precise decimal - NO ROUNDING
           commissionAmount = (netAmount * affiliate.commissionRate) / 100;
           commissionType = 'bet_deduction';
