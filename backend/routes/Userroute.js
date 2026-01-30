@@ -3918,7 +3918,7 @@ if (hasAffiliateCode) {
 
     console.log("-------------------------------------------------affiliate-commission-check---------------------------");
     console.log(`SETTLE Transaction for User: ${matchedUser.username}, Affiliate: ${affiliate.affiliateCode}`);
-    console.log(`Win Amount: ${winAmount}, Bet Type: ${processedData.bet_type}`);
+    console.log(`Win Amount: ${betAmount}, Bet Type: ${processedData.bet_type}`);
     console.log(`Is Win: ${isWin}, Is Lose: ${!isWin}`);
     console.log(`Affiliate Deposit: ${affiliatedeposit}`);
     
