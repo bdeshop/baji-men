@@ -3918,8 +3918,7 @@ if (hasAffiliateCode) {
 
     console.log("-------------------------------------------------affiliate-commission-check---------------------------");
     console.log(`SETTLE Transaction for User: ${matchedUser.username}, Affiliate: ${affiliate.affiliateCode}`);
-    console.log(`Original Bet Amount: ${originalBetAmount}`);
-    console.log(`Win Amount: ${winAmount}, Net Amount: ${netAmount}`);
+    console.log(`Win Amount: ${winAmount}, Bet Type: ${processedData.bet_type}`);
     console.log(`Is Win: ${isWin}, Is Lose: ${!isWin}`);
     console.log(`Affiliate Deposit: ${affiliatedeposit}`);
     
@@ -3928,19 +3927,19 @@ if (hasAffiliateCode) {
     let description = '';
     let metadataNotes = '';
     
-    // SIMPLIFIED LOGIC: Only check if user lost (winAmount <= originalBetAmount)
-    // No balance before/after validation
+    // ULTRA SIMPLIFIED LOGIC: Only check if user lost (!isWin)
+    // No original bet amount checks, no balance validation
     
-    if (!isWin && affiliatedeposit > 0 && originalBetAmount > 0) {
-      console.log(`✅ User lost ${originalBetAmount - winAmount} (Bet: ${originalBetAmount}, Win: ${winAmount}). Checking for commission.`);
+    if (!isWin && affiliatedeposit > 0 && winAmount < betAmount) {
+      console.log(`✅ User lost in SETTLE transaction. Checking for commission.`);
       
-      // Calculate the actual loss amount
-      const lossAmount = Math.max(0, originalBetAmount - winAmount);
+      // Calculate loss based on win amount vs bet amount
+      const lossAmount = betAmount - winAmount;
       
-      console.log(`Actual loss amount: ${lossAmount}`);
+      console.log(`Loss calculation: Bet ${betAmount} - Win ${winAmount} = Loss ${lossAmount}`);
       
       if (lossAmount > 0) {
-        // Calculate commission based on full loss amount (simplified approach)
+        // Calculate commission based on loss amount
         commissionAmount = (lossAmount / 100) * affiliate.commissionRate;
         commissionType = 'bet_commission';
         description = `Commission from user ${matchedUser.username}'s loss`;
@@ -3986,7 +3985,7 @@ if (hasAffiliateCode) {
               provider: processedData.provider_code,
               currency: 'BDT',
               notes: metadataNotes,
-              originalBetAmount: originalBetAmount,
+              betAmount: betAmount,
               winAmount: winAmount,
               lossAmount: lossAmount,
               lossFromAffiliateDeposit: lossFromAffiliateDeposit,
@@ -4022,15 +4021,12 @@ if (hasAffiliateCode) {
         console.log(`ℹ️ SETTLE: User won ${winAmount} - No commission on wins`);
       } else if (affiliatedeposit <= 0) {
         console.log(`ℹ️ SETTLE: No affiliate deposit available`);
-      } else if (originalBetAmount <= 0) {
-        console.log(`ℹ️ SETTLE: No original bet amount found`);
       }
     }
   } else {
     console.log(`ℹ️ BET transaction detected - Skipping commission calculation until SETTLE`);
   }
 }
-// -------------------------------------affiliate-commission-system------------------------------------------
 // -------------------------------------affiliate-commission-system------------------------------------------
 
     res.json(responseData);
