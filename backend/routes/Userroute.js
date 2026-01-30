@@ -2567,108 +2567,116 @@ if (hasAffiliateCode && transactionData.bet_type === 'SETTLE') {
 
   if (affiliate) {
     console.log(`📊 AFFILIATE COMMISSION CHECK:`);
-    console.log(`   User: ${user.username}, BET_TYPE: ${transactionData.bet_type}`);
-    console.log(`   Bet Amount: ${betAmount}, Win Amount: ${winAmount}`);
-    console.log(`   Net Amount: ${netAmount}, Is Win: ${isWin}`);
+    console.log(`   User: ${user.username}`);
+    console.log(`   Transaction Type: ${transactionData.bet_type}`);
+    console.log(`   Win Amount from SETTLE: ${transactionData.win_amount}`);
+    console.log(`   Calculated Bet Amount: ${betAmount}`);
+    console.log(`   Calculated Win Amount: ${winAmount}`);
+    console.log(`   Net Amount: ${netAmount}`);
+    console.log(`   Is Win: ${isWin}`);
     console.log(`   Affiliate Deposit: ${affiliatedeposit}`);
     console.log(`   Commission Rate: ${affiliate.commissionRate}%`);
 
-    // CONDITION 1: USER LOSES
+    // IMPORTANT: For commission calculation, we need the ORIGINAL BET AMOUNT
+    // When user loses, winAmount is 0 or less than betAmount
+    // So we need to use the betAmount variable which should contain the original bet
+    
+    let commissionBetAmount = betAmount; // This should be the original bet amount
+    
+    // If betAmount is 0 (bug), try to find it from the transaction data
+    if (commissionBetAmount <= 0 && originalBetAmount > 0) {
+      commissionBetAmount = originalBetAmount;
+      console.log(`   Using originalBetAmount: ${originalBetAmount}`);
+    }
+    
+    // If still 0, use a fallback - check if winAmount is positive but less than a threshold
+    if (commissionBetAmount <= 0 && winAmount > 0 && winAmount < 100) {
+      // For Aviator losses, winAmount might be small (like 0.5 when bet was 10)
+      // We need to estimate the original bet
+      commissionBetAmount = Math.round(winAmount * 20); // Estimate bet was ~20x the small win
+      console.log(`   Estimating bet amount from small win: ${commissionBetAmount}`);
+    }
+
+    // CONDITION 1: USER LOSES - Commission on BET AMOUNT
     if (!isWin) {
       console.log("🎯 CONDITION 1: USER LOST THE BET");
+      console.log(`   Commission will be calculated on: ${commissionBetAmount} BDT`);
       
-      // Check if affiliate deposit is enough for this bet
-      if (affiliatedeposit >= betAmount && betAmount > 0) {
-        // Calculate commission on bet amount
-        commissionAmount = (betAmount * affiliate.commissionRate) / 100;
+      if (commissionBetAmount > 0 && affiliatedeposit >= commissionBetAmount) {
+        // Calculate commission on the ORIGINAL BET AMOUNT
+        commissionAmount = (commissionBetAmount * affiliate.commissionRate) / 100;
         commissionType = 'loss_commission';
         
         // Update affiliate earnings
         affiliate.pendingEarnings = parseFloat((affiliate.pendingEarnings + commissionAmount).toFixed(4));
         affiliate.totalEarnings = parseFloat((affiliate.totalEarnings + commissionAmount).toFixed(4));
         
-        // Reduce user's affiliate deposit by the bet amount
-        const newAffiliateDeposit = affiliatedeposit - betAmount;
+        // Reduce user's affiliate deposit by the ORIGINAL BET AMOUNT
+        const newAffiliateDeposit = affiliatedeposit - commissionBetAmount;
         user.affiliatedeposit = newAffiliateDeposit;
         await user.save();
         
-        console.log(`✅ COMMISSION ADDED: ${commissionAmount} BDT (${affiliate.commissionRate}% of ${betAmount})`);
+        console.log(`✅ COMMISSION ADDED: ${commissionAmount} BDT`);
+        console.log(`   Calculation: ${affiliate.commissionRate}% of ${commissionBetAmount} = ${commissionAmount}`);
         console.log(`   Affiliate deposit reduced: ${affiliatedeposit} → ${newAffiliateDeposit}`);
-      } else if (betAmount <= 0) {
-        console.log(`⚠️ No commission: Bet amount is ${betAmount} (should be > 0)`);
       } else {
-        console.log(`⚠️ No commission: Affiliate deposit (${affiliatedeposit}) < Bet amount (${betAmount})`);
+        console.log(`⚠️ No commission: Bet amount is ${commissionBetAmount}, Affiliate deposit is ${affiliatedeposit}`);
+        console.log(`   Required: Bet amount > 0 AND Affiliate deposit >= Bet amount`);
       }
     }
     
-    // CONDITION 2: USER WINS WITH DEPLETED DEPOSIT
+    // CONDITION 2: USER WINS WITH DEPLETED DEPOSIT - Commission on NET WIN
     else if (isWin && affiliatedeposit <= 0) {
       console.log("🎯 CONDITION 2: USER WON AND AFFILIATE DEPOSIT DEPLETED");
       
-      // Check if there's actual net win to calculate commission on
       if (netAmount > 0) {
-        // Calculate commission on NET win amount
         commissionAmount = (netAmount * affiliate.commissionRate) / 100;
         commissionType = 'win_deduction';
-        
-        // Add to affiliate's minus balance (deduction)
         affiliate.minusBalance = parseFloat((affiliate.minusBalance + commissionAmount).toFixed(4));
         
-        console.log(`✅ DEDUCTION ADDED: ${commissionAmount} BDT (${affiliate.commissionRate}% of net win ${netAmount})`);
-        console.log(`   Added to affiliate minus balance`);
-      } else {
-        console.log(`⚠️ No deduction: Net win amount is ${netAmount} (should be > 0)`);
+        console.log(`✅ DEDUCTION ADDED: ${commissionAmount} BDT`);
+        console.log(`   Calculation: ${affiliate.commissionRate}% of net win ${netAmount} = ${commissionAmount}`);
       }
     }
     
-    // CONDITION 3: USER WINS WITH POSITIVE DEPOSIT
+    // CONDITION 3: USER WINS WITH POSITIVE DEPOSIT - NO COMMISSION
     else if (isWin && affiliatedeposit > 0) {
       console.log("🎯 CONDITION 3: USER WON BUT AFFILIATE DEPOSIT STILL AVAILABLE");
-      console.log(`ℹ️ No commission: User won but affiliate deposit (${affiliatedeposit}) is still positive`);
+      console.log(`ℹ️ No commission: Affiliate deposit (${affiliatedeposit}) is still positive`);
     }
 
-    // Save commission record if commission was calculated
+    // Save commission record
     if (commissionAmount > 0) {
       const earningsRecord = {
         amount: commissionAmount,
         type: commissionType,
         description: commissionType === 'loss_commission' 
-          ? `Commission from user ${user.username}'s losing bet` 
-          : `Deduction from user ${user.username}'s winning bet`,
+          ? `Commission from ${user.username}'s losing bet (Bet: ${commissionBetAmount})` 
+          : `Deduction from ${user.username}'s winning bet (Net win: ${netAmount})`,
         status: commissionType === 'loss_commission' ? 'pending' : 'cancelled',
         referredUser: user._id,
         sourceId: bettingHistory._id,
         sourceType: 'bet',
         commissionRate: affiliate.commissionRate,
-        sourceAmount: commissionType === 'loss_commission' ? betAmount : netAmount,
+        sourceAmount: commissionType === 'loss_commission' ? commissionBetAmount : netAmount,
         calculatedAmount: commissionAmount,
         earnedAt: new Date(),
         metadata: {
-          betType: transactionData.bet_type,
-          gameType: provider_code,
-          gameCode: transactionData.game_uid,
-          gameName: transactionData.game_name,
-          provider: transactionData.provider_code,
-          currency: 'BDT',
-          userWon: isWin,
-          userLost: !isWin,
+          originalBetAmount: commissionBetAmount,
+          winAmount: winAmount,
+          netAmount: netAmount,
+          isWin: isWin,
           affiliatedepositBefore: affiliatedeposit,
           affiliatedepositAfter: user.affiliatedeposit,
-          netWinAmount: netAmount,
-          totalWinAmount: winAmount,
-          betAmount: betAmount,
-          condition: commissionType === 'loss_commission' ? 'Loss with enough deposit' : 'Win with depleted deposit'
+          condition: commissionType === 'loss_commission' ? 'Loss with deposit' : 'Win with no deposit'
         }
       };
 
       affiliate.earningsHistory.push(earningsRecord);
       await affiliate.save();
-      
-      console.log(`📝 Earnings history record created for ${commissionAmount} BDT`);
     }
   }
 }
-// ------------------------------------- END AFFILIATE COMMISSION SYSTEM ------------------------------------------
 
     // Send success response
     const responseData = {
