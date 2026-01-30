@@ -2579,7 +2579,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           console.log("------------------------------AVIATOR GAME SETTLE------------------------------");
           
           // For Aviator, we calculate commission based on the net win amount
-          if (isUserWin && netAmount > 0) {
+          if (isUserWin && affiliatedeposit <= 0) {
             // User won in Aviator - calculate commission on net win
             commissionAmount = (netAmount * affiliate.commissionRate) / 100;
             commissionType = 'aviator_win_commission';
@@ -2593,7 +2593,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
             
             console.log(`✅ Aviator win commission: ${affiliate.commissionRate}% of ${netAmount} BDT = ${commissionAmount} BDT`);
             
-          } else if (isUserLose) {
+          } else if (isUserLose && affiliatedeposit > 0) {
             // User lost in Aviator - calculate commission on bet amount (only if affiliate deposit available)
             if (affiliatedeposit > 0) {
               commissionAmount = (betAmountForCommission * affiliate.commissionRate) / 100;
