@@ -3920,7 +3920,6 @@ if (hasAffiliateCode) {
       commissionAmount = (betAmountForCommission / 100) * affiliate.commissionRate;
       commissionType = 'bet_commission';
       description = `Commission from user ${matchedUser.username}'s losing bet`;
-      status = 'pending';
       metadataNotes = `Commission from losing bet of ${betAmountForCommission} BDT`;
       
       // Update affiliate earnings
