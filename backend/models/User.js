@@ -1020,94 +1020,94 @@ UserSchema.methods.getAvailableBonusOffers = function() {
 };
 
 // ========== DEPOSIT METHODS ==========
-// UserSchema.methods.createDeposit = async function({ method, amount, bonusType = 'none' }) {
-//     if (amount < BONUS_CONFIG.MIN_DEPOSIT_AMOUNT || amount > BONUS_CONFIG.MAX_DEPOSIT_AMOUNT) {
-//         throw new Error(`Deposit amount must be between ${BONUS_CONFIG.MIN_DEPOSIT_AMOUNT} and ${BONUS_CONFIG.MAX_DEPOSIT_AMOUNT} BDT`);
-//     }
-
-//     if (bonusType !== 'none') {
-//         if (bonusType === 'first_deposit' && !this.isEligibleForFirstDepositBonus()) {
-//             throw new Error('Not eligible for first deposit bonus');
-//         }
-//         if (bonusType === 'special_bonus' && !this.isEligibleForSpecialBonus()) {
-//             throw new Error('Not eligible for special bonus');
-//         }
-//     }
-
-//     const deposit = {
-//         method,
-//         amount,
-//         status: 'pending',
-//         bonusType,
-//         orderId: `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-//     };
-
-//     this.depositHistory.push(deposit);
-//     await this.save();
-//     return deposit;
-// };
-
-UserSchema.methods.completeDeposit = async function(orderId, transactionId) {
-    const deposit = this.depositHistory.find(d => d.orderId === orderId && d.status === 'pending');
-    
-    if (!deposit) {
-        throw new Error('Pending deposit not found');
+UserSchema.methods.createDeposit = async function({ method, amount, bonusType = 'none' }) {
+    if (amount < BONUS_CONFIG.MIN_DEPOSIT_AMOUNT || amount > BONUS_CONFIG.MAX_DEPOSIT_AMOUNT) {
+        throw new Error(`Deposit amount must be between ${BONUS_CONFIG.MIN_DEPOSIT_AMOUNT} and ${BONUS_CONFIG.MAX_DEPOSIT_AMOUNT} BDT`);
     }
 
-    let bonusAmount = 0;
-    if (deposit.bonusType !== 'none') {
-        bonusAmount = this.calculateBonusAmount(deposit.amount, deposit.bonusType);
-    }
-
-    deposit.status = 'completed';
-    deposit.transactionId = transactionId;
-    deposit.completedAt = new Date();
-    deposit.bonusAmount = bonusAmount;
-    deposit.bonusApplied = bonusAmount > 0;
-
-    this.balance += deposit.amount;
-    this.total_deposit += deposit.amount;
-
-    // Award affiliate commission for deposit
-    if (this.affiliateReferral) {
-        await this.awardAffiliateCommission(deposit.amount, 'deposit');
-    }
-
-    if (bonusAmount > 0) {
-        this.bonusBalance += bonusAmount;
-
-        // Log bonus activity
-        this.bonusActivityLogs.push({
-            bonusType: deposit.bonusType,
-            bonusAmount: bonusAmount,
-            depositAmount: deposit.amount,
-            activatedAt: new Date()
-        });
-
-        this.bonusInfo.activeBonuses.push({
-            bonusType: deposit.bonusType,
-            amount: bonusAmount,
-            originalAmount: bonusAmount,
-            wageringRequirement: BONUS_CONFIG.WAGERING_REQUIREMENT
-        });
-
-        if (deposit.bonusType === 'first_deposit' && !this.bonusInfo.firstDepositBonusClaimed) {
-            this.bonusInfo.firstDepositBonusClaimed = true;
+    if (bonusType !== 'none') {
+        if (bonusType === 'first_deposit' && !this.isEligibleForFirstDepositBonus()) {
+            throw new Error('Not eligible for first deposit bonus');
+        }
+        if (bonusType === 'special_bonus' && !this.isEligibleForSpecialBonus()) {
+            throw new Error('Not eligible for special bonus');
         }
     }
 
-    this.transactionHistory.push({
-        type: 'deposit',
-        amount: deposit.amount,
-        balanceBefore: this.balance - deposit.amount,
-        balanceAfter: this.balance,
-        description: `Deposit via ${deposit.method}`,
-        referenceId: transactionId
-    });
+    const deposit = {
+        method,
+        amount,
+        status: 'pending',
+        bonusType,
+        orderId: `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
 
+    this.depositHistory.push(deposit);
     await this.save();
     return deposit;
 };
+
+// UserSchema.methods.completeDeposit = async function(orderId, transactionId) {
+//     const deposit = this.depositHistory.find(d => d.orderId === orderId && d.status === 'pending');
+    
+//     if (!deposit) {
+//         throw new Error('Pending deposit not found');
+//     }
+
+//     let bonusAmount = 0;
+//     if (deposit.bonusType !== 'none') {
+//         bonusAmount = this.calculateBonusAmount(deposit.amount, deposit.bonusType);
+//     }
+
+//     deposit.status = 'completed';
+//     deposit.transactionId = transactionId;
+//     deposit.completedAt = new Date();
+//     deposit.bonusAmount = bonusAmount;
+//     deposit.bonusApplied = bonusAmount > 0;
+
+//     this.balance += deposit.amount;
+//     this.total_deposit += deposit.amount;
+
+//     // Award affiliate commission for deposit
+//     if (this.affiliateReferral) {
+//         await this.awardAffiliateCommission(deposit.amount, 'deposit');
+//     }
+
+//     if (bonusAmount > 0) {
+//         this.bonusBalance += bonusAmount;
+
+//         // Log bonus activity
+//         this.bonusActivityLogs.push({
+//             bonusType: deposit.bonusType,
+//             bonusAmount: bonusAmount,
+//             depositAmount: deposit.amount,
+//             activatedAt: new Date()
+//         });
+
+//         this.bonusInfo.activeBonuses.push({
+//             bonusType: deposit.bonusType,
+//             amount: bonusAmount,
+//             originalAmount: bonusAmount,
+//             wageringRequirement: BONUS_CONFIG.WAGERING_REQUIREMENT
+//         });
+
+//         if (deposit.bonusType === 'first_deposit' && !this.bonusInfo.firstDepositBonusClaimed) {
+//             this.bonusInfo.firstDepositBonusClaimed = true;
+//         }
+//     }
+
+//     this.transactionHistory.push({
+//         type: 'deposit',
+//         amount: deposit.amount,
+//         balanceBefore: this.balance - deposit.amount,
+//         balanceAfter: this.balance,
+//         description: `Deposit via ${deposit.method}`,
+//         referenceId: transactionId
+//     });
+
+//     await this.save();
+//     return deposit;
+// };
 
 // ========== BONUS WAGERING METHODS ==========
 UserSchema.methods.applyBetToWagering = async function(amount) {
