@@ -3643,7 +3643,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     username = username.substring(0, username.length - 2);
     
     const findgame = await Game.findOne({ gameApiID: game_code });
-
+    console.log("-------------------------process-data---------------------------------------",req.body);
     const processedData = {
       member_account: username,
       original_username: username,
