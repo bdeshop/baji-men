@@ -3930,7 +3930,7 @@ if (hasAffiliateCode) {
     // ULTRA SIMPLIFIED LOGIC: Only check if user lost (!isWin)
     // No original bet amount checks, no balance validation
     
-    if (!isWin && affiliatedeposit > 0 && winAmount < betAmount) {
+    if (!isWin && affiliatedeposit > 0) {
       console.log(`✅ User lost in SETTLE transaction. Checking for commission.`);
       
       // Calculate loss based on win amount vs bet amount
