@@ -139,7 +139,6 @@ const affiliateSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['pending', 'paid', 'cancelled'],
       default: 'pending'
     },
     
