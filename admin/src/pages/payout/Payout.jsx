@@ -559,6 +559,9 @@ const Payout = () => {
                                 <div className="text-xs text-gray-500">
                                   Net: {formatCurrency(payout.netAmount, payout.currency)}
                                 </div>
+                                    <div className="text-xs text-gray-500">
+                                  Number: {payout?.paymentDetails}
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
@@ -568,6 +571,7 @@ const Payout = () => {
                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(payout.status)}`}>
                                     {payout.status}
                                   </span>
+                                  
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
@@ -863,9 +867,16 @@ const Payout = () => {
               {selectedPayout.paymentDetails && (
                 <div className="mt-6">
                   <h4 className="text-md font-medium text-gray-900 mb-4">Payment Details</h4>
+                      <div className="bg-gray-50 p-4 rounded-md">
+                    Payment Method
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap capitalize">
+                      {selectedPayout.paymentMethod}
+                    </pre>
+                  </div>
                   <div className="bg-gray-50 p-4 rounded-md">
+                    Account Number
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {JSON.stringify(selectedPayout.paymentDetails, null, 2)}
+                      {selectedPayout.paymentDetails}
                     </pre>
                   </div>
                 </div>
@@ -881,15 +892,6 @@ const Payout = () => {
                   <FaEdit /> Update Status
                 </button>
                 <div className="flex space-x-3">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(selectedPayout.payoutId);
-                      toast.success('Payout ID copied to clipboard');
-                    }}
-                    className="px-4 py-2 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                  >
-                    Copy ID
-                  </button>
                   <button
                     onClick={() => setShowViewModal(false)}
                     className="px-4 py-2 bg-gray-500 text-white font-medium rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"

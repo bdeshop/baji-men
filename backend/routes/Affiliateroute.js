@@ -1556,101 +1556,6 @@ Affiliateroute.get("/referral-tools", authenticateAffiliate, async (req, res) =>
 
 // ==================== PAYOUT ROUTES ====================
 
-// Request payout
-Affiliateroute.post("/payout/request", authenticateAffiliate, async (req, res) => {
-  try {
-    const { amount } = req.body;
-
-    const affiliate = await Affiliate.findById(req.affiliateId);
-    if (!affiliate) {
-      return res.status(404).json({
-        success: false,
-        message: "Affiliate not found"
-      });
-    }
-
-    // Validate amount
-    const payoutAmount = amount || affiliate.pendingEarnings;
-    
-    if (payoutAmount < affiliate.minimumPayout) {
-      return res.status(400).json({
-        success: false,
-        message: `Minimum payout amount is ${affiliate.minimumPayout}`
-      });
-    }
-
-    if (payoutAmount > affiliate.pendingEarnings) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient pending earnings"
-      });
-    }
-
-    // Process payout (in real implementation, this would create a payout request)
-    // For now, we'll simulate processing
-    const transactionId = `PAYOUT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    await affiliate.processPayout(payoutAmount, transactionId);
-
-    res.json({
-      success: true,
-      message: "Payout request submitted successfully",
-      payout: {
-        amount: payoutAmount,
-        transactionId,
-        paymentMethod: affiliate.paymentMethod,
-        paymentDetails: affiliate.formattedPaymentDetails,
-        processedAt: new Date()
-      }
-    });
-  } catch (error) {
-    console.error("Payout request error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error"
-    });
-  }
-});
-
-// Get payout history
-Affiliateroute.get("/payout/history", authenticateAffiliate, async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-    
-    // In a real implementation, you would query a Payout collection
-    // For now, return mock data or integrate with your Payout model
-    const payoutHistory = {
-      total: 1,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      payouts: [
-        {
-          id: "1",
-          amount: 150,
-          status: "completed",
-          paymentMethod: "bkash",
-          transactionId: "TX123456789",
-          processedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          paymentDetails: {
-            phoneNumber: "01XXXXXXXXX",
-            accountType: "personal"
-          }
-        }
-      ]
-    };
-
-    res.json({
-      success: true,
-      history: payoutHistory
-    });
-  } catch (error) {
-    console.error("Payout history error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error"
-    });
-  }
-});
 
 // ==================== ADMIN ROUTES ====================
 
@@ -1867,7 +1772,31 @@ Affiliateroute.post("/logout", authenticateAffiliate, async (req, res) => {
 // Request payout
 Affiliateroute.post("/payout/request", authenticateAffiliate, async (req, res) => {
   try {
-    const { amount, notes } = req.body;
+    const { amount, paymentMethod, paymentDetails, notes } = req.body;
+
+    if (!amount || !paymentMethod || !paymentDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount, payment method and payment details are required"
+      });
+    }
+
+    // Check payment method
+    const validMethods = ['bkash', 'nagad', 'rocket', 'binance'];
+    if (!validMethods.includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment method"
+      });
+    }
+
+    const payoutAmount = parseFloat(amount);
+    if (isNaN(payoutAmount) || payoutAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid amount"
+      });
+    }
 
     const affiliate = await Affiliate.findById(req.affiliateId);
     if (!affiliate) {
@@ -1877,107 +1806,53 @@ Affiliateroute.post("/payout/request", authenticateAffiliate, async (req, res) =
       });
     }
 
-    // Validate amount
-    const payoutAmount = amount || affiliate.pendingEarnings;
-    
     if (payoutAmount < affiliate.minimumPayout) {
       return res.status(400).json({
         success: false,
-        message: `Minimum payout amount is ${affiliate.minimumPayout}`
+        message: `Minimum payout is ${affiliate.minimumPayout}`
       });
     }
 
     if (payoutAmount > affiliate.pendingEarnings) {
       return res.status(400).json({
         success: false,
-        message: "Insufficient pending earnings"
+        message: "Not enough balance"
       });
     }
 
-    if (!affiliate.paymentMethod || !affiliate.paymentDetails) {
-      return res.status(400).json({
-        success: false,
-        message: "Please set up your payment method before requesting payout"
-      });
-    }
-
-    // Get pending earnings for this payout
-    const pendingEarnings = affiliate.earningsHistory
-      .filter(earning => earning.status === 'pending')
-      .sort((a, b) => new Date(a.earnedAt) - new Date(b.earnedAt));
-
-    let amountProcessed = 0;
-    const includedEarnings = [];
-
-    for (let earning of pendingEarnings) {
-      if (amountProcessed < payoutAmount) {
-        const remainingAmount = payoutAmount - amountProcessed;
-        const earningAmount = Math.min(earning.amount, remainingAmount);
-        
-        includedEarnings.push({
-          earningId: earning._id,
-          amount: earningAmount,
-          type: earning.type,
-          description: earning.description,
-          earnedAt: earning.earnedAt
-        });
-        
-        amountProcessed += earningAmount;
-      }
-      
-      if (amountProcessed >= payoutAmount) break;
-    }
-
-    // Create payout record
-    const payout = await Payout.create({
+    // Create payout
+    const payout = new Payout({
       affiliate: affiliate._id,
       amount: payoutAmount,
+      paymentMethod: paymentMethod,
+      paymentDetails: paymentDetails,
+      notes: notes || '',
       currency: 'BDT',
-      status: 'pending',
-      payoutType: 'regular',
-      paymentMethod: affiliate.paymentMethod,
-      paymentDetails: affiliate.paymentDetails,
-      includedEarnings: includedEarnings,
-      netAmount: payoutAmount,
-      requestedAt: new Date(),
-      notes: notes || 'Payout request from affiliate',
-      metadata: {
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      }
+      status: 'pending'
     });
 
-    // Update affiliate's earnings status to processing
-    for (let earning of includedEarnings) {
-      const earningRecord = affiliate.earningsHistory.id(earning.earningId);
-      if (earningRecord) {
-        earningRecord.status = 'processing';
-        earningRecord.payoutId = payout._id;
-      }
-    }
+    await payout.save();
 
+    // Update affiliate balance
     affiliate.pendingEarnings -= payoutAmount;
     await affiliate.save();
 
     res.json({
       success: true,
-      message: "Payout request submitted successfully",
+      message: "Payout requested",
       payout: {
-        id: payout._id,
         payoutId: payout.payoutId,
         amount: payout.amount,
-        netAmount: payout.netAmount,
-        status: payout.status,
         paymentMethod: payout.paymentMethod,
-        requestedAt: payout.requestedAt,
-        estimatedCompletionDate: payout.estimatedCompletionDate
+        status: payout.status,
+        requestedAt: payout.requestedAt
       }
     });
   } catch (error) {
-    console.error("Payout request error:", error);
+    console.error("Payout error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error"
+      message: "Server error"
     });
   }
 });
@@ -1985,153 +1860,132 @@ Affiliateroute.post("/payout/request", authenticateAffiliate, async (req, res) =
 // Get payout history
 Affiliateroute.get("/payout/history", authenticateAffiliate, async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, startDate, endDate } = req.query;
+    const { page = 1, limit = 20, status, paymentMethod } = req.query;
     
-    const filters = { status, startDate, endDate };
-    const payouts = await Payout.findByAffiliate(req.affiliateId, filters)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-    const total = await Payout.countDocuments({ affiliate: req.affiliateId });
+    // Build query
+    const query = { affiliate: req.affiliateId };
+    
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    if (paymentMethod && paymentMethod !== 'all') {
+      query.paymentMethod = paymentMethod;
+    }
 
-    // Calculate summary
-    const summary = await Payout.aggregate([
-      {
-        $match: { affiliate: req.affiliateId }
-      },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    // Get payouts
+    const payouts = await Payout.find(query)
+      .sort({ requestedAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
 
+    // Get counts
+    const total = await Payout.countDocuments(query);
+    
     const totalPaid = await Payout.aggregate([
-      {
-        $match: { 
-          affiliate: req.affiliateId,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$amount' }
-        }
-      }
+      { $match: { affiliate: req.affiliateId, status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
     res.json({
       success: true,
-      payouts,
+      payouts: payouts,
       summary: {
-        byStatus: summary,
         totalPaid: totalPaid[0]?.total || 0,
-        totalPayouts: total
+        totalCount: total
       },
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / limit)
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum)
       }
     });
   } catch (error) {
-    console.error("Payout history error:", error);
+    console.error("History error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Server error"
     });
   }
 });
 
-// Get single payout details
+// Get single payout
 Affiliateroute.get("/payout/:id", authenticateAffiliate, async (req, res) => {
   try {
-    const { id } = req.params;
-    
     const payout = await Payout.findOne({
-      _id: id,
+      _id: req.params.id,
       affiliate: req.affiliateId
-    }).populate('includedEarnings.earningId');
+    }).lean();
 
     if (!payout) {
       return res.status(404).json({
         success: false,
-        message: "Payout not found"
+        message: "Not found"
       });
     }
 
     res.json({
       success: true,
-      payout
+      payout: payout
     });
   } catch (error) {
-    console.error("Get payout error:", error);
+    console.error("Details error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Server error"
     });
   }
 });
 
-// Cancel payout request
+// Cancel payout
 Affiliateroute.post("/payout/:id/cancel", authenticateAffiliate, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { reason } = req.body;
-
     const payout = await Payout.findOne({
-      _id: id,
+      _id: req.params.id,
       affiliate: req.affiliateId
     });
 
     if (!payout) {
       return res.status(404).json({
         success: false,
-        message: "Payout not found"
+        message: "Not found"
       });
     }
 
     if (payout.status !== 'pending') {
       return res.status(400).json({
         success: false,
-        message: "Only pending payouts can be cancelled"
+        message: "Can't cancel this payout"
       });
     }
 
-    // Update payout status
-    await payout.updateStatus('cancelled', `Cancelled by affiliate: ${reason}`);
-
-    // Restore earnings to pending status
+    // Update affiliate balance
     const affiliate = await Affiliate.findById(req.affiliateId);
-    for (let earning of payout.includedEarnings) {
-      const earningRecord = affiliate.earningsHistory.id(earning.earningId);
-      if (earningRecord) {
-        earningRecord.status = 'pending';
-        earningRecord.payoutId = undefined;
-      }
-    }
-
     affiliate.pendingEarnings += payout.amount;
     await affiliate.save();
 
+    // Cancel payout
+    payout.status = 'cancelled';
+    await payout.save();
+
     res.json({
       success: true,
-      message: "Payout request cancelled successfully"
+      message: "Payout cancelled"
     });
   } catch (error) {
-    console.error("Cancel payout error:", error);
+    console.error("Cancel error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Server error"
     });
   }
 });
-
 // Get payout statistics
 Affiliateroute.get("/payout/stats", authenticateAffiliate, async (req, res) => {
   try {

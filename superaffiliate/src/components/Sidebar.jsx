@@ -45,12 +45,12 @@ const Sidebar = ({ isOpen }) => {
       to: '/affiliate/earnings',
       description: 'Track your commissions'
     },
-    {
-      label: 'Payment Methods',
-      icon: <FiCreditCard className="text-[18px]" />,
-      to: '/affiliate/payment-methods',
-      description: 'Configure payout options'
-    },
+    // {
+    //   label: 'Payment Methods',
+    //   icon: <FiCreditCard className="text-[18px]" />,
+    //   to: '/affiliate/payment-methods',
+    //   description: 'Configure payout options'
+    // },
     {
       label: 'Referral Links',
       icon: <FiShare2 className="text-[18px]" />,

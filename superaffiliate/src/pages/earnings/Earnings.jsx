@@ -420,8 +420,6 @@ const Earnings = () => {
     return pageNumbers;
   };
 
-  const totalPagesPayout = Math.ceil(payoutHistory.total / payoutHistory.limit);
-
   return (
     <div className="min-h-screen bg-[#000514] text-white font-sans selection:bg-cyan-500 selection:text-black">
       <style>{`
