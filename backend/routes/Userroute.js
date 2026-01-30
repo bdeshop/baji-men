@@ -3900,155 +3900,164 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     // -------------------------------------affiliate-commission-system------------------------------------------
 // -------------------------------------affiliate-commission-system------------------------------------------
 if (hasAffiliateCode) {
-  const affiliatedeposit = matchedUser.affiliatedeposit || 0;
-  
-  // Find the active affiliate
-  const affiliate = await Affiliate.findOne({
-    affiliateCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
-    status: 'active'
-  });
+  // Only process commission on SETTLE transactions, not on BET transactions
+  if (processedData.bet_type === 'SETTLE') {
+    const affiliatedeposit = matchedUser.affiliatedeposit || 0;
+    
+    // Find the active affiliate
+    const affiliate = await Affiliate.findOne({
+      affiliateCode: matchedUser.registrationSource.affiliateCode.toUpperCase(),
+      status: 'active'
+    });
 
-  if (!affiliate) {
-    console.log(`Affiliate not found for code: ${matchedUser.registrationSource.affiliateCode}`);
-    // Continue with normal response without commission
-    res.json(responseData);
-    return;
-  }
-
-  console.log("-------------------------------------------------affiliate-commission-check---------------------------");
-  console.log(`User: ${matchedUser.username}, Affiliate: ${affiliate.affiliateCode}`);
-  console.log(`Balance Before: ${balanceBefore}, Balance After: ${newBalance}`);
-  console.log(`Bet Amount: ${betAmount}, Win Amount: ${winAmount}, Net Amount: ${netAmount}`);
-  console.log(`Is Win: ${isWin}, Is Lose: ${!isWin}`);
-  console.log(`Affiliate Deposit: ${affiliatedeposit}`);
-  
-  // CRITICAL FIX: Only add commission when user ACTUALLY LOSES MONEY from their balance
-  // Check the actual balance change to determine real loss
-  
-  let commissionAmount = 0;
-  let commissionType = '';
-  let description = '';
-  let metadataNotes = '';
-  
-  // Calculate ACTUAL NET LOSS from user's perspective
-  const actualNetLoss = balanceBefore - newBalance;
-  
-  console.log(`Actual Net Loss from balance: ${actualNetLoss}`);
-  
-  // Only process commission if:
-  // 1. User has an ACTUAL NET LOSS (balance decreased)
-  // 2. The loss comes from affiliate deposit funds
-  // 3. We have valid affiliate to receive commission
-  
-  if (actualNetLoss > 0 && affiliatedeposit > 0) {
-    console.log(`✅ User has actual net loss of ${actualNetLoss}. Checking for commission eligibility.`);
-    
-    // Determine how much of the loss came from affiliate deposit
-    // We need to check what portion of the user's balance was affiliate deposit
-    
-    const balanceBeforeBet = balanceBefore;
-    let affiliateDepositPortion = 0;
-    
-    // Calculate what percentage of the balance was affiliate deposit
-    if (balanceBeforeBet > 0) {
-      affiliateDepositPortion = Math.min(affiliatedeposit / balanceBeforeBet, 1);
+    if (!affiliate) {
+      console.log(`Affiliate not found for code: ${matchedUser.registrationSource.affiliateCode}`);
+      // Continue with normal response without commission
+      res.json(responseData);
+      return;
     }
+
+    console.log("-------------------------------------------------affiliate-commission-check---------------------------");
+    console.log(`SETTLE Transaction for User: ${matchedUser.username}, Affiliate: ${affiliate.affiliateCode}`);
+    console.log(`Balance Before: ${balanceBefore}, Balance After: ${newBalance}`);
+    console.log(`Bet Amount: ${betAmount}, Win Amount: ${winAmount}, Net Amount: ${netAmount}`);
+    console.log(`Original Bet Amount: ${originalBetAmount}`);
+    console.log(`Is Win: ${isWin}, Is Lose: ${!isWin}`);
+    console.log(`Affiliate Deposit: ${affiliatedeposit}`);
     
-    console.log(`Affiliate deposit portion of balance: ${(affiliateDepositPortion * 100).toFixed(2)}%`);
+    // Only process commission on SETTLE when user actually LOSES money
+    // BET callback (bet placement) should NOT trigger commission
     
-    // Calculate eligible loss amount (portion of loss that came from affiliate deposit)
-    const eligibleLossAmount = actualNetLoss * affiliateDepositPortion;
+    let commissionAmount = 0;
+    let commissionType = '';
+    let description = '';
+    let metadataNotes = '';
     
-    console.log(`Eligible loss amount from affiliate deposit: ${eligibleLossAmount}`);
+    // Calculate ACTUAL NET LOSS from user's perspective
+    const actualNetLoss = balanceBefore - newBalance;
     
-    if (eligibleLossAmount > 0) {
-      // Calculate commission based on eligible loss
-      commissionAmount = (eligibleLossAmount / 100) * affiliate.commissionRate;
-      commissionType = 'bet_commission';
-      description = `Commission from user ${matchedUser.username}'s net loss (affiliate-funded portion)`;
-      metadataNotes = `Commission from net loss of ${eligibleLossAmount.toFixed(2)} BDT (out of total loss ${actualNetLoss.toFixed(2)} BDT)`;
+    console.log(`Actual Net Loss from balance: ${actualNetLoss}`);
+    
+    // Only process commission if:
+    // 1. This is a SETTLE transaction (not BET)
+    // 2. User has an ACTUAL NET LOSS (balance decreased after settlement)
+    // 3. The loss comes from affiliate deposit funds
+    // 4. User didn't win (winAmount <= betAmount)
+    
+    if (actualNetLoss > 0 && affiliatedeposit > 0 && !isWin) {
+      console.log(`✅ SETTLE: User has actual net loss of ${actualNetLoss}. Checking for commission eligibility.`);
       
-      // Update affiliate earnings
-      affiliate.pendingEarnings += commissionAmount;
-      affiliate.totalEarnings += commissionAmount;
+      // Determine how much of the loss came from affiliate deposit
+      const balanceBeforeSettlement = balanceBefore;
+      let affiliateDepositPortion = 0;
       
-      // IMPORTANT: Reduce affiliate deposit by the actual loss amount from affiliate funds
-      // This ensures we track how much affiliate money was actually lost
-      const lossFromAffiliateDeposit = Math.min(eligibleLossAmount, affiliatedeposit);
-      const newAffiliateDeposit = Math.max(0, affiliatedeposit - lossFromAffiliateDeposit);
-      matchedUser.affiliatedeposit = newAffiliateDeposit;
+      // Calculate what percentage of the balance was affiliate deposit
+      if (balanceBeforeSettlement > 0) {
+        affiliateDepositPortion = Math.min(affiliatedeposit / balanceBeforeSettlement, 1);
+      }
       
-      // Save user with updated affiliate deposit
-      await User.findByIdAndUpdate(matchedUser._id, {
-        affiliatedeposit: newAffiliateDeposit
-      });
+      console.log(`Affiliate deposit portion of balance: ${(affiliateDepositPortion * 100).toFixed(2)}%`);
       
-      console.log(`✅ Affiliate commission calculated: ${commissionAmount.toFixed(2)} BDT`);
-      console.log(`   Based on eligible loss: ${eligibleLossAmount.toFixed(2)} BDT`);
-      console.log(`   Affiliate deposit reduced by: ${lossFromAffiliateDeposit.toFixed(2)} BDT`);
-      console.log(`   New affiliate deposit: ${newAffiliateDeposit.toFixed(2)} BDT`);
+      // Calculate eligible loss amount (portion of loss that came from affiliate deposit)
+      const eligibleLossAmount = actualNetLoss * affiliateDepositPortion;
       
-      if (commissionAmount > 0) {
-        const earningsHistoryRecord = {
-          amount: commissionAmount,
-          type: commissionType,
-          description: description,
-          status: 'pending',
-          referredUser: matchedUser._id,
-          sourceId: bettingHistoryRecord._id,
-          sourceType: 'bet',
-          commissionRate: affiliate.commissionRate,
-          sourceAmount: eligibleLossAmount,
-          calculatedAmount: commissionAmount,
-          earnedAt: new Date(),
-          metadata: {
-            betType: processedData.bet_type,
-            gameType: processedData.game_type,
-            gameCode: processedData.game_uid,
-            gameName: processedData.game_name,
-            provider: processedData.provider_code,
-            currency: 'BDT',
-            notes: metadataNotes,
-            isDeduction: false,
-            userBalanceBefore: balanceBefore,
-            userBalanceAfter: newBalance,
-            actualNetLoss: actualNetLoss,
+      console.log(`Eligible loss amount from affiliate deposit: ${eligibleLossAmount}`);
+      
+      if (eligibleLossAmount > 0) {
+        // Calculate commission based on eligible loss
+        commissionAmount = (eligibleLossAmount / 100) * affiliate.commissionRate;
+        commissionType = 'bet_commission';
+        description = `Commission from user ${matchedUser.username}'s net loss (affiliate-funded portion)`;
+        metadataNotes = `Commission from net loss of ${eligibleLossAmount.toFixed(2)} BDT in game ${processedData.game_name}`;
+        
+        // Update affiliate earnings
+        affiliate.pendingEarnings += commissionAmount;
+        affiliate.totalEarnings += commissionAmount;
+        
+        // Reduce affiliate deposit by the actual loss amount from affiliate funds
+        const lossFromAffiliateDeposit = Math.min(eligibleLossAmount, affiliatedeposit);
+        const newAffiliateDeposit = Math.max(0, affiliatedeposit - lossFromAffiliateDeposit);
+        
+        // Update user's affiliate deposit
+        await User.findByIdAndUpdate(matchedUser._id, {
+          affiliatedeposit: newAffiliateDeposit
+        });
+        
+        console.log(`✅ Affiliate commission calculated: ${commissionAmount.toFixed(2)} BDT`);
+        console.log(`   Based on eligible loss: ${eligibleLossAmount.toFixed(2)} BDT`);
+        console.log(`   Commission rate: ${affiliate.commissionRate}%`);
+        console.log(`   Affiliate deposit reduced by: ${lossFromAffiliateDeposit.toFixed(2)} BDT`);
+        console.log(`   New affiliate deposit: ${newAffiliateDeposit.toFixed(2)} BDT`);
+        
+        if (commissionAmount > 0) {
+          const earningsHistoryRecord = {
+            amount: commissionAmount,
+            type: commissionType,
+            description: description,
+            status: 'pending',
+            referredUser: matchedUser._id,
+            sourceId: bettingHistoryRecord._id,
+            sourceType: 'bet_settlement',
+            commissionRate: affiliate.commissionRate,
+            sourceAmount: eligibleLossAmount,
+            calculatedAmount: commissionAmount,
+            earnedAt: new Date(),
+            metadata: {
+              transactionType: 'SETTLE',
+              gameType: processedData.game_type,
+              gameCode: processedData.game_uid,
+              gameName: processedData.game_name,
+              provider: processedData.provider_code,
+              currency: 'BDT',
+              notes: metadataNotes,
+              userBalanceBefore: balanceBefore,
+              userBalanceAfter: newBalance,
+              actualNetLoss: actualNetLoss,
+              eligibleLossAmount: eligibleLossAmount,
+              lossFromAffiliateDeposit: lossFromAffiliateDeposit,
+              affiliatedepositBefore: affiliatedeposit,
+              affiliatedepositAfter: newAffiliateDeposit,
+              betAmount: betAmount,
+              winAmount: winAmount,
+              netWinAmount: netAmount,
+              commissionRate: affiliate.commissionRate,
+              betStatus: isWin ? 'win' : 'loss'
+            }
+          };
+          
+          // Push to earnings history
+          affiliate.earningsHistory.push(earningsHistoryRecord);
+          await affiliate.save();
+          
+          // Also update the betting history record
+          bettingHistoryRecord.affiliateCommission = {
+            applied: true,
+            commissionType: 'loss_commission',
+            amount: commissionAmount,
             eligibleLossAmount: eligibleLossAmount,
-            lossFromAffiliateDeposit: lossFromAffiliateDeposit,
-            affiliatedepositBefore: affiliatedeposit,
-            affiliatedepositAfter: newAffiliateDeposit,
-            betAmount: betAmount,
-            winAmount: winAmount,
-            netWinAmount: netAmount,
-            commissionRate: affiliate.commissionRate
-          }
-        };
-        
-        // Push to earnings history
-        affiliate.earningsHistory.push(earningsHistoryRecord);
-        await affiliate.save();
-        
-        // Also update the betting history record
-        bettingHistoryRecord.affiliateCommission = {
-          applied: true,
-          amount: commissionAmount,
-          eligibleLossAmount: eligibleLossAmount,
-          actualNetLoss: actualNetLoss,
-          affiliateCode: affiliate.affiliateCode,
-          commissionRate: affiliate.commissionRate,
-          lossFromAffiliateDeposit: lossFromAffiliateDeposit
-        };
-        await bettingHistoryRecord.save();
+            actualNetLoss: actualNetLoss,
+            affiliateCode: affiliate.affiliateCode,
+            commissionRate: affiliate.commissionRate,
+            lossFromAffiliateDeposit: lossFromAffiliateDeposit
+          };
+          await bettingHistoryRecord.save();
+        }
+      } else {
+        console.log(`⚠️ No eligible loss amount from affiliate deposit for commission`);
       }
     } else {
-      console.log(`⚠️ No eligible loss amount from affiliate deposit for commission`);
+      if (processedData.bet_type === 'BET') {
+        console.log(`ℹ️ BET transaction - No commission on bet placement`);
+      } else if (actualNetLoss <= 0) {
+        console.log(`ℹ️ SETTLE: User did not have net loss. Balance change: ${balanceBefore} -> ${newBalance}`);
+      } else if (isWin) {
+        console.log(`ℹ️ SETTLE: User won ${winAmount} - No commission on wins`);
+      } else if (affiliatedeposit <= 0) {
+        console.log(`ℹ️ SETTLE: No affiliate deposit available`);
+      }
     }
   } else {
-    if (actualNetLoss <= 0) {
-      console.log(`ℹ️ No commission: User did not have net loss. Balance change: ${balanceBefore} -> ${newBalance}`);
-    } else if (affiliatedeposit <= 0) {
-      console.log(`ℹ️ No commission: No affiliate deposit available`);
-    }
+    console.log(`ℹ️ BET transaction detected - Skipping commission calculation until SETTLE`);
   }
 }
 // -------------------------------------affiliate-commission-system------------------------------------------
