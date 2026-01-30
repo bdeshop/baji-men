@@ -2593,26 +2593,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
             
             console.log(`✅ Aviator win commission: ${affiliate.commissionRate}% of ${netAmount} BDT = ${commissionAmount} BDT`);
             
-          } else if (isUserLose && affiliatedeposit > 0) {
-            // User lost in Aviator - calculate commission on bet amount (only if affiliate deposit available)
-            if (affiliatedeposit > 0) {
-              commissionAmount = (betAmountForCommission * affiliate.commissionRate) / 100;
-              commissionType = 'aviator_loss_commission';
-              description = `Commission from user ${user.username}'s Aviator loss`;
-              metadataNotes = `Commission from Aviator losing bet of ${betAmountForCommission} BDT`;
-              
-              // Update affiliate earnings
-              affiliate.pendingEarnings = parseFloat((affiliate.pendingEarnings + commissionAmount).toFixed(4));
-              affiliate.totalEarnings = parseFloat((affiliate.totalEarnings + commissionAmount).toFixed(4));
-              
-              // Reduce affiliatedeposit for Aviator loss
-              const newAffiliateDeposit = Math.max(0, affiliatedeposit - betAmountForCommission);
-              user.affiliatedeposit = newAffiliateDeposit;
-              await user.save();
-              
-              console.log(`✅ Aviator loss commission: ${affiliate.commissionRate}% of ${betAmountForCommission} BDT = ${commissionAmount} BDT`);
-              console.log(`   - Affiliate deposit reduced from ${affiliatedeposit} to ${newAffiliateDeposit}`);
-            }
           }
         }
         // ========== REGULAR GAMES (YOUR EXISTING CODE) ==========
