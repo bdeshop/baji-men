@@ -466,7 +466,7 @@ const FeaturedContent = () => {
           {featuredGames.map((game, index) => (
             <div
               key={game._id || index}
-              className="flex-shrink-0 w-40 md:w-[175px] flex flex-col items-center justify-center p-1 snap-center transform transition-transform duration-200 hover:scale-105 cursor-pointer relative group"
+              className="flex-shrink-0 w-[130px] md:w-[175px] flex flex-col items-center justify-center p-1 snap-center transform transition-transform duration-200 hover:scale-105 cursor-pointer relative group"
               onClick={() => handleGameClick(game)}
             >
               <div className="featured-image-container">
