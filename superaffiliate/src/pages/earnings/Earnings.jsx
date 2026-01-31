@@ -735,33 +735,16 @@ const Earnings = () => {
                           </td>
                           <td className="px-4 md:px-6 py-4">
                             <div className="flex items-center gap-3">
-                              {getTypeBadge(transaction.type)}
                               <div>
                                 <div className="text-sm font-medium">
                                   {getEarningTypeLabel(transaction.type)}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  {transaction.description || 'Commission earned'}
-                                </div>
-                                {transaction.metadata && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {transaction.metadata.betType && `Bet: ${transaction.metadata.betType}`}
-                                    {transaction.metadata.depositMethod &&
-                                      `Deposit: ${transaction.metadata.depositMethod}`}
-                                    {transaction.metadata.withdrawalMethod &&
-                                      `Withdrawal: ${transaction.metadata.withdrawalMethod}`}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </td>
                           <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-semibold text-cyan-400">
                               {formatCurrency(transaction.amount)}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {transaction.commissionRate.toFixed(1)}% of{' '}
-                              {formatCurrency(transaction.sourceAmount)}
                             </div>
                           </td>
                           <td className="px-4 md:px-6 py-4 text-green-500 whitespace-nowrap">

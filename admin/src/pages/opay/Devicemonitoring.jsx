@@ -37,7 +37,7 @@ import toast from 'react-hot-toast';
 import { io } from 'socket.io-client';
 
 const DeviceMonitoring = () => {
-  const base_url = import.meta.env.VITE_BASE_API_URL || 'http://localhost:4500';
+  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -50,7 +50,7 @@ const DeviceMonitoring = () => {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [showDeviceDetails, setShowDeviceDetails] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState('sk_sub_b91d321aaed628d707bebc001b5e09a4de01973ebf0a19a56bf825010ae1a515');
   const [validationStatus, setValidationStatus] = useState({
     valid: false,
     loading: false
