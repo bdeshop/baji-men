@@ -7,17 +7,25 @@ import axios from 'axios';
 const Pendingdeposit = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('pending'); // Default to pending
   const [methodFilter, setMethodFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDeposit, setSelectedDeposit] = useState(null);
   const [showDepositDetails, setShowDepositDetails] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [deposits, setDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [updateForm, setUpdateForm] = useState({
+    success: true,
+    userIdentifyAddress: '',
+    amount: 0,
+    trxid: ''
+  });
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
@@ -32,14 +40,14 @@ const Pendingdeposit = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const statuses = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
-  const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank', 'card'];
+  const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank', 'card', 'opay', 'external_gateway'];
 
   // Fetch deposits from API
   const fetchDeposits = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-         let url = `${API_BASE_URL}/api/admin/deposits?page=${currentPage}&limit=${itemsPerPage}&status=pending`;
+      let url = `${API_BASE_URL}/api/admin/deposits?page=${currentPage}&limit=${itemsPerPage}`;
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter !== 'all') params.append('status', statusFilter);
@@ -75,6 +83,7 @@ const Pendingdeposit = () => {
           method: 'bkash',
           phoneNumber: '01712345678',
           transactionId: 'TX789456123',
+          paymentId: 'order-507954-123456789',
           status: 'approved',
           createdAt: '2025-08-26T21:18:48.904Z',
           processedAt: '2025-08-26T21:25:48.904Z',
@@ -87,6 +96,7 @@ const Pendingdeposit = () => {
           method: 'bank',
           phoneNumber: '01987654321',
           transactionId: 'TX987654321',
+          paymentId: 'order-507955-987654321',
           status: 'pending',
           createdAt: '2025-08-27T10:15:30.904Z',
           processedAt: null,
@@ -124,35 +134,126 @@ const Pendingdeposit = () => {
     fetchStats();
   }, [currentPage, statusFilter, methodFilter, dateRange]);
 
-  // Update deposit status
-  const updateDepositStatus = async (depositId, newStatus, notes = '') => {
+  // Update deposit status via the callback endpoint
+  const updateDepositStatus = async (depositId, success, notes = '') => {
     try {
+      setUpdatingStatus(true);
       const token = localStorage.getItem('token');
-      await axios.put(
+      
+      // Get the selected deposit data
+      const deposit = deposits.find(d => d._id === depositId);
+      
+      if (!deposit) {
+        setError('Deposit not found');
+        return;
+      }
+
+      // Prepare payload for the callback endpoint
+      const payload = {
+        success: success, // true for approved, false for rejected
+        userIdentifyAddress: deposit.paymentId || deposit.userIdentifyAddress || `order-${deposit.userId?._id || 'unknown'}-${Date.now()}`,
+        amount: deposit.amount,
+        trxid: deposit.transactionId || `MANUAL_${Date.now()}`,
+        adminNotes: notes,
+        manualUpdate: true,
+        updatedBy: 'admin'
+      };
+
+      // Send request to your callback endpoint
+      const response = await axios.put(
         `${API_BASE_URL}/api/admin/deposits/${depositId}/status`,
-        { status: newStatus, adminNotes: notes },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      fetchDeposits();
-      fetchStats();
-      setShowDepositDetails(false);
+
+      if (response.data.success) {
+        // Refresh the deposits list
+        fetchDeposits();
+        fetchStats();
+        
+        // Close modals
+        setShowStatusUpdateModal(false);
+        setShowDepositDetails(false);
+        
+        // Show success message
+        alert(`Deposit ${success ? 'approved' : 'rejected'} successfully!`);
+      } else {
+        setError(`Failed to update status: ${response.data.message}`);
+      }
     } catch (err) {
       console.error('Error updating deposit status:', err);
-      setError('Failed to update deposit status.');
+      setError(`Failed to update deposit status: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
-  // Edit deposit
+  // Manual update deposit status with custom data
+  const manualUpdateStatus = async () => {
+    try {
+      setUpdatingStatus(true);
+      const token = localStorage.getItem('token');
+      
+      // Send request to your callback endpoint
+      const response = await axios.put(
+        `${API_BASE_URL}/api/admin/deposits/${selectedDeposit._id}/status`,
+        updateForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        // Refresh the deposits list
+        fetchDeposits();
+        fetchStats();
+        
+        // Close modal
+        setShowStatusUpdateModal(false);
+        
+        // Reset form
+        setUpdateForm({
+          success: true,
+          userIdentifyAddress: '',
+          amount: 0,
+          trxid: ''
+        });
+        
+        // Show success message
+        alert(`Deposit status updated successfully! Applied: ${response.data.applied}`);
+      } else {
+        setError(`Failed to update status: ${response.data.message}`);
+      }
+    } catch (err) {
+      console.error('Error updating deposit status:', err);
+      setError(`Failed to update deposit status: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Open status update modal with deposit data
+  const openStatusUpdateModal = (deposit) => {
+    setSelectedDeposit(deposit);
+    setUpdateForm({
+      success: true,
+      userIdentifyAddress: deposit.paymentId || deposit.userIdentifyAddress || '',
+      amount: deposit.amount,
+      trxid: deposit.transactionId || ''
+    });
+    setShowStatusUpdateModal(true);
+  };
+
+  // Edit deposit (basic info)
   const editDeposit = async (depositId, updates) => {
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        `${API_BASE_URL}/admin/deposits/${depositId}`,
+        `${API_BASE_URL}/api/admin/deposits/${depositId}`,
         updates,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       fetchDeposits();
       setShowEditModal(false);
+      alert('Deposit updated successfully!');
     } catch (err) {
       console.error('Error editing deposit:', err);
       setError('Failed to edit deposit.');
@@ -172,6 +273,7 @@ const Pendingdeposit = () => {
       fetchDeposits();
       fetchStats();
       setShowDepositDetails(false);
+      alert('Deposit deleted successfully!');
     } catch (err) {
       console.error('Error deleting deposit:', err);
       setError('Failed to delete deposit.');
@@ -252,6 +354,7 @@ const Pendingdeposit = () => {
   const getStatusInfo = (status) => {
     switch (status) {
       case 'approved':
+      case 'completed':
         return { icon: <FaCheckCircle className="text-green-500" />, color: 'bg-green-100 text-green-800 border-green-200' };
       case 'pending':
         return { icon: <FaClock className="text-yellow-500" />, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
@@ -278,8 +381,12 @@ const Pendingdeposit = () => {
         return 'Bank Transfer';
       case 'card':
         return 'Card Payment';
+      case 'opay':
+        return 'OPay';
+      case 'external_gateway':
+        return 'External Gateway';
       default:
-        return method;
+        return method?.charAt(0).toUpperCase() + method?.slice(1) || 'Unknown';
     }
   };
 
@@ -370,6 +477,15 @@ const Pendingdeposit = () => {
                 <h1 className="text-2xl font-bold text-gray-800">Deposit Management</h1>
                 <p className="text-sm text-gray-600 mt-1">Track and manage all deposit transactions</p>
               </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={exportToCSV}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 flex items-center"
+                >
+                  <FaDownload className="mr-2" />
+                  Export CSV
+                </button>
+              </div>
             </div>
 
             {/* Stats Cards */}
@@ -402,7 +518,7 @@ const Pendingdeposit = () => {
                 <button
                   onClick={() => {
                     setSearchTerm('');
-                    setStatusFilter('all');
+                    setStatusFilter('pending');
                     setMethodFilter('all');
                     setDateRange({ start: '', end: '' });
                   }}
@@ -514,17 +630,17 @@ const Pendingdeposit = () => {
                     <tr>
                       <th
                         scope="col"
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
+                        className="px-6 py-4 text-nowrap text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
                         onClick={() => requestSort('createdAt')}
                       >
-                        Date & Time {getSortIcon('createdAt')}
+                        Date & Time 
                       </th>
                       <th
                         scope="col"
                         className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
                         onClick={() => requestSort('userId.username')}
                       >
-                        Player ID / Username {getSortIcon('userId.username')}
+                        Player ID / Username
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                         Method
@@ -534,13 +650,13 @@ const Pendingdeposit = () => {
                         className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
                         onClick={() => requestSort('amount')}
                       >
-                        Amount {getSortIcon('amount')}
+                        Amount
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Phone Number
+                        Phone 
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Transaction ID
+                        Payment ID
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                         Status
@@ -573,8 +689,8 @@ const Pendingdeposit = () => {
                               <div className="text-sm text-gray-700">{deposit.phoneNumber || 'N/A'}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                                {deposit.transactionId || 'N/A'}
+                              <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 truncate max-w-[150px]">
+                                {deposit.paymentId || deposit.transactionId || 'N/A'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -593,6 +709,13 @@ const Pendingdeposit = () => {
                               </button>
                               <button
                                 className="p-2 px-[8px] py-[7px] bg-green-600 text-white rounded-[3px] text-[16px] hover:bg-green-700"
+                                title="Update status"
+                                onClick={() => openStatusUpdateModal(deposit)}
+                              >
+                                <FaCheckCircle />
+                              </button>
+                              <button
+                                className="p-2 px-[8px] py-[7px] bg-yellow-600 text-white rounded-[3px] text-[16px] hover:bg-yellow-700"
                                 title="Edit deposit"
                                 onClick={() => {
                                   setSelectedDeposit(deposit);
@@ -699,8 +822,16 @@ const Pendingdeposit = () => {
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Information</h4>
                   <dl className="space-y-2">
                     <div className="flex justify-between">
+                      <dt className="text-sm text-gray-600">Deposit ID:</dt>
+                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit._id}</dd>
+                    </div>
+                    <div className="flex justify-between">
                       <dt className="text-sm text-gray-600">Transaction ID:</dt>
                       <dd className="text-sm font-medium text-gray-900">{selectedDeposit.transactionId || 'N/A'}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-sm text-gray-600">Payment ID:</dt>
+                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit.paymentId || 'N/A'}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-sm text-gray-600">Date & Time:</dt>
@@ -733,6 +864,10 @@ const Pendingdeposit = () => {
                       <dt className="text-sm text-gray-600">Phone Number:</dt>
                       <dd className="text-sm text-gray-900">{selectedDeposit.phoneNumber || 'N/A'}</dd>
                     </div>
+                    <div className="flex justify-between">
+                      <dt className="text-sm text-gray-600">User ID:</dt>
+                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit.userId?._id || 'N/A'}</dd>
+                    </div>
                   </dl>
                 </div>
               </div>
@@ -761,16 +896,27 @@ const Pendingdeposit = () => {
               {selectedDeposit.status === 'pending' && (
                 <div className="mt-6 space-x-3">
                   <button
-                    onClick={() => updateDepositStatus(selectedDeposit._id, 'completed', 'Deposit approved by admin')}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+                    onClick={() => updateDepositStatus(selectedDeposit._id, true, 'Deposit approved by admin')}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={updatingStatus}
                   >
-                    Approve
+                    {updatingStatus ? 'Processing...' : 'Approve Deposit'}
                   </button>
                   <button
-                    onClick={() => updateDepositStatus(selectedDeposit._id, 'rejected', 'Deposit rejected by admin')}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+                    onClick={() => updateDepositStatus(selectedDeposit._id, false, 'Deposit rejected by admin')}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={updatingStatus}
                   >
-                    Reject
+                    {updatingStatus ? 'Processing...' : 'Reject Deposit'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDepositDetails(false);
+                      openStatusUpdateModal(selectedDeposit);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
+                    Manual Update
                   </button>
                 </div>
               )}
@@ -787,12 +933,116 @@ const Pendingdeposit = () => {
         </div>
       )}
 
-      {/* Edit Deposit Modal */}
+      {/* Manual Status Update Modal */}
+      {showStatusUpdateModal && selectedDeposit && (
+        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-900">Update Deposit Status</h3>
+              <button onClick={() => setShowStatusUpdateModal(false)} className="text-gray-400 hover:text-gray-500">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  manualUpdateStatus();
+                }}
+              >
+                <div className="space-y-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Info</label>
+                    <div className="bg-gray-50 p-3 rounded-md">
+                      <p className="text-sm text-gray-700">User: {selectedDeposit.userId?.username}</p>
+                      <p className="text-sm text-gray-700">Amount: {formatCurrency(selectedDeposit.amount)}</p>
+                      <p className="text-sm text-gray-700">Method: {getMethodName(selectedDeposit.method)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="success"
+                      checked={updateForm.success}
+                      onChange={(e) => setUpdateForm({...updateForm, success: e.target.checked})}
+                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="success" className="ml-2 block text-sm text-gray-900">
+                      Success (Check for approval, uncheck for rejection)
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">User Identify Address (Payment ID)</label>
+                    <input
+                      type="text"
+                      value={updateForm.userIdentifyAddress}
+                      onChange={(e) => setUpdateForm({...updateForm, userIdentifyAddress: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="order-xxx-xxx or paymentId"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">This should match the paymentId in the deposit record</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                    <input
+                      type="number"
+                      value={updateForm.amount}
+                      onChange={(e) => setUpdateForm({...updateForm, amount: parseFloat(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      min="0"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID (trxid)</label>
+                    <input
+                      type="text"
+                      value={updateForm.trxid}
+                      onChange={(e) => setUpdateForm({...updateForm, trxid: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="TX123456789"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowStatusUpdateModal(false)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-400"
+                    disabled={updatingStatus}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={updatingStatus}
+                  >
+                    {updatingStatus ? 'Processing...' : 'Update Status'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Deposit Modal (Basic Info) */}
       {showEditModal && selectedDeposit && (
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Edit Deposit</h3>
+              <h3 className="text-lg font-medium text-gray-900">Edit Deposit Info</h3>
               <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-500">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -809,6 +1059,7 @@ const Pendingdeposit = () => {
                     method: formData.get('method'),
                     phoneNumber: formData.get('phoneNumber'),
                     transactionId: formData.get('transactionId'),
+                    paymentId: formData.get('paymentId'),
                     adminNotes: formData.get('adminNotes'),
                   };
                   editDeposit(selectedDeposit._id, updates);
@@ -859,6 +1110,15 @@ const Pendingdeposit = () => {
                       type="text"
                       name="transactionId"
                       defaultValue={selectedDeposit.transactionId}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment ID</label>
+                    <input
+                      type="text"
+                      name="paymentId"
+                      defaultValue={selectedDeposit.paymentId}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>

@@ -3457,6 +3457,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
     // Create BettingHistory record
     const bettingHistoryRecord = new BettingHistory({
+      game_name:findgame?.name,
       member_account: processedData.member_account,
       original_username: processedData.original_username,
       user_id: matchedUser._id,

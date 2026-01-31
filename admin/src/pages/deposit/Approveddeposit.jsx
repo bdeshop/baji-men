@@ -469,7 +469,7 @@ const Approveddeposit = () => {
                         Date & Time
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Player ID / Username
+                        Player ID
                       </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                         Method

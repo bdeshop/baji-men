@@ -3208,81 +3208,416 @@ Adminrouter.get("/deposits/:id", async (req, res) => {
 });
 
 // PUT update deposit status
-Adminrouter.put("/deposits/:id/status", async (req, res) => {
+// PUT update deposit status - UPDATED VERSION
+Adminrouter.put("/deposits/:id/status", async (req, res) =>{
   try {
-    const { status, adminNotes } = req.body;
+    const payload = req.body || {};
+    const {
+      success,
+      userIdentifyAddress,
+      amount,
+      trxid,
+    } = payload;
 
-    if (
-      !status ||
-      !["pending", "approved", "rejected", "cancelled", "completed"].includes(
-        status
-      )
-    ) {
-      return res.status(400).json({ error: "Valid status is required" });
-    }
+    console.log("Callback received:", {
+      success,
+      userIdentifyAddress,
+      amount,
+      trxid
+    });
 
-    const deposit = await Deposit.findById(req.params.id).populate(
-      "userId",
-      "username player_id balance"
-    );
+    // Normalize amount
+    const amountNum = typeof amount === "number" ? amount : Number(amount);
 
-    if (!deposit) {
-      return res.status(404).json({ error: "Deposit not found" });
-    }
-
-    // Store old status for potential rollback
-    const oldStatus = deposit.status;
-
-    // Update deposit status
-    deposit.status = status;
-    deposit.processedAt = new Date();
-
-    if (adminNotes) {
-      deposit.adminNotes = adminNotes;
-    }
-
-    // If status is being approved, update user balance
-    if (status === "completed" && oldStatus !== "completed") {
-      const user = await User.findById(deposit.userId._id);
-
+    // Only process if marked success and required fields are valid
+    if (success === true && trxid && userIdentifyAddress && Number.isFinite(amountNum) && amountNum > 0) {
+      let userId;
+      let user;
+      
+      // Extract user ID from userIdentifyAddress (format: order-${userId}-${timestamp})
+      if (userIdentifyAddress.startsWith('order-')) {
+        const parts = userIdentifyAddress.split('-');
+        if (parts.length >= 3) {
+          userId = parts[1]; // order-${userId}-${timestamp}
+          try {
+            if (userId) {
+              console.log(userId)
+              user = await User.findOne({ _id:userId});
+            }
+          } catch (err) {
+            console.log("Error finding user by ID:", err.message);
+          }
+        }
+      }
+      // Try to find by player_id
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        user = await User.findOne({ player_id: userIdentifyAddress });
+      }
+      
+      // Try to find by phone
+      if (!user) {
+        user = await User.findOne({ phone: userIdentifyAddress });
       }
 
-      // Update user balance
-      user.balance += deposit.amount;
-      user.total_deposit=deposit.amount;
-      // Add to deposit history
-      user.depositHistory.push({
-        method: deposit.method,
-        amount: deposit.amount,
-        date: new Date(),
-        status: "completed",
-        transactionId: deposit.transactionId,
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "User not found", 
+          userIdentifyAddress: userIdentifyAddress 
+        });
+      }
+
+      // Find the original deposit record from deposits collection
+      // Make sure User model is imported/defined
+      const matcheduser = await User.findById(user._id);
+      
+      let originalDeposit = await Deposit.findOne({
+        paymentId: userIdentifyAddress,
+        userId: user._id,
+        status: "pending"
       });
 
-      // Add transaction history
-      user.transactionHistory.push({
-        type: "deposit",
-        amount: deposit.amount,
-        balanceBefore: user.balance - deposit.amount,
-        balanceAfter: user.balance,
-        description: `Deposit via ${deposit.method} - Approved by admin`,
-        referenceId: deposit._id.toString(),
-      });
+      // If not found by paymentId, try to find by userIdentifyAddress
+      if (!originalDeposit) {
+        originalDeposit = await Deposit.findOne({
+          userIdentifyAddress: userIdentifyAddress,
+          userId: user._id,
+          status: "pending"
+        });
+      }
 
-      await user.save();
+      // If still not found, try to find by transactionId (recent pending deposit)
+      if (!originalDeposit) {
+        originalDeposit = await Deposit.findOne({
+          userId: user._id,
+          status: "pending",
+          createdAt: { $gte: new Date(Date.now() - 30 * 60 * 1000) } // Last 30 minutes
+        });
+      }
+
+      // Try to find matching pending deposit in user's depositHistory
+      let pendingDepositInHistory = null;
+      if (user.depositHistory) {
+        // Find the most recent pending deposit that matches the amount
+        pendingDepositInHistory = user.depositHistory.find(dep => 
+          dep.status === 'pending' && 
+          Math.abs(dep.amount - amountNum) <= 1 // Match amount
+        );
+      }
+
+      if (!originalDeposit && !pendingDepositInHistory) {
+        // Check user's depositHistory for any pending deposits
+        const userWithHistory = await usersCol.findOne(
+          { 
+            _id: user._id,
+            "depositHistory.status": "pending",
+            "depositHistory.createdAt": { $gte: new Date(Date.now() - 30 * 60 * 1000) }
+          },
+          {
+            projection: {
+              depositHistory: {
+                $filter: {
+                  input: "$depositHistory",
+                  as: "deposit",
+                  cond: {
+                    $and: [
+                      { $eq: ["$$deposit.status", "pending"] },
+                      { $gte: ["$$deposit.createdAt", new Date(Date.now() - 30 * 60 * 1000)] }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        );
+
+        if (userWithHistory && userWithHistory.depositHistory && userWithHistory.depositHistory.length > 0) {
+          const matchingDeposit = userWithHistory.depositHistory.find(dep => 
+            Math.abs(dep.amount - amountNum) <= 1 // Allow small rounding differences
+          ) || userWithHistory.depositHistory[0];
+          
+          originalDeposit = {
+            _id: new ObjectId(),
+            userId: user._id,
+            type: "deposit",
+            method: matchingDeposit.method || "external_gateway",
+            amount: matchingDeposit.amount || amountNum,
+            bonusType: matchingDeposit.bonusType || 'none',
+            bonusAmount: matchingDeposit.bonusAmount || 0,
+            bonusCode: matchingDeposit.bonusCode || '',
+            wageringRequirement: matchingDeposit.wageringRequirement || 0,
+            phoneNumber: matchingDeposit.phoneNumber || user.phone || "",
+            transactionId: matchingDeposit.transactionId || `EXT_${Date.now()}`,
+            paymentId: matchingDeposit.paymentId || userIdentifyAddress,
+            description: matchingDeposit.description || `Deposit via ${matchingDeposit.method || 'external_gateway'}`,
+            status: "pending",
+            createdAt: matchingDeposit.createdAt || new Date()
+          };
+        }
+      }
+     
+      // Get bonus info - prioritize from pending deposit, then original deposit
+      const sourceDeposit = pendingDepositInHistory || originalDeposit;
+      const bonusInfo = {
+        bonusType: sourceDeposit?.bonusType || 'none',
+        bonusCode: sourceDeposit?.bonusCode || '',
+        bonusAmount: sourceDeposit?.bonusAmount || 0,
+        wageringRequirement: sourceDeposit?.wageringRequirement || 0,
+        method: sourceDeposit?.method || 'external_gateway'
+      };
+
+      // Calculate total amount with bonus
+      const totalCredit = amountNum + bonusInfo.bonusAmount;
+      
+      // Prepare deposit record for user's depositHistory
+      const depositRecord = {
+        method: bonusInfo.method,
+        amount: amountNum,
+        status: 'completed',
+        transactionId: trxid,
+        bonusApplied: bonusInfo.bonusAmount > 0,
+        bonusType: bonusInfo.bonusType,
+        bonusAmount: bonusInfo.bonusAmount,
+        bonusCode: bonusInfo.bonusCode, // Keep the actual bonus code
+        orderId: `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        paymentUrl: payload.payment_page_url || '',
+        processedAt: new Date(),
+        completedAt: new Date(),
+        createdAt: new Date()
+      };
+      
+      // Update user fields - make sure User model has these fields
+      if (matcheduser) {
+        matcheduser.depositamount = amountNum;
+        matcheduser.waigeringneed = sourceDeposit?.wageringRequirement;
+        matcheduser.total_bet = 0;
+        matcheduser.affiliatedeposit += amountNum;
+        await matcheduser.save();
+      }
+      
+      // Keep playerbalance if it exists in the pending deposit
+      if (pendingDepositInHistory && pendingDepositInHistory.playerbalance !== undefined) {
+        depositRecord.playerbalance = pendingDepositInHistory.playerbalance;
+      }
+
+      // Check if there's a bonusCode in the pending deposit
+      let bonusCodeToActivate = null;
+      if (pendingDepositInHistory && pendingDepositInHistory.bonusCode && pendingDepositInHistory.bonusCode.trim() !== '') {
+        bonusCodeToActivate = pendingDepositInHistory.bonusCode;
+      } else if (originalDeposit && originalDeposit.bonusCode && originalDeposit.bonusCode.trim() !== '') {
+        bonusCodeToActivate = originalDeposit.bonusCode;
+      }
+
+      // Prepare transaction record
+      const transactionRecord = {
+        type: 'deposit',
+        amount: amountNum,
+        balanceBefore: user.balance || 0,
+        balanceAfter: (user.balance || 0) + totalCredit,
+        description: `Deposit via ${bonusInfo.method}${bonusInfo.bonusAmount > 0 ? ` with ${bonusInfo.bonusType} bonus` : ''}`,
+        referenceId: trxid,
+        createdAt: new Date()
+      };
+
+      // Update operations
+      const updateOperations = {
+        $inc: {
+          balance: totalCredit,
+          total_deposit: amountNum,
+          lifetime_deposit: amountNum
+        },
+        $push: {
+          transactionHistory: transactionRecord
+        }
+      };
+
+      // Handle bonus if applicable
+      if (bonusInfo.bonusAmount > 0) {
+        // Add to bonusBalance
+        updateOperations.$inc.bonusBalance = bonusInfo.bonusAmount;
+
+        // Prepare bonus activity log
+        const bonusActivityLog = {
+          bonusType: bonusInfo.bonusType,
+          bonusAmount: bonusInfo.bonusAmount,
+          depositAmount: amountNum,
+          activatedAt: new Date(),
+          status: 'active'
+        };
+        
+        // If we found a bonusCode to activate, add it to the log
+        if (bonusCodeToActivate) {
+          bonusActivityLog.bonusCode = bonusCodeToActivate;
+        }
+        
+        updateOperations.$push.bonusActivityLogs = bonusActivityLog;
+
+        // Prepare active bonus record
+        const activeBonusRecord = {
+          bonusType: bonusInfo.bonusType,
+          amount: bonusInfo.bonusAmount,
+          originalAmount: bonusInfo.bonusAmount,
+          wageringRequirement: bonusInfo.wageringRequirement > 0 ? bonusInfo.wageringRequirement : 
+                              bonusInfo.bonusType === 'first_deposit' ? 30 : 
+                              bonusInfo.bonusType === 'special_bonus' ? 30 : 3, // Default wagering requirements
+          amountWagered: 0,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          status: 'active'
+        };
+        
+        // Add bonusCode to active bonus record if it exists
+        if (bonusCodeToActivate) {
+          activeBonusRecord.bonusCode = bonusCodeToActivate;
+        }
+        
+        // Initialize activeBonuses array if it doesn't exist
+        if (!user.bonusInfo || !user.bonusInfo.activeBonuses) {
+          updateOperations.$set = updateOperations.$set || {};
+          updateOperations.$set["bonusInfo.activeBonuses"] = [];
+        }
+        
+        updateOperations.$push["bonusInfo.activeBonuses"] = activeBonusRecord;
+
+        // Mark first deposit bonus as claimed if it's the first deposit
+        if (bonusInfo.bonusType === 'first_deposit') {
+          updateOperations.$set = updateOperations.$set || {};
+          updateOperations.$set["bonusInfo.firstDepositBonusClaimed"] = true;
+        }
+      }
+
+      // Execute the update
+      const updateResult = await User.updateOne(
+        { _id: user._id },
+        updateOperations
+      );
+
+      if (updateResult.modifiedCount === 0) {
+        throw new Error("Failed to update user record");
+      }
+
+      // If we found a bonusCode to activate, update pending bonusActivityLogs
+      if (bonusCodeToActivate) {
+        // Find the pending bonus activity log with the same bonusCode
+        const pendingBonusLog = await User.findOne({
+          _id: user._id,
+          "bonusActivityLogs.status": "pending",
+          "bonusActivityLogs.bonusCode": bonusCodeToActivate
+        });
+
+        if (pendingBonusLog && pendingBonusLog.bonusActivityLogs) {
+          // Find the specific pending log
+          const specificPendingLog = pendingBonusLog.bonusActivityLogs.find(log => 
+            log.status === "pending" && 
+            log.bonusCode === bonusCodeToActivate
+          );
+
+          if (specificPendingLog) {
+            // Update the pending bonus activity log to active
+            await User.updateOne(
+              { 
+                _id: user._id,
+                "bonusActivityLogs._id": specificPendingLog._id
+              },
+              {
+                $set: {
+                  "bonusActivityLogs.$.status": "active",
+                  "bonusActivityLogs.$.activatedAt": new Date(),
+                  "bonusActivityLogs.$.depositAmount": amountNum
+                }
+              }
+            );
+            console.log(`Updated pending bonus activity log for bonusCode: ${bonusCodeToActivate} to active`);
+          }
+        }
+      }
+
+      // Update the deposit record in deposits collection to completed
+      if (originalDeposit && originalDeposit._id) {
+        await Deposit.updateOne(
+          { _id: originalDeposit._id },
+          {
+            $set: {
+              status: "completed",
+              transactionId: trxid,
+              updatedAt: new Date(),
+              completedAt: new Date()
+            }
+          }
+        );
+      }
+
+      // Also update the specific pending deposit in user's depositHistory to completed
+      // This is where we need to preserve the bonusCode and playerbalance
+      if (pendingDepositInHistory && pendingDepositInHistory._id) {
+        await User.updateOne(
+          { 
+            _id: user._id,
+            "depositHistory._id": pendingDepositInHistory._id
+          },
+          {
+            $set: {
+              "depositHistory.$.status": "completed",
+              "depositHistory.$.transactionId": trxid,
+              "depositHistory.$.completedAt": new Date(),
+              "depositHistory.$.processedAt": new Date()
+              // Keep existing fields like bonusCode, playerbalance, etc.
+            }
+          }
+        );
+        
+        console.log(`Updated specific pending deposit with ID: ${pendingDepositInHistory._id} to completed`);
+      } else {
+        // If no specific pending deposit found, push a new completed deposit record
+        await User.updateOne(
+          { _id: user._id },
+          {
+            $push: {
+              depositHistory: depositRecord
+            }
+          }
+        );
+      }
+
+      // Get updated user data for response
+      const updatedUser = await User.findOne({ _id: user._id });
+
+      // Respond success
+      return res.status(200).json({
+        success: true,
+        applied: true,
+        message: "Deposit processed successfully",
+        data: {
+          username: user.username,
+          userId: user._id,
+          amount: amountNum,
+          bonusAmount: bonusInfo.bonusAmount,
+          totalCredit: totalCredit,
+          previousBalance: user.balance || 0,
+          newBalance: updatedUser?.balance || (user.balance || 0) + totalCredit,
+          previousBonusBalance: user.bonusBalance || 0,
+          newBonusBalance: updatedUser?.bonusBalance || (user.bonusBalance || 0) + bonusInfo.bonusAmount,
+          transactionId: trxid,
+          depositRecord: depositRecord,
+          wageringRequirement: bonusInfo.wageringRequirement,
+          bonusCodeActivated: bonusCodeToActivate
+        }
+      });
     }
 
-    await deposit.save();
-
-    res.json({
-      message: "Deposit status updated successfully",
-      deposit,
+    // If not success or invalid payload
+    return res.status(200).json({ 
+      success: true, 
+      applied: false, 
+      message: "Not applied - missing required fields or not successful" 
     });
-  } catch (error) {
-    console.error("Error updating deposit status:", error);
-    res.status(500).json({ error: "Failed to update deposit status" });
+  } catch (err) {
+    console.error("Callback deposit error:", err);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Server error",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 

@@ -930,7 +930,7 @@ const Earnings = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-400">CPA Rate</span>
-                  <span className="font-bold text-cyan-400">{formatCurrency(200)}</span>
+                  <span className="font-bold text-cyan-400">{earningsData.cpaRate}</span>
                 </div>
               </div>
             </div>
