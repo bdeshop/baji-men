@@ -296,12 +296,10 @@ const Newgames = () => {
         const existingGameApiIDs = new Set(
           localGames.map((game) => game.gameApiID)
         );
-
         // Filter out games that already exist in the database
         const newGamesOnly = externalGamesData.data.filter(
-          (externalGame) => !existingGameApiIDs.has(externalGame._id)
+          (externalGame) => !existingGameApiIDs.has(externalGame.game_uuid)
         );
-
         // Transform the games for our UI
         const transformedGames = newGamesOnly.map((externalGame) => {
           return {
