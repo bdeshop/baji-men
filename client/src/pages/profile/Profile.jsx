@@ -69,7 +69,7 @@ const Profile = () => {
   };
 
   const checkAuthAndFetchData = async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('usertoken');
     if (!token) {
       navigate('/login');
       return;

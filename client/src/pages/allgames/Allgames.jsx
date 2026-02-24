@@ -29,7 +29,7 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuthStatus = async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('usertoken');
     
     if (!token) {
       setLoading(false);
@@ -47,23 +47,23 @@ const AuthProvider = ({ children }) => {
         const data = await response.json();
         setUser(data.data);
       } else {
-        localStorage.removeItem('token');
+        localStorage.removeItem('usertoken');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
+      localStorage.removeItem('usertoken');
     } finally {
       setLoading(false);
     }
   };
 
   const login = (token, userData) => {
-    localStorage.setItem('token', token);
+    localStorage.setItem('usertoken', token);
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('usertoken');
     setUser(null);
   };
 
@@ -135,6 +135,29 @@ const AllGamesContent = () => {
   const sortRef = useRef(null);
 
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
+
+  // Helper function to get the correct image URL
+  const getImageUrl = (game) => {
+    if (!game) return logo;
+    
+    // Check for different possible image fields
+    const imageField = game.portraitImage || game.image || game.coverImage;
+    
+    if (!imageField) return logo;
+    
+    // If it's already a full URL (default image from provider)
+    if (imageField.startsWith('http')) {
+      return imageField;
+    }
+    
+    // If it's a local path
+    if (imageField.startsWith('/')) {
+      return `${base_url}${imageField}`;
+    }
+    
+    // Otherwise, assume it's a relative path
+    return `${base_url}/${imageField}`;
+  };
 
   // Check for provider query parameter
   useEffect(() => {
@@ -254,7 +277,7 @@ const AllGamesContent = () => {
     }
     setGames(filtered);
     setProviders(extractUniqueProviders(filtered));
-    setVisibleGamesCount(16); // Reset visible count
+    setVisibleGamesCount(16);
   };
 
   const extractUniqueProviders = (gamesList) => {
@@ -346,7 +369,7 @@ const AllGamesContent = () => {
   };
 
   useEffect(() => {
-    let filtered = [...allGames]; // Start with all games
+    let filtered = [...allGames];
     
     // Apply category filter
     if (selectedCategory !== 'all') {
@@ -464,18 +487,18 @@ const AllGamesContent = () => {
   };
 
   // Handle game click
-   const handleGameClick = (game) => {
+  const handleGameClick = (game) => {
     setSelectedGame(game);
-        console.log("gameee",game)
+    console.log("Game clicked:", game);
+    
     // Check if user is logged in
     if (!user) {
       setShowLoginPopup(true);
       return;
     }
     // If user is logged in, navigate directly to game
-    navigate(`/game/${game.gameApiID}`);
+    handleOpenGame(game);
   };
-
 
   // Handle opening the game
   const handleOpenGame = async (game) => {
@@ -491,31 +514,30 @@ const AllGamesContent = () => {
     try {
       setGameLoading(true);
 
-      const dataaa = game.gameId;
+      const gameId = game.gameId || game.gameApiID;
 
-      console.log("Game ID:", dataaa);
+      console.log("Game ID:", gameId);
 
-      const response = await fetch(`${base_url}/api/games/${game.gameId}`);
+      const response = await fetch(`${base_url}/api/games/${gameId}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch game with ID ${game.gameId}`);
+        throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
 
       const gameData = await response.json();
       if (!gameData.success) {
-        throw new Error(`Failed to fetch game with ID ${game.gameId}`);
+        throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
 
       console.log("Game data:", gameData?.data?.gameApiID);
 
       // Step 1: Fetch game data from external API
-      const gameApiIDs = [gameData?.data?.gameApiID]; // Assuming game.gameId is the ID needed; adjust if multiple IDs
+      const gameApiIDs = [gameData?.data?.gameApiID];
       const externalApiResponse = await axios.post(
         "https://apigames.oracleapi.net/api/games/by-ids",
         { ids: gameApiIDs },
         {
           headers: {
-            "x-api-key":
-              "f7709c7bd13372f79d71906ee3071d26fdb4338987eb731d8182dd743e0bb5ce",
+            "x-api-key": "f7709c7bd13372f79d71906ee3071d26fdb4338987eb731d8182dd743e0bb5ce",
           },
         }
       );
@@ -526,8 +548,7 @@ const AllGamesContent = () => {
         return;
       }
 
-      // Assuming externalApiResponse.data contains relevant game data
-      const externalGameData = externalApiResponse?.data?.data[0]; // Adjust based on actual response structure
+      const externalGameData = externalApiResponse?.data?.data[0];
       console.log("External API game data:", externalGameData?.game_uuid);
 
       if (!externalGameData?.game_uuid) {
@@ -574,9 +595,12 @@ const AllGamesContent = () => {
                   <div className="flex items-center">
                     {categories.find(c => c.value === selectedCategory)?.image && (
                       <img 
-                        src={`${base_url}/${categories.find(c => c.value === selectedCategory).image}`} 
+                        src={getImageUrl({ portraitImage: categories.find(c => c.value === selectedCategory).image })}
                         alt="" 
-                        className=" w-6 h-6 md:w-7 md:h-7" 
+                        className="w-6 h-6 md:w-7 md:h-7 object-cover rounded mr-2"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
                       />
                     )}
                     <i className={`${categories.find(c => c.value === selectedCategory)?.icon || "fas fa-list"} mr-2 text-yellow-500`}></i>
@@ -593,7 +617,16 @@ const AllGamesContent = () => {
                         className={`px-4 py-3 cursor-pointer flex items-center transition-colors ${selectedCategory === category.value ? ' bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`}
                         onClick={() => handleCategoryChange(category.value)}
                       >
-                        {category.image && <img src={`${base_url}/${category.image}`} alt="" className="mr-2 w-4 h-4" />}
+                        {category.image && (
+                          <img 
+                            src={getImageUrl({ portraitImage: category.image })} 
+                            alt="" 
+                            className="mr-2 w-4 h-4 object-cover rounded" 
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
                         <i className={`${category.icon} mr-2 ${selectedCategory === category.value ? 'text-theme_color' : 'text-gray-400'}`}></i>
                         {category.name}
                       </div>
@@ -601,6 +634,7 @@ const AllGamesContent = () => {
                   </div>
                 )}
               </div>
+              
               <div className="flex gap-2 w-full sm:w-auto justify-end">
                 <div className="relative">
                   <button 
@@ -654,6 +688,7 @@ const AllGamesContent = () => {
                 </div>
               </div>
             </div>
+            
             <div className="flex md:flex-row flex-col gap-4 mb-8 w-full">
               <div className="relative w-full" ref={searchRef}>
                 <div className="relative">
@@ -696,27 +731,65 @@ const AllGamesContent = () => {
             ) : (
               visibleGames.length > 0 ? (
                 <>
-                          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
-                    {visibleGames.map(game => (
-                      <div 
-                        key={game._id} 
-                        className="group relative bg-gradient-to-br from-[#1a1a1a] to-[#222] rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
-                        onClick={() => handleGameClick(game)}
-                      >
-                        <div className="relative overflow-hidden">
-                          <img 
-                            src={`${base_url}${game.portraitImage}`} 
-                            alt={game.name} 
-                            className="w-full h-[175px] sm:h-[200px] md:h-[220px] transition-transform duration-500 group-hover:scale-110" 
-                          />
-                          {game.featured && (
-                            <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
-                              NEW
+                  <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
+                    {visibleGames.map(game => {
+                      const imageUrl = getImageUrl(game);
+                      const isDefaultImage = game.portraitImage?.startsWith('http') || game.image?.startsWith('http');
+                      
+                      return (
+                        <div 
+                          key={game._id} 
+                          className="group relative bg-gradient-to-br from-[#1a1a1a] to-[#222] rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
+                          onClick={() => handleGameClick(game)}
+                        >
+                          <div className="relative overflow-hidden">
+                            <img 
+                              src={imageUrl} 
+                              alt={game.name} 
+                              className="w-full h-[175px] sm:h-[200px] md:h-[220px] object-cover transition-transform duration-500 group-hover:scale-110" 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = logo;
+                              }}
+                            />
+                            
+                            {/* Default Image Badge */}
+                            {isDefaultImage && (
+                              <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 opacity-70">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="8"
+                                  height="8"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                  <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <span>Default</span>
+                              </div>
+                            )}
+                            
+                            {game.featured && (
+                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                                NEW
+                              </div>
+                            )}
+                            
+                            {/* Game Name Overlay on Hover */}
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                              <p className="text-white text-xs font-medium truncate">{game.name}</p>
+                              <p className="text-gray-300 text-[10px] truncate">{game.provider}</p>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {hasMoreGames && (

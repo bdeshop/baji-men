@@ -176,7 +176,9 @@ const Deposit = () => {
   };
 
   // Handle external payment submission
-const handleSubmit = async (e) => {
+
+
+  const handleSubmit = async (e) => {
   e.preventDefault();
   console.log("Payment submitted");
 
@@ -366,7 +368,8 @@ const handleSubmit = async (e) => {
   } finally {
     setIsGeneratingPayment(false);
   }
-};
+  };
+
   // Calculate bonus amount for a specific bonus
   const calculateBonusAmount = (bonus) => {
     if (!amount || isNaN(parseFloat(amount))) return 0;

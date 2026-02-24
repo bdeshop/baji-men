@@ -20,7 +20,7 @@ const Notification = () => {
   
   // Get user and token from localStorage
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('usertoken');
   
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
@@ -228,7 +228,7 @@ const Notification = () => {
                 </a>
               </div>
             ) : notifications.length === 0 ? (
-              <div className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border border-[#2a2a2a] rounded-lg p-4 sm:p-6 text-center max-w-sm sm:max-w-md mx-auto">
+              <div className=" p-4 sm:p-6 text-center max-w-sm sm:max-w-md mx-auto">
                 <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#222] mb-3 sm:mb-4">
                   <FiBell className="text-lg sm:text-xl text-gray-500" />
                 </div>

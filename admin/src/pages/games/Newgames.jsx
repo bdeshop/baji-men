@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch } from "react-icons/fa";
+import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck } from "react-icons/fa";
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
@@ -17,11 +17,15 @@ const Newgames = () => {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [useDefaultImage, setUseDefaultImage] = useState({});
+  const [localGames, setLocalGames] = useState([]); // Store local games for reference
+  const [editingGame, setEditingGame] = useState(null); // Track which game is being edited
 
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [loadingGames, setLoadingGames] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [savingGameId, setSavingGameId] = useState(null);
+  const [updatingGameId, setUpdatingGameId] = useState(null);
   const [showProvidersDropdown, setShowProvidersDropdown] = useState(false);
   const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
 
@@ -41,6 +45,10 @@ const Newgames = () => {
   }) => {
     const selectedOption = options.find(opt => opt._id === value || opt.value === value);
     
+    const getDisplayName = (option) => {
+      return option.providerName || option.name || option.label || option.providerCode || 'Unknown';
+    };
+    
     return (
       <div className="relative w-full">
         {label && (
@@ -59,7 +67,7 @@ const Newgames = () => {
               {Icon && <Icon className="text-gray-400 text-lg" />}
               <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
                 {loading ? `Loading ${placeholder}...` : 
-                 selectedOption ? selectedOption.name || selectedOption.label : 
+                 selectedOption ? getDisplayName(selectedOption) : 
                  `Select ${placeholder}`}
               </span>
             </div>
@@ -98,7 +106,7 @@ const Newgames = () => {
                     ) : (
                       <MdCheckBoxOutlineBlank className="text-gray-400 text-lg" />
                     )}
-                    <span>{option.name || option.label}</span>
+                    <span>{getDisplayName(option)}</span>
                   </div>
                 ))
               )}
@@ -120,10 +128,7 @@ const Newgames = () => {
           onChange={onChange}
           className="hidden"
         />
-        <label
-          htmlFor={id}
-          className="cursor-pointer"
-        >
+        <label htmlFor={id} className="cursor-pointer">
           <div className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-200 ${
             checked 
               ? 'bg-orange-500 border-orange-500' 
@@ -138,10 +143,7 @@ const Newgames = () => {
         </label>
       </div>
       <div className="flex-1">
-        <label
-          htmlFor={id}
-          className="text-sm font-medium text-gray-700 cursor-pointer select-none"
-        >
+        <label htmlFor={id} className="text-sm font-medium text-gray-700 cursor-pointer select-none">
           {label}
         </label>
         {description && (
@@ -181,9 +183,8 @@ const Newgames = () => {
     
     const searchTermLower = term.toLowerCase();
     return gamesList.filter(game => 
-      game.name.toLowerCase().includes(searchTermLower) ||
-      (game.provider?.name?.toLowerCase().includes(searchTermLower) || false) ||
-      (game.category?.name?.toLowerCase().includes(searchTermLower) || false)
+      game.gameName?.toLowerCase().includes(searchTermLower) ||
+      (game.provider?.providerName?.toLowerCase().includes(searchTermLower) || false)
     );
   };
 
@@ -209,13 +210,14 @@ const Newgames = () => {
     fetchCategories();
   }, []);
 
+  // Fetch and merge providers
   useEffect(() => {
     const fetchAndMergeProviders = async () => {
       setLoadingProviders(true);
       try {
         const [localRes, externalRes] = await Promise.all([
           fetch(`${base_url}/api/admin/game-providers`),
-          fetch(`https://apigames.oracleapi.net/api/providers`, {
+          fetch(`https://api.oraclegames.live/api/providers`, {
             headers: { "x-api-key": premium_api_key },
           }),
         ]);
@@ -224,18 +226,24 @@ const Newgames = () => {
           toast.error("Failed to fetch providers from all sources.");
           return;
         }
-
+        
         const localProviders = await localRes.json();
         const externalProviders = await externalRes.json();
+        
+        console.log("Local Providers:", localProviders);
+        console.log("External Providers:", externalProviders);
 
-        const localProviderIds = new Set(
-          localProviders.map((p) => p.providerOracleID)
+        const localProviderCodes = new Set(
+          localProviders.map((p) => p.providerCode || p.providerName)
         );
 
-        const mergedProviders = externalProviders.data.filter((p) =>
-          localProviderIds.has(p._id)
-        );
+        const mergedProviders = externalProviders.data.filter((p) => {
+          return localProviderCodes.has(p.providerCode) || 
+                 localProviderCodes.has(p.providerName) ||
+                 localProviderCodes.has(p.code);
+        });
 
+        console.log("Merged Providers:", mergedProviders);
         setProviders(mergedProviders);
       } catch (error) {
         console.error("Error fetching and merging providers:", error);
@@ -264,60 +272,118 @@ const Newgames = () => {
     }
   };
 
+  // Fetch local games on component mount
+  useEffect(() => {
+    const fetchLocalGames = async () => {
+      const games = await fetchAllLocalGames();
+      setLocalGames(games);
+    };
+    fetchLocalGames();
+  }, []);
+
+  // Fetch games based on selected provider
   useEffect(() => {
     if (!selectedProvider) {
       setGames([]);
       setFilteredGames([]);
-      setSearchTerm(""); // Clear search when provider is cleared
+      setSearchTerm("");
       return;
     }
 
     const fetchAndFilterGames = async () => {
       setLoadingGames(true);
-      setSearchTerm(""); // Clear search when loading new provider
+      setSearchTerm("");
+      setUseDefaultImage({});
+      setEditingGame(null);
+      
       try {
-        // Fetch all games in parallel
-        const [externalGamesRes, localGames] = await Promise.all([
-          fetch(
-            `https://apigames.oracleapi.net/api/games/pagination?limit=2000&provider=${selectedProvider}`,
-            { headers: { "x-api-key": premium_api_key } }
-          ),
-          fetchAllLocalGames()
-        ]);
+        const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
+        const providerCode = selectedProviderObj?.providerCode || selectedProviderObj?.code;
+        
+        if (!providerCode) {
+          toast.error("Invalid provider selection");
+          return;
+        }
+
+        console.log("Fetching games for provider:", providerCode);
+        
+        const externalGamesRes = await fetch("https://api.oraclegames.live/api/games?page=1&limit=5000", {
+          method: "GET",
+          headers: {
+            "x-api-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
+            "Content-Type": "application/json"
+          }
+        });
 
         if (!externalGamesRes.ok) {
           toast.error("Failed to fetch games from provider.");
           return;
         }
 
-        const externalGamesData = await externalGamesRes.json();
+        const oracleGamesData = await externalGamesRes.json();
+        console.log("Oracle games data:", oracleGamesData);
 
-        // Create a Set of gameApiIDs that already exist in local database
-        const existingGameApiIDs = new Set(
-          localGames.map((game) => game.gameApiID)
+        // Fetch latest local games
+        const localGamesList = await fetchAllLocalGames();
+        setLocalGames(localGamesList);
+        
+        // Create a map of existing games by game code
+        const existingGamesMap = new Map();
+        localGamesList.forEach(game => {
+          const gameCode = game.game_code || game.gameCode || game.gameApiID;
+          if (gameCode) {
+            existingGamesMap.set(gameCode, game);
+          }
+        });
+
+        // Get all games from the selected provider (both new and existing)
+        const providerGames = oracleGamesData.data.filter(
+          (game) => {
+            const gameProviderCode = game.provider?.provider_code || game.provider?.code;
+            return gameProviderCode === providerCode;
+          }
         );
-        // Filter out games that already exist in the database
-        const newGamesOnly = externalGamesData.data.filter(
-          (externalGame) => !existingGameApiIDs.has(externalGame.game_uuid)
-        );
+
+        console.log(`Found ${providerGames.length} games for provider ${providerCode}`);
+
         // Transform the games for our UI
-        const transformedGames = newGamesOnly.map((externalGame) => {
+        const transformedGames = providerGames.map((externalGame) => {
+          const gameCode = externalGame.game_code || externalGame.code || externalGame._id;
+          const existingGame = existingGamesMap.get(gameCode);
+          const uniqueId = existingGame?._id || externalGame._id || externalGame.game_code || `game-${Date.now()}-${Math.random()}`;
+          
           return {
             ...externalGame,
-            isSaved: false, // All these games are new (not in database)
-            localFeatured: false,
-            localStatus: true,
-            localFullScreen: false,
-            localCategory: selectedCategory || "",
+            _id: uniqueId,
+            game_uuid: externalGame._id || externalGame.game_code,
+            name: externalGame.gameName || externalGame.name,
+            gameCode: gameCode,
+            provider: externalGame.provider,
+            coverImage: externalGame.image,
+            isSaved: !!existingGame, // True if game already exists in database
+            existingGameData: existingGame, // Store existing game data
+            localFeatured: existingGame?.featured || false,
+            localStatus: existingGame?.status ?? true,
+            localFullScreen: existingGame?.fullScreen || false,
+            localCategory: existingGame?.category || selectedCategory || "",
             localPortraitImage: null,
             localPortraitPreview: null,
             localLandscapeImage: null,
             localLandscapePreview: null,
+            useDefaultImage: true,
           };
         });
 
         setGames(transformedGames);
-        setFilteredGames(transformedGames); // Initially show all new games
+        setFilteredGames(transformedGames);
+        
+        // Initialize useDefaultImage state for all games
+        const defaultImageState = {};
+        transformedGames.forEach(game => {
+          defaultImageState[game._id] = true;
+        });
+        setUseDefaultImage(defaultImageState);
+        
       } catch (error) {
         console.error("Error fetching and filtering games:", error);
         toast.error("An error occurred while fetching games.");
@@ -326,8 +392,10 @@ const Newgames = () => {
       }
     };
 
-    fetchAndFilterGames();
-  }, [selectedProvider]);
+    if (selectedProvider) {
+      fetchAndFilterGames();
+    }
+  }, [selectedProvider, providers]);
 
   // Apply search filter whenever games or search term changes
   useEffect(() => {
@@ -335,6 +403,7 @@ const Newgames = () => {
     setFilteredGames(searchFiltered);
   }, [games, searchTerm]);
 
+  // Update category for all games when selected category changes
   useEffect(() => {
     if (selectedCategory) {
       setGames(prevGames => 
@@ -346,15 +415,15 @@ const Newgames = () => {
     }
   }, [selectedCategory]);
 
-  const handleGameDataChange = (gameApiID, field, value) => {
+  const handleGameDataChange = (gameId, field, value) => {
     setGames((prevGames) =>
       prevGames.map((game) =>
-        game._id === gameApiID ? { ...game, [field]: value } : game
+        game._id === gameId ? { ...game, [field]: value } : game
       )
     );
   };
 
-  const handleImageUpload = (gameApiID, file) => {
+  const handleImageUpload = (gameId, file) => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -370,12 +439,11 @@ const Newgames = () => {
     reader.onloadend = () => {
       setGames((prevGames) =>
         prevGames.map((game) => {
-          if (game._id === gameApiID) {
+          if (game._id === gameId) {
             return {
               ...game,
               localPortraitImage: file,
               localPortraitPreview: reader.result,
-              // Automatically set landscape image to the same portrait image
               localLandscapeImage: file,
               localLandscapePreview: reader.result,
             };
@@ -383,14 +451,20 @@ const Newgames = () => {
           return game;
         })
       );
+      
+      // When user uploads an image, disable default image mode for this game
+      setUseDefaultImage(prev => ({
+        ...prev,
+        [gameId]: false
+      }));
     };
     reader.readAsDataURL(file);
   };
 
-  const removeImage = (gameApiID) => {
+  const removeImage = (gameId) => {
     setGames((prevGames) =>
       prevGames.map((game) => {
-        if (game._id === gameApiID) {
+        if (game._id === gameId) {
           return {
             ...game,
             localPortraitImage: null,
@@ -402,39 +476,89 @@ const Newgames = () => {
         return game;
       })
     );
+    
+    // When image is removed, revert to default image mode
+    setUseDefaultImage(prev => ({
+      ...prev,
+      [gameId]: true
+    }));
   };
 
-  const handleSaveOrUpdateGame = async (gameApiID) => {
-    const gameToSave = games.find((g) => g._id === gameApiID);
+  const toggleUseDefaultImage = (gameId) => {
+    setUseDefaultImage(prev => ({
+      ...prev,
+      [gameId]: !prev[gameId]
+    }));
     
-    // Validation for new games
-    if (
-      !gameToSave.isSaved &&
-      !gameToSave.localPortraitImage
-    ) {
-      toast.error(
-        "Please upload game image."
+    // If switching to default image, clear any uploaded image
+    if (!useDefaultImage[gameId]) {
+      setGames((prevGames) =>
+        prevGames.map((game) => {
+          if (game._id === gameId) {
+            return {
+              ...game,
+              localPortraitImage: null,
+              localPortraitPreview: null,
+              localLandscapeImage: null,
+              localLandscapePreview: null,
+            };
+          }
+          return game;
+        })
       );
-      return;
     }
+  };
 
-    // Validate category for new games
-    if (!gameToSave.isSaved && !gameToSave.localCategory) {
+  const handleEditGame = (game) => {
+    setEditingGame(game._id);
+    // Scroll to the game
+    setTimeout(() => {
+      document.getElementById(`game-${game._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingGame(null);
+  };
+
+  const handleSaveOrUpdateGame = async (gameId) => {
+    const gameToSave = games.find((g) => g._id === gameId);
+    
+    // Validation
+    if (!gameToSave.localCategory) {
       toast.error("Please select a category for the game.");
       return;
     }
 
-    setSavingGameId(gameApiID);
+    // Check if using default image or uploaded image
+    const isUsingDefaultImage = useDefaultImage[gameId];
+    
+    if (!isUsingDefaultImage && !gameToSave.localPortraitImage) {
+      toast.error("Please upload an image or use the default image.");
+      return;
+    }
+
+    // Determine if this is an update or new game
+    const isUpdate = gameToSave.isSaved;
+    
+    if (isUpdate) {
+      setUpdatingGameId(gameId);
+    } else {
+      setSavingGameId(gameId);
+    }
 
     try {
       const formData = new FormData();
-      formData.append("gameApiID", gameToSave.game_uuid);
-      formData.append("name", gameToSave.name);
-      formData.append("provider", gameToSave.provider.name);
+      
+      // Basic game info
+      formData.append("gameApiID", gameToSave.game_code || gameToSave.code || gameToSave._id);
+      formData.append("name", gameToSave.gameName || gameToSave.name);
+      formData.append("provider", gameToSave.provider?.providerName || gameToSave.provider?.name || "");
       
       const selectedCat = categories.find(cat => 
         cat._id === gameToSave.localCategory || cat.name === gameToSave.localCategory
       );
+      
       if (selectedCat) {
         formData.append("category", selectedCat.name);
       } else {
@@ -445,14 +569,36 @@ const Newgames = () => {
       formData.append("status", gameToSave.localStatus);
       formData.append("fullScreen", gameToSave.localFullScreen);
       
-      if (gameToSave.localPortraitImage) {
-        formData.append("portraitImage", gameToSave.localPortraitImage);
-        // Also append the same image as landscape image
-        formData.append("landscapeImage", gameToSave.localPortraitImage);
+      // Handle image based on selection
+      if (isUsingDefaultImage) {
+        // Use default image URL from API
+        const defaultImageUrl = gameToSave.image || gameToSave.coverImage;
+        if (defaultImageUrl) {
+          formData.append("defaultImage", defaultImageUrl);
+          formData.append("portraitImage", defaultImageUrl);
+          formData.append("landscapeImage", defaultImageUrl);
+        } else {
+          toast.error("No default image available for this game.");
+          if (isUpdate) {
+            setUpdatingGameId(null);
+          } else {
+            setSavingGameId(null);
+          }
+          return;
+        }
+      } else {
+        // Use uploaded image
+        if (gameToSave.localPortraitImage) {
+          formData.append("portraitImage", gameToSave.localPortraitImage);
+          formData.append("landscapeImage", gameToSave.localPortraitImage);
+        }
       }
 
-      const url = `${base_url}/api/admin/games`;
-      const method = "POST";
+      const url = isUpdate 
+        ? `${base_url}/api/admin/games/${gameToSave.existingGameData?._id || gameId}`
+        : `${base_url}/api/admin/games`;
+      
+      const method = isUpdate ? "PUT" : "POST";
       
       const response = await fetch(url, {
         method: method,
@@ -462,51 +608,44 @@ const Newgames = () => {
       const result = await response.json();
       
       if (response.ok) {
-        toast.success(
-          `Game "${gameToSave.name}" added successfully!`
+        toast.success(`Game "${gameToSave.gameName || gameToSave.name}" ${isUpdate ? 'updated' : 'added'} successfully!`);
+        
+        // Update the game in the list
+        setGames(prevGames => 
+          prevGames.map(game => {
+            if (game._id === gameId) {
+              return {
+                ...game,
+                isSaved: true,
+                existingGameData: result.game || game.existingGameData,
+                localPortraitImage: null,
+                localPortraitPreview: null,
+              };
+            }
+            return game;
+          })
         );
         
-        // Remove the saved game from the list
-        setGames(prevGames => prevGames.filter(g => g._id !== gameApiID));
+        // Refresh local games list
+        const updatedLocalGames = await fetchAllLocalGames();
+        setLocalGames(updatedLocalGames);
         
+        setEditingGame(null);
       } else {
         const errorMsg = result.error || "";
-        
-        if (response.status === 400) {
-          if (errorMsg.includes("Game API ID already exists") || 
-              errorMsg.includes("duplicate key error") ||
-              errorMsg.includes("E11000") ||
-              errorMsg.includes("already in use")) {
-            toast.error(`⚠️ Game API ID "${gameToSave._id}" is already in use!`);
-            
-            // Remove this game from the list since it already exists
-            setGames(prevGames => prevGames.filter(g => g._id !== gameApiID));
-            
-          } else if (errorMsg.includes("All fields are required") || 
-                    errorMsg.includes("Missing required fields")) {
-            toast.error(`❌ ${errorMsg}`);
-          } else if (errorMsg.includes("images are required")) {
-            toast.error("❌ Game image is required.");
-          } else {
-            toast.error(`❌ ${errorMsg || `Failed to add game.`}`);
-          }
-        } else {
-          toast.error(
-            result.error ||
-              `❌ Failed to add game "${gameToSave.name}".`
-          );
-        }
+        toast.error(`❌ ${errorMsg || `Failed to ${isUpdate ? 'update' : 'add'} game.`}`);
       }
     } catch (error) {
-      console.error("Error saving game:", error);
-      toast.error("❌ An error occurred while saving the game.");
+      console.error(`Error ${isUpdate ? 'updating' : 'saving'} game:`, error);
+      toast.error(`❌ An error occurred while ${isUpdate ? 'updating' : 'saving'} the game.`);
     } finally {
       setSavingGameId(null);
+      setUpdatingGameId(null);
     }
   };
 
-  // Get selected provider name for display
-  const selectedProviderName = providers.find(p => p._id === selectedProvider)?.name || "";
+  const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
+  const selectedProviderName = selectedProviderObj?.providerName || selectedProviderObj?.name || "";
 
   return (
     <section className="font-nunito min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -522,10 +661,10 @@ const Newgames = () => {
             {/* Header Section */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-                Add New Games
+                Manage Games
               </h1>
               <p className="text-gray-600">
-                Import games from providers that are not already in your database
+                Add new games or update existing games from providers
               </p>
             </div>
 
@@ -539,10 +678,12 @@ const Newgames = () => {
                   </div>
                 )}
               </div>
-                     <div>
-                  <SearchBar />
-                </div>
-             <div className="flex mt-[20px] justify-center w-full gap-[20px]">
+              
+              <div>
+                <SearchBar />
+              </div>
+              
+              <div className="flex mt-[20px] justify-center w-full gap-[20px]">
                 <CustomSelect
                   options={providers}
                   value={selectedProvider}
@@ -565,24 +706,7 @@ const Newgames = () => {
                   setDropdownOpen={setShowCategoriesDropdown}
                   label="Default Category for New Games"
                 />
-                
-                {searchTerm && (
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <div className="flex items-center">
-                      <FaSearch className="text-blue-500 mr-3" />
-                      <span className="text-blue-700 font-medium">
-                        Searching for: "{searchTerm}"
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                    >
-                      Clear search
-                    </button>
-                  </div>
-                )}
-             </div>
+              </div>
 
               {selectedCategory && (
                 <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
@@ -605,8 +729,8 @@ const Newgames = () => {
                   <FaSpinner className="animate-spin text-orange-500 text-5xl" />
                   <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-transparent blur-xl"></div>
                 </div>
-                <p className="mt-4 text-gray-600 font-medium">Loading new games from provider...</p>
-                <p className="text-sm text-gray-500">Filtering out games already in your database</p>
+                <p className="mt-4 text-gray-600 font-medium">Loading games from provider...</p>
+                <p className="text-sm text-gray-500">Fetching all available games</p>
               </div>
             )}
 
@@ -625,7 +749,7 @@ const Newgames = () => {
                         </>
                       ) : (
                         <>
-                          Showing <span className="font-semibold text-orange-600">{filteredGames.length}</span> new {filteredGames.length === 1 ? 'game' : 'games'} from {selectedProviderName}
+                          Showing <span className="font-semibold text-orange-600">{filteredGames.length}</span> game{filteredGames.length === 1 ? '' : 's'} from {selectedProviderName}
                         </>
                       )}
                     </p>
@@ -639,37 +763,57 @@ const Newgames = () => {
                         Clear Search
                       </button>
                     )}
-                    <div className="px-3 py-1.5 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold">
-                      ✨ New Games Only
-                    </div>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {filteredGames.map((game) => (
                     <div
+                      id={`game-${game._id}`}
                       key={game._id}
-                      className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 border-orange-300 hover:border-orange-400 transition-all duration-300 hover:shadow-xl"
+                      className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl ${
+                        game.isSaved 
+                          ? 'border-green-300 hover:border-green-400' 
+                          : 'border-orange-300 hover:border-orange-400'
+                      } ${editingGame === game._id ? 'ring-4 ring-orange-300' : ''}`}
                     >
                       {/* Game Header */}
-                      <div className="p-4 bg-gradient-to-r from-orange-50 to-white">
+                      <div className={`p-4 bg-gradient-to-r ${
+                        game.isSaved 
+                          ? 'from-green-50 to-white' 
+                          : 'from-orange-50 to-white'
+                      }`}>
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="text-lg font-bold text-gray-900 truncate pr-2">
-                            {game.name}
+                            {game.gameName || game.name}
                           </h3>
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
-                            New Game
-                          </span>
+                          {game.isSaved ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 flex items-center">
+                              <FaCheck className="mr-1 text-xs" /> Added
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                              New Game
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p className="flex items-center">
                             <span className="font-medium mr-2">Provider:</span>
-                            {game.provider.name}
+                            {game.provider?.providerName || game.provider?.name}
                           </p>
                           <p className="flex items-center">
-                            <span className="font-medium mr-2">Category:</span>
-                            {game.category.name}
+                            <span className="font-medium mr-2">Game Code:</span>
+                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {game.game_code || game.code}
+                            </span>
                           </p>
+                          {game.isSaved && game.existingGameData && (
+                            <p className="flex items-center text-xs text-green-600 mt-1">
+                              <span className="font-medium mr-2">Status:</span>
+                              {game.existingGameData.status ? 'Active' : 'Inactive'}
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -677,140 +821,375 @@ const Newgames = () => {
                       <div className="p-4">
                         <div className="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden group">
                           <img
-                            src={game.coverImage || game.localPortraitPreview}
-                            alt={game.name}
+                            src={useDefaultImage[game._id] 
+                              ? (game.image || game.coverImage || game.existingGameData?.portraitImage)
+                              : (game.localPortraitPreview || game.image || game.coverImage || game.existingGameData?.portraitImage)}
+                            alt={game.gameName || game.name}
                             className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
+                            }}
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        </div>
-
-                        {/* Custom Category Selector */}
-                        <div className="mt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Assign Category
-                          </label>
-                          <div className="relative">
-                            <div className="flex flex-wrap gap-2">
-                              {categories
-                                .filter(cat => cat.status)
-                                .map((category) => (
-                                  <button
-                                    key={category._id}
-                                    onClick={() => handleGameDataChange(game._id, 'localCategory', category._id)}
-                                    className={`px-3 py-1.5 text-sm rounded-lg border transition-all duration-200 ${
-                                      game.localCategory === category._id
-                                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
-                                    }`}
-                                  >
-                                    {category.name}
-                                  </button>
-                                ))}
+                          
+                          {/* Default Image Badge */}
+                          {useDefaultImage[game._id] && (
+                            <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                              <FaImage className="mr-1" /> Default
                             </div>
-                          </div>
-                          {!game.localCategory && (
-                            <p className="text-xs text-red-500 mt-2 flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                              Category is required
-                            </p>
                           )}
                         </div>
 
-                        {/* Game Settings */}
-                        <div className="mt-4">
-                          <CustomCheckbox
-                            id={`featured-${game._id}`}
-                            checked={game.localFeatured}
-                            onChange={(e) => handleGameDataChange(game._id, 'localFeatured', e.target.checked)}
-                            label="Featured Game"
-                            description="Show this game in featured section"
-                          />
-                          <CustomCheckbox
-                            id={`status-${game._id}`}
-                            checked={game.localStatus}
-                            onChange={(e) => handleGameDataChange(game._id, 'localStatus', e.target.checked)}
-                            label="Active Status"
-                            description="Game will be visible to users"
-                          />
-                          <CustomCheckbox
-                            id={`fullscreen-${game._id}`}
-                            checked={game.localFullScreen}
-                            onChange={(e) => handleGameDataChange(game._id, 'localFullScreen', e.target.checked)}
-                            label="Full Screen Mode"
-                            description="Launch game in full screen"
-                          />
-                        </div>
-
-                        {/* Image Upload Section */}
-                        <div className="mt-6">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Game Image
-                              <span className="text-xs text-gray-500 ml-2">(Will be used for both portrait and landscape)</span>
-                            </label>
-                            {game.localPortraitPreview ? (
-                              <div className="relative group">
-                                <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden">
-                                  <img
-                                    src={game.localPortraitPreview}
-                                    alt="Game Image"
-                                    className="w-full h-full object-contain p-2"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => removeImage(game._id)}
-                                  className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                  <FaTimes className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ) : (
-                              <label className="block cursor-pointer">
-                                <div className="h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
-                                  <FaUpload className="text-gray-400 text-xl mb-2 group-hover:text-orange-500 transition-colors" />
-                                  <span className="text-sm font-medium text-gray-500 group-hover:text-orange-600 transition-colors">
-                                    Upload Game Image
-                                  </span>
-                                  <span className="text-xs text-gray-400 mt-1">PNG, JPG up to 10MB</span>
-                                </div>
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  accept="image/*"
-                                  onChange={(e) => handleImageUpload(game._id, e.target.files[0])}
-                                />
-                              </label>
-                            )}
+                        {/* Edit Button for Saved Games */}
+                        {game.isSaved && editingGame !== game._id && (
+                          <div className="mt-3">
+                            <button
+                              onClick={() => handleEditGame(game)}
+                              className="w-full px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center"
+                            >
+                              <FaEdit className="mr-2" /> Edit Game
+                            </button>
                           </div>
-                        </div>
+                        )}
 
-                        {/* Save Button */}
-                        <div className="mt-6 pt-4 border-t border-gray-200">
-                          <button
-                            type="button"
-                            onClick={() => handleSaveOrUpdateGame(game._id)}
-                            disabled={savingGameId === game._id || !game.localCategory || !game.localPortraitImage}
-                            className={`w-full px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
-                              savingGameId === game._id 
-                                ? 'bg-gray-400 cursor-wait' 
-                                : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
-                            } ${!game.localCategory || !game.localPortraitImage ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                          >
-                            {savingGameId === game._id ? (
-                              <>
-                                <FaSpinner className="animate-spin mr-2" />
-                                Saving...
-                              </>
-                            ) : (
-                              <>
-                                Save Game
-                              </>
+                        {/* Edit Mode for Saved Games */}
+                        {editingGame === game._id && (
+                          <>
+                            {/* Image Source Toggle */}
+                            <div className="mt-3 flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Use Default Image:</span>
+                              <button
+                                onClick={() => toggleUseDefaultImage(game._id)}
+                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
+                                  useDefaultImage[game._id] ? 'bg-orange-500' : 'bg-gray-300'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${
+                                    useDefaultImage[game._id] ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            {/* Custom Category Selector */}
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Assign Category
+                              </label>
+                              <div className="relative">
+                                <div className="flex flex-wrap gap-2">
+                                  {categories
+                                    .filter(cat => cat.status)
+                                    .map((category) => (
+                                      <button
+                                        key={category._id}
+                                        onClick={() => handleGameDataChange(game._id, 'localCategory', category._id)}
+                                        className={`px-3 py-1.5 text-sm rounded-lg border transition-all duration-200 ${
+                                          game.localCategory === category._id
+                                            ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                        }`}
+                                      >
+                                        {category.name}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Game Settings */}
+                            <div className="mt-4">
+                              <CustomCheckbox
+                                id={`featured-${game._id}`}
+                                checked={game.localFeatured}
+                                onChange={(e) => handleGameDataChange(game._id, 'localFeatured', e.target.checked)}
+                                label="Featured Game"
+                                description="Show this game in featured section"
+                              />
+                              <CustomCheckbox
+                                id={`status-${game._id}`}
+                                checked={game.localStatus}
+                                onChange={(e) => handleGameDataChange(game._id, 'localStatus', e.target.checked)}
+                                label="Active Status"
+                                description="Game will be visible to users"
+                              />
+                              <CustomCheckbox
+                                id={`fullscreen-${game._id}`}
+                                checked={game.localFullScreen}
+                                onChange={(e) => handleGameDataChange(game._id, 'localFullScreen', e.target.checked)}
+                                label="Full Screen Mode"
+                                description="Launch game in full screen"
+                              />
+                            </div>
+
+                            {/* Image Upload Section - Only show if not using default image */}
+                            {!useDefaultImage[game._id] && (
+                              <div className="mt-6">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Upload Custom Image
+                                    <span className="text-xs text-gray-500 ml-2">(Will be used for both portrait and landscape)</span>
+                                  </label>
+                                  {game.localPortraitPreview ? (
+                                    <div className="relative group">
+                                      <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden">
+                                        <img
+                                          src={game.localPortraitPreview}
+                                          alt="Game Image"
+                                          className="w-full h-full object-contain p-2"
+                                        />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeImage(game._id)}
+                                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        <FaTimes className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <label className="block cursor-pointer">
+                                      <div className="h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
+                                        <FaUpload className="text-gray-400 text-xl mb-2 group-hover:text-orange-500 transition-colors" />
+                                        <span className="text-sm font-medium text-gray-500 group-hover:text-orange-600 transition-colors">
+                                          Upload Game Image
+                                        </span>
+                                        <span className="text-xs text-gray-400 mt-1">PNG, JPG up to 10MB</span>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => handleImageUpload(game._id, e.target.files[0])}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
                             )}
-                          </button>
-                        </div>
+
+                            {/* Default Image Info */}
+                            {useDefaultImage[game._id] && (
+                              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                <p className="text-xs text-blue-700 flex items-center">
+                                  <FaImage className="mr-2" />
+                                  Using default image from provider. Toggle switch above to upload custom image.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Update and Cancel Buttons */}
+                            <div className="mt-6 pt-4 border-t border-gray-200 flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleCancelEdit()}
+                                className="flex-1 px-4 py-3 bg-gray-500 text-white font-semibold rounded-xl hover:bg-gray-600 transition-colors duration-200"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveOrUpdateGame(game._id)}
+                                disabled={
+                                  updatingGameId === game._id || 
+                                  !game.localCategory || 
+                                  (!useDefaultImage[game._id] && !game.localPortraitImage)
+                                }
+                                className={`flex-1 px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
+                                  updatingGameId === game._id 
+                                    ? 'bg-gray-400 cursor-wait' 
+                                    : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                                } ${
+                                  (!game.localCategory || (!useDefaultImage[game._id] && !game.localPortraitImage)) 
+                                    ? 'opacity-50 cursor-not-allowed' 
+                                    : 'cursor-pointer'
+                                }`}
+                              >
+                                {updatingGameId === game._id ? (
+                                  <>
+                                    <FaSpinner className="animate-spin mr-2" />
+                                    Updating...
+                                  </>
+                                ) : (
+                                  <>
+                                    Update Game
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Save Button for New Games */}
+                        {!game.isSaved && editingGame !== game._id && (
+                          <>
+                            {/* Image Source Toggle */}
+                            <div className="mt-3 flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Use Default Image:</span>
+                              <button
+                                onClick={() => toggleUseDefaultImage(game._id)}
+                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
+                                  useDefaultImage[game._id] ? 'bg-orange-500' : 'bg-gray-300'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${
+                                    useDefaultImage[game._id] ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            {/* Custom Category Selector */}
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Assign Category
+                              </label>
+                              <div className="relative">
+                                <div className="flex flex-wrap gap-2">
+                                  {categories
+                                    .filter(cat => cat.status)
+                                    .map((category) => (
+                                      <button
+                                        key={category._id}
+                                        onClick={() => handleGameDataChange(game._id, 'localCategory', category._id)}
+                                        className={`px-3 py-1.5 text-sm rounded-lg border transition-all duration-200 ${
+                                          game.localCategory === category._id
+                                            ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                        }`}
+                                      >
+                                        {category.name}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                              {!game.localCategory && (
+                                <p className="text-xs text-red-500 mt-2 flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  Category is required
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Game Settings */}
+                            <div className="mt-4">
+                              <CustomCheckbox
+                                id={`featured-${game._id}`}
+                                checked={game.localFeatured}
+                                onChange={(e) => handleGameDataChange(game._id, 'localFeatured', e.target.checked)}
+                                label="Featured Game"
+                                description="Show this game in featured section"
+                              />
+                              <CustomCheckbox
+                                id={`status-${game._id}`}
+                                checked={game.localStatus}
+                                onChange={(e) => handleGameDataChange(game._id, 'localStatus', e.target.checked)}
+                                label="Active Status"
+                                description="Game will be visible to users"
+                              />
+                              <CustomCheckbox
+                                id={`fullscreen-${game._id}`}
+                                checked={game.localFullScreen}
+                                onChange={(e) => handleGameDataChange(game._id, 'localFullScreen', e.target.checked)}
+                                label="Full Screen Mode"
+                                description="Launch game in full screen"
+                              />
+                            </div>
+
+                            {/* Image Upload Section - Only show if not using default image */}
+                            {!useDefaultImage[game._id] && (
+                              <div className="mt-6">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Upload Custom Image
+                                    <span className="text-xs text-gray-500 ml-2">(Will be used for both portrait and landscape)</span>
+                                  </label>
+                                  {game.localPortraitPreview ? (
+                                    <div className="relative group">
+                                      <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden">
+                                        <img
+                                          src={game.localPortraitPreview}
+                                          alt="Game Image"
+                                          className="w-full h-full object-contain p-2"
+                                        />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeImage(game._id)}
+                                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        <FaTimes className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <label className="block cursor-pointer">
+                                      <div className="h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
+                                        <FaUpload className="text-gray-400 text-xl mb-2 group-hover:text-orange-500 transition-colors" />
+                                        <span className="text-sm font-medium text-gray-500 group-hover:text-orange-600 transition-colors">
+                                          Upload Game Image
+                                        </span>
+                                        <span className="text-xs text-gray-400 mt-1">PNG, JPG up to 10MB</span>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => handleImageUpload(game._id, e.target.files[0])}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Default Image Info */}
+                            {useDefaultImage[game._id] && (
+                              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                <p className="text-xs text-blue-700 flex items-center">
+                                  <FaImage className="mr-2" />
+                                  Using default image from provider. Toggle switch above to upload custom image.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Save Button */}
+                            <div className="mt-6 pt-4 border-t border-gray-200">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveOrUpdateGame(game._id)}
+                                disabled={
+                                  savingGameId === game._id || 
+                                  !game.localCategory || 
+                                  (!useDefaultImage[game._id] && !game.localPortraitImage)
+                                }
+                                className={`w-full px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
+                                  savingGameId === game._id 
+                                    ? 'bg-gray-400 cursor-wait' 
+                                    : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                                } ${
+                                  (!game.localCategory || (!useDefaultImage[game._id] && !game.localPortraitImage)) 
+                                    ? 'opacity-50 cursor-not-allowed' 
+                                    : 'cursor-pointer'
+                                }`}
+                              >
+                                {savingGameId === game._id ? (
+                                  <>
+                                    <FaSpinner className="animate-spin mr-2" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    Save Game
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -837,17 +1216,15 @@ const Newgames = () => {
               </div>
             )}
 
-            {/* Empty State - No new games found */}
+            {/* Empty State - No games found */}
             {!loadingGames && selectedProvider && !searchTerm && filteredGames.length === 0 && (
               <div className="text-center py-16 bg-white rounded-2xl shadow-lg border border-gray-200">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                  <FaGamepad className="text-gray-400 text-3xl" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">All Games Already Imported!</h3>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">No Games Found</h3>
                 <p className="text-gray-600 max-w-md mx-auto mb-6">
-                  All games from <span className="font-semibold">{selectedProviderName}</span> are already in your database. Try selecting a different provider or check back later for new games.
+                  No games available from <span className="font-semibold">{selectedProviderName}</span> at this time.
                 </p>
                 <button
                   onClick={() => setSelectedProvider("")}
@@ -866,10 +1243,10 @@ const Newgames = () => {
                 </div>
                 <h3 className="text-2xl font-bold text-gray-800 mb-3">Select a Provider</h3>
                 <p className="text-gray-600 max-w-md mx-auto mb-8">
-                  Choose a game provider from the filter above to see games that are not already in your database.
+                  Choose a game provider from the filter above to see games available for import or update.
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-orange-100 text-orange-800 rounded-full font-medium">
-                  ⚡ Only shows new games not in your database
+                  ⚡ Shows both new and existing games
                 </div>
               </div>
             )}

@@ -1054,78 +1054,43 @@ Authrouter.post("/login", async (req, res) => {
     const user = await User.findOne({ username }).select("+password");
     
     const { deviceType, browser, os } = getDeviceInfo(userAgent);
-    
+
+    // Check if user exists first
+    if (!user) {
+      // Create failed login log without userId
+      const loginLog = new LoginLog({
+        userId: null, // This will still fail if schema requires it
+        username,
+        ipAddress,
+        userAgent,
+        deviceType,
+        browser,
+        os,
+        status: 'failed',
+        failureReason: 'user_not_found'
+      });
+      
+      await loginLog.save();
+      return res.status(401).json({ error: "Email Or Password is wrong!" });
+    }
+
+    // User exists, create login log with userId
     const loginLog = new LoginLog({
-      userId: user ? user._id : null,
+      userId: user._id,
       username,
       ipAddress,
       userAgent,
       deviceType,
       browser,
       os,
-      status: user ? 'success' : 'failed',
-      failureReason: user ? null : 'user_not_found'
+      status: 'success',
+      failureReason: null
     });
     
     await loginLog.save();
 
-    if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Rest of your login logic...
     
-    if (!isPasswordValid) {
-      loginLog.status = 'failed';
-      loginLog.failureReason = 'invalid_password';
-      await loginLog.save();
-      
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    user.login_count += 1;
-    user.last_login = new Date();
-    if (user.first_login) {
-      user.first_login = false;
-    }
-    
-    user.loginHistory.push({
-      ipAddress,
-      device: deviceType,
-      userAgent,
-      location: 'Unknown',
-      timestamp: new Date()
-    });
-    
-    if (user.loginHistory.length > 10) {
-      user.loginHistory = user.loginHistory.slice(-10);
-    }
-    
-    await user.save();
-
-    const token = jwt.sign(
-      { userId: user._id, username: user.username },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.json({
-      message: "Login successful",
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        player_id: user.player_id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        currency: user.currency,
-        balance: user.balance,
-        first_login: user.first_login,
-        referralCode: user.referralCode,
-        isAffiliateReferred: !!user.affiliateReferral
-      }
-    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });

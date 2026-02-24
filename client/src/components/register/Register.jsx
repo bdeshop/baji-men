@@ -335,10 +335,7 @@ export default function Register() {
           <img 
             src={dynamicLogo} 
             alt="Logo" 
-            className="h-8 md:h-10 cursor-pointer" 
-            onError={(e) => {
-              e.target.src = logo;
-            }}
+            className="w-[100px] md:w-[150px] cursor-pointer" 
           />
         </NavLink>
         
@@ -361,33 +358,33 @@ export default function Register() {
       <div className="relative flex justify-center md:justify-end items-center h-full md:min-h-[calc(100vh-76px)] md:p-6 lg:p-8 xl:p-[100px]">
         <div className="w-full px-[10px] md:px-0 md:max-w-lg overflow-hidden">
           {/* Registration Box with Background */}
-          <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-xl shadow-2xl overflow-hidden backdrop-blur-sm bg-opacity-90">
+          <div className=" overflow-hidden">
             {/* Tab Navigation */}
-            <div className="flex border-b border-gray-800 bg-gray-900 bg-opacity-80">
+            <div className="flex  bg-opacity-80 border-b-[1px] border-[#222424]">
               <button 
                 onClick={() => {setIsSignUpActive(false);}} 
-                className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${!isSignUpActive ? 'border-b-2 border-green-500 text-green-500 bg-gray-900 bg-opacity-50' : 'text-gray-200 hover:text-gray-300'}`}
+                className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${!isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
                 Log in
               </button>
               <button 
                 onClick={() => {setIsSignUpActive(true);}} 
-                className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${isSignUpActive ? 'border-b-2 border-green-500 text-green-500 bg-gray-900 bg-opacity-50' : 'text-gray-200 hover:text-gray-300'}`}
+                className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
                 Sign up
               </button>
             </div>
 
-            <div className="p-4 md:p-6 lg:p-8">
+            <div className=" pt-[20px] ">
               {/* Sign Up Form */}
               {isSignUpActive ? (
                 <form onSubmit={handleSignUpSubmit}>
                   {/* Phone Number Input */}
                   <div className="mb-4">
-                    <label htmlFor="phone" className="block text-xs md:text-sm text-gray-300 mb-2 font-[300]">Phone number</label>
-                    <div className="flex items-stretch bg-[#1a1a1a] border border-gray-700 rounded-lg overflow-hidden hover:border-gray-600 transition-colors">
+                    <label htmlFor="phone" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Phone number</label>
+                    <div className="flex items-stretch bg-[#222424] overflow-hidden hover:border-gray-600 transition-colors">
                       {/* Country Code with Flag */}
-                      <div className="flex items-center px-2 md:px-3 bg-gray-800 rounded-l border-r border-gray-700">
+                      <div className="flex items-center px-2 md:px-3  rounded-l border-r border-gray-700">
                         <img src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/flag-type/BD.png?v=1754999737902&source=drccdnsrc" alt="Bangladesh Flag" className="w-5 h-5 md:w-6 md:h-6 mr-1 md:mr-2 rounded-full" />
                         <span className="text-white text-sm md:text-base font-[300]">+880</span>
                       </div>
@@ -399,7 +396,7 @@ export default function Register() {
                           id="phone"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                          className="w-full py-2 md:py-3 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
+                          className="w-full py-2 md:py-3.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
                           placeholder="Enter phone number"
                           disabled={isLoading}
                         />
@@ -410,41 +407,27 @@ export default function Register() {
 
                   {/* Username Input */}
                   <div className="mb-4">
-                    <label htmlFor="username" className="block text-xs md:text-sm text-gray-300 mb-2">Username</label>
+                    <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">Username</label>
                     <input
                       type="text"
                       id="username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                      className="w-full p-2 md:p-3 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-4 text-sm bg-[#222424] font-[300]  text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
                       placeholder="Enter your username"
-                      disabled={isLoading}
-                    />
-                  </div>
-
-                  {/* Email Input */}
-                  <div className="mb-4">
-                    <label htmlFor="email" className="block text-xs md:text-sm text-gray-300 mb-2">Email (Optional)</label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
-                      placeholder="Enter your email"
                       disabled={isLoading}
                     />
                   </div>
 
                   {/* Password Input */}
                   <div className="mb-4">
-                    <label htmlFor="password" className="block text-xs md:text-sm text-gray-300 mb-2">Password</label>
+                    <label htmlFor="password" className="block text-sm md:text-sm text-gray-200 mb-2">Password</label>
                     <input
                       type="password"
                       id="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-4 text-sm font-[300] bg-[#222424] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
                       placeholder="Create a password"
                       disabled={isLoading}
                     />
@@ -452,13 +435,13 @@ export default function Register() {
 
                   {/* Confirm Password Input */}
                   <div className="mb-4">
-                    <label htmlFor="confirmPassword" className="block text-xs md:text-sm text-gray-300 mb-2">Confirm Password</label>
+                    <label htmlFor="confirmPassword" className="block text-sm md:text-sm text-gray-200 mb-2">Confirm Password</label>
                     <input
                       type="password"
                       id="confirmPassword"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-4 text-sm font-[300] bg-[#222424] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
                       placeholder="Confirm your password"
                       disabled={isLoading}
                     />
@@ -466,7 +449,7 @@ export default function Register() {
 
                   {/* Referral Code Input */}
                   <div className="mb-6">
-                    <label htmlFor="referralCode" className="block text-xs md:text-sm font-[300] text-gray-300 mb-2">
+                    <label htmlFor="referralCode" className="block text-sm md:text-sm font-[300] text-gray-200 mb-2">
                      Referral Code (Optional)
                     </label>
                     <div className="flex gap-2">
@@ -479,7 +462,7 @@ export default function Register() {
                           setReferralValid(false);
                           setReferrerInfo(null);
                         }}
-                        className="flex-1 p-2 md:p-3 text-sm bg-[#1a1a1a] font-[300] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                        className="flex-1 p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                         placeholder="Enter referral code"
                         disabled={referralValid || isLoading}
                       />
@@ -488,7 +471,7 @@ export default function Register() {
                           type="button"
                           onClick={checkReferralCode}
                           disabled={isCheckingReferral || !referralCode || isLoading}
-                          className="px-3 md:px-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
+                          className="px-3 md:px-4 bg-[#0C4D38] text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
                         >
                           {isCheckingReferral ? 'Checking...' : 'Verify'}
                         </button>
@@ -522,7 +505,7 @@ export default function Register() {
                   {/* Sign Up Button */}
                   <button
                     type="submit"
-                    className="w-full py-3 md:py-4 bg-gradient-to-r from-green-600 to-emerald-600 cursor-pointer text-white text-sm font-[500] mt-2 rounded-lg shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 md:py-4 bg-[#0C4D38] cursor-pointer text-white text-sm font-[500] mt-2 shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -543,13 +526,13 @@ export default function Register() {
                 <form onSubmit={handleLoginSubmit}>
                   {/* Username Input */}
                   <div className="mb-4">
-                    <label htmlFor="loginUsername" className="block text-xs md:text-sm text-gray-300 mb-2">Username</label>
+                    <label htmlFor="loginUsername" className="block text-xs md:text-sm text-gray-200 mb-2">Username</label>
                     <input
                       type="text"
                       id="loginUsername"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-4 text-sm font-[300] bg-[#222424] text-white  focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                       placeholder="Enter your username"
                       disabled={isLoading}
                     />
@@ -563,7 +546,7 @@ export default function Register() {
                       id="loginPassword"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-2 md:p-3 text-sm font-[300] bg-[#1a1a1a] border border-gray-700 text-white rounded-lg focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
+                      className="w-full p-2 md:p-4 text-sm font-[300] bg-[#222424] text-white focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
                       placeholder="Enter your password"
                       disabled={isLoading}
                     />
@@ -588,7 +571,7 @@ export default function Register() {
                   {/* Login Button */}
                   <button
                     type="submit"
-                    className="w-full py-3 md:py-4 bg-gradient-to-r from-green-600 to-emerald-600 cursor-pointer text-white text-sm font-[500] rounded-lg shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 md:py-4 bg-[#0C4D38] cursor-pointer text-white text-sm font-[500] shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isLoading}
                   >
                     {isLoading ? (

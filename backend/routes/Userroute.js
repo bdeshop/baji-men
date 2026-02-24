@@ -1217,7 +1217,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
       // POST রিকোয়েস্ট
       const response = await axios.post(
         // "https://dstplay.net/getgameurl",
-        "https://crazybet99.com/getgameurl",
+        "https://crazybet99.com/getgameurl/v2",
         qs.stringify(postData),
         {
           headers: {

@@ -2761,6 +2761,7 @@ Adminrouter.get("/games/gameId/:gameId", async (req, res) => {
 });
 
 // POST create new game
+// POST create new game
 Adminrouter.post(
   "/games",
   uploadGameImages.fields([
@@ -2769,9 +2770,18 @@ Adminrouter.post(
   ]),
   async (req, res) => {
     try {
-      const { name, provider, featured, status, gameApiID, category, fullScreen } = req.body;
+      const { 
+        name, 
+        provider, 
+        featured, 
+        status, 
+        gameApiID, 
+        category, 
+        fullScreen,
+        defaultImage  // URL from games API
+      } = req.body;
       
-      // Check if gameApiID already exists BEFORE processing files
+      // Check if gameApiID already exists
       const existingGame = await Game.findOne({ gameApiID: gameApiID });
       if (existingGame) {
         return res.status(400).json({ 
@@ -2794,9 +2804,21 @@ Adminrouter.post(
         });
       }
 
-      if (!req.files || !req.files.portraitImage || !req.files.landscapeImage) {
+      let portraitImageValue;
+      let landscapeImageValue;
+
+      // Check if using uploaded files or default image
+      if (req.files && req.files.portraitImage && req.files.landscapeImage) {
+        // Using uploaded files - store file paths
+        portraitImageValue = `/uploads/games/portrait/${req.files.portraitImage[0].filename}`;
+        landscapeImageValue = `/uploads/games/landscape/${req.files.landscapeImage[0].filename}`;
+      } else if (defaultImage) {
+        // Using default image from API - use the same URL for both
+        portraitImageValue = defaultImage;
+        landscapeImageValue = defaultImage;
+      } else {
         return res.status(400).json({ 
-          error: "Both portrait and landscape images are required" 
+          error: "Either upload images or provide default image URL" 
         });
       }
 
@@ -2805,8 +2827,9 @@ Adminrouter.post(
         gameId: gameApiID,
         provider,
         category,
-        portraitImage: `/uploads/games/portrait/${req.files.portraitImage[0].filename}`,
-        landscapeImage: `/uploads/games/landscape/${req.files.landscapeImage[0].filename}`,
+        portraitImage: portraitImageValue,
+        landscapeImage: landscapeImageValue,
+        defaultImage: defaultImage || null, // Store the default image URL if provided
         featured: featured === "true" || featured === true,
         status: status !== undefined ? status : true,
         fullScreen: fullScreen === "true" || fullScreen === true,
@@ -2831,7 +2854,7 @@ Adminrouter.post(
     }
   }
 );
-
+// PUT update game
 // PUT update game
 Adminrouter.put(
   "/games/:id",
@@ -2845,7 +2868,9 @@ Adminrouter.put(
       if (!game) {
         return res.status(404).json({ error: "Game not found" });
       }
-      console.log("df",req.body)
+      
+      console.log("Update request body:", req.body);
+      console.log("Update request files:", req.files);
 
       // Update fields
       if (req.body.name) game.name = req.body.name;
@@ -2862,14 +2887,19 @@ Adminrouter.put(
       }
       if (req.body.provider) game.provider = req.body.provider;
       if (req.body.category) game.category = req.body.category;
-      if (req.body.featured !== undefined) game.featured = req.body.featured;
-      if (req.body.status !== undefined) game.status = req.body.status;
-      if (req.body.fullScreen !== undefined) game.fullScreen = req.body.fullScreen;
+      if (req.body.featured !== undefined) game.featured = req.body.featured === "true" || req.body.featured === true;
+      if (req.body.status !== undefined) game.status = req.body.status === "true" || req.body.status === true;
+      if (req.body.fullScreen !== undefined) game.fullScreen = req.body.fullScreen === "true" || req.body.fullScreen === true;
 
-      // Handle portrait image update
+      // Handle default image URL update
+      if (req.body.defaultImage) {
+        game.defaultImage = req.body.defaultImage;
+      }
+
+      // Handle portrait image update (uploaded file)
       if (req.files && req.files.portraitImage) {
-        // Delete old portrait image
-        if (game.portraitImage) {
+        // Delete old portrait image if it's a local file (not a URL)
+        if (game.portraitImage && !game.portraitImage.startsWith('http')) {
           const oldImagePath = path.join(
             __dirname,
             "..",
@@ -2883,10 +2913,10 @@ Adminrouter.put(
         game.portraitImage = `/uploads/games/portrait/${req.files.portraitImage[0].filename}`;
       }
 
-      // Handle landscape image update
+      // Handle landscape image update (uploaded file)
       if (req.files && req.files.landscapeImage) {
-        // Delete old landscape image
-        if (game.landscapeImage) {
+        // Delete old landscape image if it's a local file (not a URL)
+        if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
           const oldImagePath = path.join(
             __dirname,
             "..",
@@ -2898,6 +2928,12 @@ Adminrouter.put(
           }
         }
         game.landscapeImage = `/uploads/games/landscape/${req.files.landscapeImage[0].filename}`;
+      }
+
+      // If defaultImage is provided and no new uploaded images, update images with default URL
+      if (req.body.defaultImage && !req.files?.portraitImage && !req.files?.landscapeImage) {
+        game.portraitImage = req.body.defaultImage;
+        game.landscapeImage = req.body.defaultImage;
       }
 
       await game.save();
