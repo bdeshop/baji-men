@@ -457,7 +457,6 @@ const CasinoContent = () => {
   };
 
   // Handle opening the game
-// Handle opening the game
 const handleOpenGame = async (game) => {
   console.log("Attempting to open game:", game);
 
@@ -487,36 +486,8 @@ const handleOpenGame = async (game) => {
 
     console.log("Game data:", gameData?.data?.gameApiID);
 
-    // Step 1: Fetch game data from external API
-    const gameApiIDs = [gameData?.data?.gameApiID];
-    const externalApiResponse = await axios.post(
-      "https://apigames.oracleapi.net/api/games/by-ids",
-      { ids: gameApiIDs },
-      {
-        headers: {
-          "x-api-key": "f7709c7bd13372f79d71906ee3071d26fdb4338987eb731d8182dd743e0bb5ce",
-        },
-      }
-    );
-
-    // Step 2: Check if external API response is valid
-    if (!externalApiResponse.data || externalApiResponse.data.length === 0) {
-      toast.error("Failed to fetch game data from external API");
-      return;
-    }
-
-    // Assuming externalApiResponse.data contains relevant game data
-    const externalGameData = externalApiResponse?.data?.data[0];
-    console.log("External API game data:", externalGameData?.game_uuid);
-
-    if (!externalGameData?.game_uuid) {
-      toast.error("Failed to fetch game data from external API");
-      return;
-    }
-
     // Navigate with provider and category as query parameters
-    navigate(`/game/${externalGameData.game_uuid}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || '')}`);
-    
+    navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'casino')}`);
   } catch (err) {
     console.error("Error:", err);
     toast.error("Error connecting to game server");
