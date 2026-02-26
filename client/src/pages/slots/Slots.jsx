@@ -455,7 +455,7 @@ const SlotsContent = () => {
   };
 
   // Handle opening the game
-  const handleOpenGame = async (game) => {
+const handleOpenGame = async (game) => {
     console.log("Attempting to open game:", game);
 
     // Check if user is logged in
@@ -484,29 +484,27 @@ const SlotsContent = () => {
 
       console.log("Game data:", gameData?.data?.gameApiID);
 
-      // Step 1: Fetch game data from external API
-      const gameApiIDs = [gameData?.data?.gameApiID];
-      const externalApiResponse = await axios.post(
-        "https://apigames.oracleapi.net/api/games/by-ids",
-        { ids: gameApiIDs },
+      // Step 1: Fetch game data from external API using the new endpoint
+      const externalApiResponse = await fetch(
+        `https://api.oraclegames.live/api/games/${gameData?.data?.gameApiID}`,
         {
+          method: "GET",
           headers: {
-            "x-api-key": "f7709c7bd13372f79d71906ee3071d26fdb4338987eb731d8182dd743e0bb5ce",
-          },
+            "x-dstgame-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
+            "Content-Type": "application/json"
+          }
         }
       );
 
-      // Step 2: Check if external API response is valid
-      if (!externalApiResponse.data || externalApiResponse.data.length === 0) {
-        toast.error("Failed to fetch game data from external API");
-        return;
+      if (!externalApiResponse.ok) {
+        throw new Error(`Failed to fetch game data from external API: ${externalApiResponse.status}`);
       }
 
-      // Assuming externalApiResponse.data contains relevant game data
-      const externalGameData = externalApiResponse?.data?.data[0];
-      console.log("External API game data:", externalGameData?.game_uuid);
+      const externalGameData = await externalApiResponse.json();
+      console.log("External API game data:", externalGameData);
 
-      if (!externalGameData?.game_uuid) {
+      // Step 2: Check if external API response is valid
+      if (!externalGameData || !externalGameData.game_uuid) {
         toast.error("Failed to fetch game data from external API");
         return;
       }

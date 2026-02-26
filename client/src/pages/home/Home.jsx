@@ -11,6 +11,7 @@ import Featured from "../../components/home_componets/featured/Featured";
 import logo from "../../assets/logo.png";
 import axios from 'axios';
 import { Mobileslider } from "../../components/home_componets/Mobileslider";
+import Sports from "../../components/home_componets/sports/Sports";
 
 // Create Auth Context
 const AuthContext = createContext();
@@ -536,7 +537,8 @@ const HomeContent = () => {
 
               {/* Events Section */}
               <Event />
-
+              {/* ==========sports========= */}
+              <Sports/>
               {/* Featured Games Section */}
               <Featured />
             </main>

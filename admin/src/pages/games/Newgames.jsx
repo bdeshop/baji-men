@@ -4,6 +4,7 @@ import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
 import { toast } from "react-toastify";
+import axios from "axios";
 
 const Newgames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -18,8 +19,8 @@ const Newgames = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [useDefaultImage, setUseDefaultImage] = useState({});
-  const [localGames, setLocalGames] = useState([]); // Store local games for reference
-  const [editingGame, setEditingGame] = useState(null); // Track which game is being edited
+  const [localGames, setLocalGames] = useState([]);
+  const [editingGame, setEditingGame] = useState(null);
 
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [loadingGames, setLoadingGames] = useState(false);
@@ -28,6 +29,21 @@ const Newgames = () => {
   const [updatingGameId, setUpdatingGameId] = useState(null);
   const [showProvidersDropdown, setShowProvidersDropdown] = useState(false);
   const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
+
+  // Create axios instances
+  const api = axios.create({
+    baseURL: base_url,
+    timeout: 30000,
+  });
+
+  const oracleApi = axios.create({
+    baseURL: "https://api.oraclegames.live/api",
+    timeout: 30000,
+    headers: {
+      "x-api-key": premium_api_key,
+      "Content-Type": "application/json"
+    }
+  });
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -193,15 +209,17 @@ const Newgames = () => {
     const fetchCategories = async () => {
       setLoadingCategories(true);
       try {
-        const response = await fetch(`${base_url}/api/admin/game-categories`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
-        }
-        const categoriesData = await response.json();
-        setCategories(categoriesData);
+        const response = await api.get('/api/admin/game-categories');
+        setCategories(response.data);
       } catch (error) {
         console.error('Error fetching categories:', error);
-        toast.error('Failed to fetch categories');
+        if (error.response) {
+          toast.error(`Failed to fetch categories: ${error.response.data.message || error.response.statusText}`);
+        } else if (error.request) {
+          toast.error('Failed to fetch categories: No response from server');
+        } else {
+          toast.error('Failed to fetch categories: ' + error.message);
+        }
       } finally {
         setLoadingCategories(false);
       }
@@ -216,23 +234,12 @@ const Newgames = () => {
       setLoadingProviders(true);
       try {
         const [localRes, externalRes] = await Promise.all([
-          fetch(`${base_url}/api/admin/game-providers`),
-          fetch(`https://api.oraclegames.live/api/providers`, {
-            headers: { "x-api-key": premium_api_key },
-          }),
+          api.get('/api/admin/game-providers'),
+          oracleApi.get('/providers')
         ]);
 
-        if (!localRes.ok || !externalRes.ok) {
-          toast.error("Failed to fetch providers from all sources.");
-          return;
-        }
-        
-        const localProviders = await localRes.json();
-        const externalProviders = await externalRes.json();
-        
-        console.log("Local Providers:", localProviders);
-        console.log("External Providers:", externalProviders);
-
+        const localProviders = localRes.data;
+        const externalProviders = externalRes.data;
         const localProviderCodes = new Set(
           localProviders.map((p) => p.providerCode || p.providerName)
         );
@@ -247,7 +254,13 @@ const Newgames = () => {
         setProviders(mergedProviders);
       } catch (error) {
         console.error("Error fetching and merging providers:", error);
-        toast.error("An error occurred while fetching providers.");
+        if (error.response) {
+          toast.error(`Failed to fetch providers: ${error.response.data.message || error.response.statusText}`);
+        } else if (error.request) {
+          toast.error('Failed to fetch providers: No response from server');
+        } else {
+          toast.error('Failed to fetch providers: ' + error.message);
+        }
       } finally {
         setLoadingProviders(false);
       }
@@ -259,15 +272,17 @@ const Newgames = () => {
   // Function to fetch all games from local database
   const fetchAllLocalGames = async () => {
     try {
-      const response = await fetch(`${base_url}/api/admin/games/all`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch local games');
-      }
-      const localGames = await response.json();
-      return localGames;
+      const response = await api.get('/api/admin/games/all');
+      return response.data;
     } catch (error) {
       console.error('Error fetching local games:', error);
-      toast.error('Failed to fetch local games');
+      if (error.response) {
+        toast.error(`Failed to fetch local games: ${error.response.data.message || error.response.statusText}`);
+      } else if (error.request) {
+        toast.error('Failed to fetch local games: No response from server');
+      } else {
+        toast.error('Failed to fetch local games: ' + error.message);
+      }
       return [];
     }
   };
@@ -305,24 +320,8 @@ const Newgames = () => {
           return;
         }
 
-        console.log("Fetching games for provider:", providerCode);
-        
-        const externalGamesRes = await fetch("https://api.oraclegames.live/api/games?page=1&limit=5000", {
-          method: "GET",
-          headers: {
-            "x-api-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
-            "Content-Type": "application/json"
-          }
-        });
-
-        if (!externalGamesRes.ok) {
-          toast.error("Failed to fetch games from provider.");
-          return;
-        }
-
-        const oracleGamesData = await externalGamesRes.json();
-        console.log("Oracle games data:", oracleGamesData);
-
+        const oracleGamesRes = await oracleApi.get('/games?page=1&limit=5000');
+        const oracleGamesData = oracleGamesRes.data;
         // Fetch latest local games
         const localGamesList = await fetchAllLocalGames();
         setLocalGames(localGamesList);
@@ -344,24 +343,28 @@ const Newgames = () => {
           }
         );
 
-        console.log(`Found ${providerGames.length} games for provider ${providerCode}`);
-
         // Transform the games for our UI
         const transformedGames = providerGames.map((externalGame) => {
-          const gameCode = externalGame.game_code || externalGame.code || externalGame._id;
-          const existingGame = existingGamesMap.get(gameCode);
-          const uniqueId = existingGame?._id || externalGame._id || externalGame.game_code || `game-${Date.now()}-${Math.random()}`;
+          // Use game_code as the primary identifier
+          const gameCode = externalGame.game_code || externalGame.code;
           
+          // Find if this game exists by game_code
+          const existingGame = localGamesList.find(g => 
+            g.game_code === gameCode || g.gameApiID === gameCode
+          );
+          
+          // Create a stable React key
+          const uniqueId = gameCode;
           return {
             ...externalGame,
             _id: uniqueId,
-            game_uuid: externalGame._id || externalGame.game_code,
+            game_uuid: externalGame._id,
             name: externalGame.gameName || externalGame.name,
             gameCode: gameCode,
             provider: externalGame.provider,
             coverImage: externalGame.image,
-            isSaved: !!existingGame, // True if game already exists in database
-            existingGameData: existingGame, // Store existing game data
+            isSaved: !!existingGame,
+            existingGameData: existingGame,
             localFeatured: existingGame?.featured || false,
             localStatus: existingGame?.status ?? true,
             localFullScreen: existingGame?.fullScreen || false,
@@ -386,7 +389,13 @@ const Newgames = () => {
         
       } catch (error) {
         console.error("Error fetching and filtering games:", error);
-        toast.error("An error occurred while fetching games.");
+        if (error.response) {
+          toast.error(`Failed to fetch games: ${error.response.data.message || error.response.statusText}`);
+        } else if (error.request) {
+          toast.error('Failed to fetch games: No response from server');
+        } else {
+          toast.error('Failed to fetch games: ' + error.message);
+        }
       } finally {
         setLoadingGames(false);
       }
@@ -549,9 +558,8 @@ const Newgames = () => {
 
     try {
       const formData = new FormData();
-      
       // Basic game info
-      formData.append("gameApiID", gameToSave.game_code || gameToSave.code || gameToSave._id);
+      formData.append("gameApiID", gameToSave.game_code);
       formData.append("name", gameToSave.gameName || gameToSave.name);
       formData.append("provider", gameToSave.provider?.providerName || gameToSave.provider?.name || "");
       
@@ -595,19 +603,27 @@ const Newgames = () => {
       }
 
       const url = isUpdate 
-        ? `${base_url}/api/admin/games/${gameToSave.existingGameData?._id || gameId}`
-        : `${base_url}/api/admin/games`;
+        ? `/api/admin/games/${gameToSave.existingGameData?._id || gameId}`
+        : '/api/admin/games';
       
-      const method = isUpdate ? "PUT" : "POST";
-      
-      const response = await fetch(url, {
-        method: method,
-        body: formData,
-      });
+      let response;
+      if (isUpdate) {
+        response = await api.put(url, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await api.post(url, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      }
 
-      const result = await response.json();
+      console.log("response", response);
       
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         toast.success(`Game "${gameToSave.gameName || gameToSave.name}" ${isUpdate ? 'updated' : 'added'} successfully!`);
         
         // Update the game in the list
@@ -617,7 +633,7 @@ const Newgames = () => {
               return {
                 ...game,
                 isSaved: true,
-                existingGameData: result.game || game.existingGameData,
+                existingGameData: response.data.game || game.existingGameData,
                 localPortraitImage: null,
                 localPortraitPreview: null,
               };
@@ -632,12 +648,17 @@ const Newgames = () => {
         
         setEditingGame(null);
       } else {
-        const errorMsg = result.error || "";
-        toast.error(`❌ ${errorMsg || `Failed to ${isUpdate ? 'update' : 'add'} game.`}`);
+        toast.error(`❌ Failed to ${isUpdate ? 'update' : 'add'} game.`);
       }
     } catch (error) {
       console.error(`Error ${isUpdate ? 'updating' : 'saving'} game:`, error);
-      toast.error(`❌ An error occurred while ${isUpdate ? 'updating' : 'saving'} the game.`);
+      if (error.response) {
+        toast.error(`❌ ${error.response.data.error || error.response.data.message || `Failed to ${isUpdate ? 'update' : 'add'} game.`}`);
+      } else if (error.request) {
+        toast.error(`❌ No response from server while ${isUpdate ? 'updating' : 'saving'} game.`);
+      } else {
+        toast.error(`❌ ${error.message}`);
+      }
     } finally {
       setSavingGameId(null);
       setUpdatingGameId(null);

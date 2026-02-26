@@ -193,7 +193,7 @@ const ProviderSlider = () => {
           }
         `}
       </style>
-      <div className="bg-[#1a1a1a] px-2 md:p-4 pt-7 font-inter text-gray-200">
+      <div className="bg-[#1a1a1a]  pt-7 font-inter text-gray-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-[16px] md:text-lg font-semibold flex items-center">
             <span className="w-1 h-6 bg-theme_color mr-2 rounded-full"></span>

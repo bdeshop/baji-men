@@ -1200,32 +1200,23 @@ Userrouter.post("/getGameLink", async (req, res) => {
 
       console.log("this is body ", req.body);
 
-      
-    // this is for 1xwin
-      const postData = {
-        home_url: "https://bajiman.com",
-        token: "665ec86d74fcb110d5a60421002b82df",
-        username: username + "45",
-        money: money,
-        gameid: req.body.gameID,
-      };
-
-      console.log("this is log ");
-
-      console.log("Sending POST request to joyhobe.com with data:", postData);
-
       // POST রিকোয়েস্ট
-      const response = await axios.post(
-        // "https://dstplay.net/getgameurl",
-        "https://crazybet99.com/getgameurl/v2",
-        qs.stringify(postData),
-        {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "x-dstgame-key": postData.token,
-          },
-        }
-      );
+      const response = // Change your axios request to:
+await axios.post('https://crazybet99.com/getgameurl/v2', 
+  {
+    home_url: 'https://bajiman.com',
+    token: '665ec86d74fcb110d5a60421002b82df',
+    username: username + "45",
+    money: money,
+        game_code: req.body.gameID,
+  },
+  {
+    headers: {
+      'Content-Type': 'application/json',  // Change this to JSON
+      'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
+    }
+  }
+);
 
       console.log(
         "Response from dstplay.com:",

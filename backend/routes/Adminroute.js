@@ -2761,7 +2761,6 @@ Adminrouter.get("/games/gameId/:gameId", async (req, res) => {
 });
 
 // POST create new game
-// POST create new game
 Adminrouter.post(
   "/games",
   uploadGameImages.fields([
@@ -2788,12 +2787,6 @@ Adminrouter.post(
           error: `Game API ID "${gameApiID}" is already in use!` 
         });
       }
-
-      const gameProviderFont = await GameProvider.findOne({ name: provider });
-      if (!gameProviderFont) {
-        return res.status(400).json({ error: "Game provider font not found" });
-      }
-
       // Enhanced validation
       const requiredFields = { name, provider, category, gameApiID };
       const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field]);

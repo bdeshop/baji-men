@@ -119,7 +119,7 @@ const CategorySkeleton = ({ isMobile }) => {
 const ContentSkeleton = ({ isExclusiveCategory }) => {
   if (isExclusiveCategory) {
     return (
-      <div className="px-2 md:p-4">
+      <div className=" md:py-4">
         <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
           {Array.from({ length: 18 }).map((_, index) => (
             <div
@@ -527,7 +527,7 @@ const CategoryContent = () => {
     if (isExclusiveCategory) {
       // Render exclusive games in a responsive grid with portrait images
       return (
-        <div className="px-2 md:p-4">
+        <div className="py-4">
           <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
             {displayedGames.map((game) => (
               <div
@@ -554,7 +554,7 @@ const CategoryContent = () => {
           {hasMoreGames && displayedGames.length > 0 && (
             <div className="flex justify-center mt-8 mb-4">
               <button
-                className="px-8 py-3 bg-theme_color hover:bg-theme_color/90 text-white text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-theme_color/30"
+                className="px-8 py-3 bg-theme_color hover:bg-theme_color/90 text-white text-sm font-medium transition-all duration-300 hover:shadow-lg hover:shadow-theme_color/30"
                 onClick={handleShowMore}
               >
                 More Games
@@ -649,7 +649,7 @@ const CategoryContent = () => {
       ) : (
         <>
           {/* Mobile slider for categories using Embla Carousel */}
-          <div className="block lg:hidden px-2 py-4 md:p-4 pt-[30px]  md:pt-[40px] relative hidescrollbar">
+          <div className="block lg:hidden  py-4 md:p-4 pt-[30px]  md:pt-[40px] relative hidescrollbar">
             <div className="embla" ref={emblaRef}>
               <div className="embla__container flex gap-3">
                 {categories.map((category) => (
@@ -684,7 +684,7 @@ const CategoryContent = () => {
           </div>
 
           {/* Desktop grid for categories */}
-          <div className="hidden lg:grid grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 gap-4 p-4 pt-[40px]">
+          <div className="hidden lg:grid grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 gap-4 pt-[40px]">
             {categories.map((category) => (
               <div
                 key={category._id}
