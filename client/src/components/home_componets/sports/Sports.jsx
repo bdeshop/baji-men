@@ -82,10 +82,10 @@ const Sports = () => {
               {/* Match Meta */}
               <div className="flex justify-between items-start mb-4">
                 <div className="overflow-hidden">
-                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
+                  <span className="text-[10px] font-bold bg-green-600 px-[10px] py-[5px] rounded-[3px] text-white  uppercase tracking-widest">
                     {match.matchType}
                   </span>
-                  <p className="text-[11px] text-gray-500 font-medium uppercase truncate mt-1">
+                  <p className="text-[13px] text-gray-500 font-semibold uppercase truncate mt-3">
                     {match.title}
                   </p>
                 </div>
