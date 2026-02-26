@@ -455,68 +455,71 @@ const SlotsContent = () => {
   };
 
   // Handle opening the game
+// Handle opening the game
 const handleOpenGame = async (game) => {
-    console.log("Attempting to open game:", game);
+  console.log("Attempting to open game:", game);
 
-    // Check if user is logged in
-    if (!user) {
-      toast.error("Please login to play games");
-      setShowLoginPopup(true);
+  // Check if user is logged in
+  if (!user) {
+    toast.error("Please login to play games");
+    setShowLoginPopup(true);
+    return;
+  }
+
+  try {
+    setGameLoading(true);
+
+    const gameId = game.gameId || game.gameApiID;
+
+    console.log("Game ID:", gameId);
+
+    const response = await fetch(`${base_url}/api/games/${gameId}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch game with ID ${gameId}`);
+    }
+
+    const gameData = await response.json();
+    if (!gameData.success) {
+      throw new Error(`Failed to fetch game with ID ${gameId}`);
+    }
+
+    console.log("Game data:", gameData?.data?.gameApiID);
+
+    // Step 1: Fetch game data from external API using the new endpoint
+    const externalApiResponse = await fetch(
+      `https://api.oraclegames.live/api/games/${gameData?.data?.gameApiID}`,
+      {
+        method: "GET",
+        headers: {
+          "x-dstgame-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    if (!externalApiResponse.ok) {
+      throw new Error(`Failed to fetch game data from external API: ${externalApiResponse.status}`);
+    }
+
+    const externalGameData = await externalApiResponse.json();
+    console.log("External API game data:", externalGameData);
+
+    // Step 2: Check if external API response is valid
+    if (!externalGameData || !externalGameData.game_uuid) {
+      toast.error("Failed to fetch game data from external API");
       return;
     }
 
-    try {
-      setGameLoading(true);
-
-      const gameId = game.gameId || game.gameApiID;
-
-      console.log("Game ID:", gameId);
-
-      const response = await fetch(`${base_url}/api/games/${gameId}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch game with ID ${gameId}`);
-      }
-
-      const gameData = await response.json();
-      if (!gameData.success) {
-        throw new Error(`Failed to fetch game with ID ${gameId}`);
-      }
-
-      console.log("Game data:", gameData?.data?.gameApiID);
-
-      // Step 1: Fetch game data from external API using the new endpoint
-      const externalApiResponse = await fetch(
-        `https://api.oraclegames.live/api/games/${gameData?.data?.gameApiID}`,
-        {
-          method: "GET",
-          headers: {
-            "x-dstgame-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
-            "Content-Type": "application/json"
-          }
-        }
-      );
-
-      if (!externalApiResponse.ok) {
-        throw new Error(`Failed to fetch game data from external API: ${externalApiResponse.status}`);
-      }
-
-      const externalGameData = await externalApiResponse.json();
-      console.log("External API game data:", externalGameData);
-
-      // Step 2: Check if external API response is valid
-      if (!externalGameData || !externalGameData.game_uuid) {
-        toast.error("Failed to fetch game data from external API");
-        return;
-      }
-
-      navigate(`/game/${externalGameData.game_uuid}`);
-    } catch (err) {
-      console.error("Error:", err);
-      toast.error("Error connecting to game server");
-    } finally {
-      setGameLoading(false);
-    }
-  };
+    // Navigate with provider and category as query parameters
+    navigate(`/game/${externalGameData.game_uuid}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
+    
+  } catch (err) {
+    console.error("Error:", err);
+    toast.error("Error connecting to game server");
+  } finally {
+    setGameLoading(false);
+  }
+};
 
   const handleLoginFromPopup = () => {
     setShowLoginPopup(false);
