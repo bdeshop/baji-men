@@ -1194,7 +1194,7 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
 }); 
 
 // ?  get the game  old code
-router.post("/getGameLink", async (req, res) => {
+Userrouter.post("/getGameLink", async (req, res) => {
     try {
       const { username, money, gameID, provider, category } = req.body;
 
