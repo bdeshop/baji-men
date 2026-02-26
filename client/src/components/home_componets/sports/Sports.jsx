@@ -41,7 +41,7 @@ const Sports = () => {
       <div className="max-w-[1400px] mx-auto">
         
         {/* Header Section */}
-        <div className="flex justify-between items-center mb-6 px-4 md:px-0">
+        <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <span className="w-[3px] h-5 bg-emerald-500 rounded-full"></span>
             <h2 className="text-xl font-bold tracking-tight">Live Score</h2>
@@ -50,13 +50,13 @@ const Sports = () => {
           <div className="flex gap-1">
             <button 
               onClick={() => scroll('left')}
-              className="p-2 bg-[#1a1a1a] hover:bg-[#222] cursor-pointer rounded-[3px] transition-colors duration-200"
+ className="p-2 bg-box_bg hover:bg-box_bg/90 cursor-pointer rounded-[3px] transition-colors duration-200"
             >
               <ChevronLeft size={20} />
             </button>
             <button 
               onClick={() => scroll('right')}
-              className="p-2 bg-[#1a1a1a] hover:bg-[#222] cursor-pointer rounded-[3px] transition-colors duration-200"
+    className="p-2 bg-box_bg hover:bg-box_bg/90 cursor-pointer rounded-[3px] transition-colors duration-200"
             >
               <ChevronRight size={20} />
             </button>
@@ -66,7 +66,7 @@ const Sports = () => {
         {/* Horizontal Scroll Area */}
         <div 
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4 px-4 md:px-0"
+          className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4 "
         >
           {matches.map((match, index) => (
             <div 

@@ -271,44 +271,45 @@ const FeaturedContent = () => {
   };
 
   // Handle opening the game
-  const handleOpenGame = async (game) => {
-    console.log("Attempting to open game:", game);
+// Handle opening the game
+const handleOpenGame = async (game) => {
+  console.log("Attempting to open game:", game);
 
-    // Check if user is logged in
-    if (!user) {
-      toast.error("Please login to play games");
-      setShowLoginPopup(true);
-      return;
+  // Check if user is logged in
+  if (!user) {
+    toast.error("Please login to play games");
+    setShowLoginPopup(true);
+    return;
+  }
+
+  try {
+    setGameLoading(true);
+
+    const gameId = game.gameId || game.gameApiID;
+
+    console.log("Game ID:", gameId);
+
+    const response = await fetch(`${base_url}/api/games/${gameId}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch game with ID ${gameId}`);
     }
 
-    try {
-      setGameLoading(true);
-
-      const gameId = game.gameId || game.gameApiID;
-
-      console.log("Game ID:", gameId);
-
-      const response = await fetch(`${base_url}/api/games/${gameId}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch game with ID ${gameId}`);
-      }
-
-      const gameData = await response.json();
-      if (!gameData.success) {
-        throw new Error(`Failed to fetch game with ID ${gameId}`);
-      }
-
-      console.log("Game data:", gameData?.data?.gameApiID);
-
-      navigate(`/game/${gameData?.data?.gameApiID}`);
-    } catch (err) {
-      console.error("Error:", err);
-      toast.error("Error connecting to game server");
-    } finally {
-      setGameLoading(false);
+    const gameData = await response.json();
+    if (!gameData.success) {
+      throw new Error(`Failed to fetch game with ID ${gameId}`);
     }
-  };
 
+    console.log("Game data:", gameData?.data?.gameApiID);
+
+    // Navigate with provider and category as query parameters
+    navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider)}&category=${encodeURIComponent(game.category)}`);
+  } catch (err) {
+    console.error("Error:", err);
+    toast.error("Error connecting to game server");
+  } finally {
+    setGameLoading(false);
+  }
+};
   // Handle login from popup
   const handleLoginFromPopup = () => {
     setShowLoginPopup(false);

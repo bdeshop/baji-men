@@ -1194,29 +1194,30 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
 }); 
 
 // ?  get the game  old code
-Userrouter.post("/getGameLink", async (req, res) => {
+router.post("/getGameLink", async (req, res) => {
     try {
-      const { username, money, gameID } = req.body;
+      const { username, money, gameID, provider, category } = req.body;
 
       console.log("this is body ", req.body);
 
       // POST রিকোয়েস্ট
-      const response = // Change your axios request to:
-await axios.post('https://crazybet99.com/getgameurl/v2', 
-  {
-    home_url: 'https://bajiman.com',
-    token: '665ec86d74fcb110d5a60421002b82df',
-    username: username + "45",
-    money: money,
-        game_code: req.body.gameID,
-  },
-  {
-    headers: {
-      'Content-Type': 'application/json',  // Change this to JSON
-      'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
-    }
-  }
-);
+      const response = await axios.post('https://crazybet99.com/getgameurl/v2', 
+        {
+          home_url: 'https://bajiman.com',
+          token: '665ec86d74fcb110d5a60421002b82df',
+          username: username + "45",
+          money: money,
+          game_code: gameID,
+          provider_code: provider,  // Add provider from request body
+          game_type: category,      // Add category from request body
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
+          }
+        }
+      );
 
       console.log(
         "Response from dstplay.com:",
@@ -1224,6 +1225,7 @@ await axios.post('https://crazybet99.com/getgameurl/v2',
         "Status:",
         response.status
       );
+      
       res.status(200).json({
         message: "POST request successful",
         joyhobeResponse: response.data,
@@ -1233,9 +1235,9 @@ await axios.post('https://crazybet99.com/getgameurl/v2',
       res.status(500).json({
         error: "Failed to forward POST request",
         details: error.message,
-      });
-    }
-  });
+      });
+    }
+});
 // Route to handle game callback data
 
 // Userrouter.post("/callback-data-game", async (req, res) => {

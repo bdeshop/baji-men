@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom"; // Add useSearchParams
 import axios from "axios";
 import { Header } from "../../components/header/Header";
 import Sidebar from "../../components/sidebar/Sidebar";
 import logo from "../../assets/logo.png";
 import oracle_logo from "../../assets/red-logo.png"
+
 const GamePage = () => {
   const { gameuuid } = useParams();
+  const [searchParams] = useSearchParams(); // Get query parameters
   const [gameLink, setGameLink] = useState(null);
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState(null);
@@ -18,6 +20,10 @@ const GamePage = () => {
 
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Get provider and category from query parameters
+  const provider = searchParams.get('provider');
+  const category = searchParams.get('category');
 
   // Minimum loader time (3 seconds)
   useEffect(() => {
@@ -85,12 +91,19 @@ const GamePage = () => {
       setError(null);
       try {
         const user = JSON.parse(localStorage.getItem("user"));
+        
+        // Log the provider and category for debugging
+        console.log("Provider from query:", provider);
+        console.log("Category from query:", category);
+        
         const response = await axios.post(
           `${API_BASE_URL}/api/user/getGameLink`,
           {
             gameID: gameuuid,
             money: parseInt(userData?.balance || 0, 10),
             username: user?.username,
+            provider: provider, // Pass provider from query
+            category: category, // Pass category from query
           },
           {
             headers: {
@@ -116,19 +129,24 @@ const GamePage = () => {
     if (gameuuid && userData) {
       fetchGameLink();
     }
-  }, [gameuuid, userData, API_BASE_URL]);
+  }, [gameuuid, userData, API_BASE_URL, provider, category]); // Add provider and category to dependencies
 
   // Professional Unified Loader Component
   const ProfessionalLoader = ({ message = "গেম লোড হচ্ছে", subMessage = "অনুগ্রহ করে একটু অপেক্ষা করুন..." }) => (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 z-30">
       {/* Main loader container */}
       <div className="relative flex flex-col items-center justify-center">
-        
     
-
         {/* Loading text */}
         <div className="text-center mt-8 space-y-2">
           <img className="w-[150px]" src={logo} alt="" />
+          {/* Optional: Show provider and category info during loading */}
+          {(provider || category) && (
+            <div className="text-xs text-gray-400 mt-2">
+              {provider && <span className="mr-2">Provider: {provider}</span>}
+              {category && <span>Category: {category}</span>}
+            </div>
+          )}
         </div>
 
         {/* Progress bar */}
@@ -235,7 +253,7 @@ const GamePage = () => {
     <div className="h-screen overflow-hidden font-poppins bg-[#0f0f0f] text-white">
       {/* Main Content */}
       <div className="flex h-[100vh]">
-        <div className={`flex-1 overflow-auto  transition-all duration-300 relative`}>
+        <div className={`flex-1 overflow-auto transition-all duration-300 relative`}>
           {/* Iframe Container */}
           <div className="w-full h-full relative md:border-[1px] border-gray-700 rounded-lg overflow-hidden bg-black">
             {renderIframeContent()}
@@ -244,7 +262,7 @@ const GamePage = () => {
       </div>
 
       {/* Add custom animation for progress bar */}
-      <style jsx>{`
+      <style>{`
         @keyframes progress {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
