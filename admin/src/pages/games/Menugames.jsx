@@ -13,7 +13,8 @@ const Menugames = () => {
     category: '',
     categoryname: '',
     name: '',
-    gameId: ''
+    gameId: '',
+    provider: ''
   });
   const [categories, setCategories] = useState([]);
   const [games, setGames] = useState([]);
@@ -155,6 +156,11 @@ const Menugames = () => {
       return;
     }
 
+    if (!formData.provider) {
+      toast.error('Provider is required');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -164,6 +170,7 @@ const Menugames = () => {
       formDataObj.append('categoryname', formData.categoryname);
       formDataObj.append('name', formData.name);
       formDataObj.append('gameId', formData.gameId);
+      formDataObj.append('provider', formData.provider);
       formDataObj.append('status', 'true');
       
       // Only append image if it's a new file
@@ -208,7 +215,8 @@ const Menugames = () => {
       category: '',
       categoryname: '',
       name: '',
-      gameId: ''
+      gameId: '',
+      provider: ''
     });
     setImageFile(null);
     setImagePreview(null);
@@ -247,7 +255,8 @@ const Menugames = () => {
           category: freshGameData.category._id || freshGameData.category,
           categoryname: freshGameData.categoryname || freshGameData.category?.name || '',
           name: freshGameData.name,
-          gameId: freshGameData.gameId
+          gameId: freshGameData.gameId,
+          provider: freshGameData.provider || ''
         });
         
         // Set current image for preview
@@ -453,6 +462,21 @@ const Menugames = () => {
                   />
                 </div>
 
+                {/* Provider Field */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Provider <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="provider"
+                    value={formData.provider}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
+                    placeholder="Enter provider name (Pragmatic Play, Habanero)"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Game provider/developer name</p>
+                </div>
+
                 {/* Game ID Field */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Game ID <span className="text-red-500">*</span></label>
@@ -525,6 +549,9 @@ const Menugames = () => {
                           Game Name
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                          Provider
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
                           Game ID
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
@@ -575,6 +602,13 @@ const Menugames = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900 font-medium">{game.name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                                {game.provider || 'N/A'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">

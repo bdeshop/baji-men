@@ -9556,16 +9556,16 @@ Adminrouter.get("/menu-games/:id", async (req, res) => {
 // POST create new menu game with image upload
 Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res) => {
     try {
-        const { category, categoryname, name, gameId, status = true } = req.body;
+        const { category, categoryname, name, gameId, provider, status = true } = req.body;
 
         // Validation
         if (!req.file) {
             return res.status(400).json({ error: "Image is required" });
         }
 
-        if (!category || !categoryname || !name || !gameId) {
+        if (!category || !categoryname || !name || !gameId || !provider) {
             return res.status(400).json({
-                error: "Category, category name, game name, and game ID are required"
+                error: "Category, category name, game name, game ID, and provider are required"
             });
         }
 
@@ -9588,6 +9588,7 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
             categoryname,
             name,
             gameId,
+            provider,
             status
         };
 
@@ -9620,7 +9621,7 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
 // PUT update menu game with optional image upload
 Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, res) => {
     try {
-        const { category, categoryname, name, gameId, status } = req.body;
+        const { category, categoryname, name, gameId, provider, status } = req.body;
 
         const game = await MenuGame.findById(req.params.id);
         if (!game) {
@@ -9637,6 +9638,7 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
         if (category) game.category = category;
         if (categoryname) game.categoryname = categoryname;
         if (name) game.name = name;
+        if (provider) game.provider = provider;
         if (status !== undefined) game.status = status;
 
         // Handle image update
@@ -9719,7 +9721,6 @@ Adminrouter.put("/menu-games/:id/status", async (req, res) => {
         res.status(500).json({ error: "Failed to update menu game status" });
     }
 });
-
 // DELETE menu game
 Adminrouter.delete("/menu-games/:id", async (req, res) => {
     try {

@@ -398,6 +398,7 @@ const CategoryContent = () => {
   const handleGameClick = (game) => {
     setSelectedGame(game);
     console.log("Selected game:", game);
+    console.log("game",game)
     
     // Check if user is logged in
     if (!user) {
@@ -407,7 +408,8 @@ const CategoryContent = () => {
     
     // If user is logged in, navigate directly to game
     if (game.gameApiID || game.gameId) {
-      navigate(`/game/${game.gameApiID || game.gameId}`);
+      navigate(`/game/${game.gameApiID || game.gameId}?provider=${game.provider}&category=${game.categoryname}`);
+      
     } else {
       toast.error("Game ID not found");
     }

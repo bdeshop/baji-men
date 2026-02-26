@@ -26,6 +26,11 @@ const menuGameSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    provider: {
+        type: String,
+        required: true,
+        trim: true
+    },
     status: {
         type: Boolean,
         default: true
