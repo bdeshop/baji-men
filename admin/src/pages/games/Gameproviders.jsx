@@ -84,7 +84,7 @@ const Gameproviders = () => {
       const selectedProvider = premiumProviders.find((p) => p._id === value);
       setFormData({
         ...formData,
-        name: selectedProvider ? selectedProvider.name : "",
+        name: selectedProvider ? selectedProvider.providerName : "",
         providerOracleID: value,
       });
     } else {

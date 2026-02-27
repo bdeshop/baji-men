@@ -48,7 +48,7 @@ const ProviderSlider = () => {
       }
       
       const data = await response.json();
-      
+      console.log("data",data)
       if (data.success) {
         setProviders(data.data);
       } else {
@@ -238,7 +238,7 @@ const ProviderSlider = () => {
         className="w-[30px]"
                 />
                 <span className=" pr-2 text-sm text-center text-gray-400 font-[600] truncate-text">
-                  {truncateName(provider.name)}
+                  {truncateName(provider.providerName)}
                 </span>
               </div>
             ))
