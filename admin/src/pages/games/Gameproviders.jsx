@@ -51,13 +51,14 @@ const Gameproviders = () => {
   const fetchPremiumProviders = async () => {
     try {
       const response = await axios.get(
-        `https://apigames.oracleapi.net/api/providers`,
+        `https://api.oraclegames.live/api/providers`,
         {
           headers: {
             "x-api-key": import.meta.env.VITE_PREMIUM_API_KEY,
           },
         }
       );
+      console.log("response",response)
       setPremiumProviders(response.data.data); // Access the 'data' array from the response
     } catch (error) {
       console.error("Error fetching premium providers:", error);
@@ -330,7 +331,7 @@ const Gameproviders = () => {
                     <option value="">Select a provider</option>
                     {premiumProviders.map((provider) => (
                       <option key={provider._id} value={provider._id}>
-                        {provider.name}
+                        {provider.providerName}
                       </option>
                     ))}
                   </select>
