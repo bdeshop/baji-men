@@ -286,7 +286,7 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
             </div>
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -300,31 +300,7 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                 <p className="text-xs text-gray-400 mt-2">All transactions</p>
               </div>
               
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Applied</p>
-                    <h3 className="text-2xl font-bold text-green-600">{stats.applied}</h3>
-                  </div>
-                  <div className="bg-green-100 p-2 rounded-lg">
-                    <FaCheckCircle className="text-green-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">Successfully credited</p>
-              </div>
-              
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Pending</p>
-                    <h3 className="text-2xl font-bold text-yellow-600">{stats.pending}</h3>
-                  </div>
-                  <div className="bg-yellow-100 p-2 rounded-lg">
-                    <FaExclamationTriangle className="text-yellow-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">Awaiting processing</p>
-              </div>
+       
               
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                 <div className="flex items-center justify-between">
@@ -338,19 +314,7 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                 </div>
                 <p className="text-xs text-gray-400 mt-2">Failed transactions</p>
               </div>
-              
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Total Amount</p>
-                    <h3 className="text-2xl font-bold text-purple-600">৳{stats.totalAmount.toLocaleString()}</h3>
-                  </div>
-                  <div className="bg-purple-100 p-2 rounded-lg">
-                    <FaDollarSign className="text-purple-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">Total deposited</p>
-              </div>
+          
             </div>
 
             {/* Filter Section */}
@@ -584,27 +548,27 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                   {/* Desktop Table View */}
                   <div className="hidden md:block overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-blue-500">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             Time
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             User
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             Amount
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             Method
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             TrxID
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                         <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             Status
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                           <th className="px-6 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
@@ -652,9 +616,7 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                               </code>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[deposit.applied]?.text} ${STATUS_COLORS[deposit.applied]?.bg} border ${STATUS_COLORS[deposit.applied]?.border}`}>
-                                <span className="ml-1.5">{deposit.status}</span>
-                              </div>
+                                <span className={deposit.status=="COMPLETED" ? "ml-1.5 px-[10px] py-[5px] bg-green-500 rounded-[20px] text-white" : "border-gray-200 px-[10px] rounded-[20px] py-[5px] text-yellow-500"}>{deposit.status}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center space-x-2">
