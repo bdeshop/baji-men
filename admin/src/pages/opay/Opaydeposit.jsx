@@ -103,8 +103,8 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
       params.append('page', pagination.page);
       params.append('limit', pagination.limit);
 
-      const response = await axios.get(`${base_url}/api/opay/deposits?${params.toString()}`);
-      
+      const response = await axios.get(`${base_url}/api/opay/oraclepay-deposits?${params.toString()}`);
+      console.log("response",response.data)
       if (response.data.success) {
         setDeposits(response.data.data || []);
         setPagination(prev => ({
@@ -602,9 +602,6 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                             TrxID
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            From
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -645,22 +642,18 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                                   <MdPayment className="text-gray-600" />
                                 </div>
                                 <span className="text-sm text-gray-900">
-                                  {METHOD_LABELS[deposit.method] || deposit.method}
+                                  {deposit.checkout_items?.method}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
-                                {deposit.trxid || '-'}
+                                {deposit.transaction_id || '-'}
                               </code>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {deposit.from || '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[deposit.applied]?.text} ${STATUS_COLORS[deposit.applied]?.bg} border ${STATUS_COLORS[deposit.applied]?.border}`}>
-                                {STATUS_COLORS[deposit.applied]?.icon}
-                                <span className="ml-1.5">{STATUS_COLORS[deposit.applied]?.label}</span>
+                                <span className="ml-1.5">{deposit.status}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -766,7 +759,7 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
       {/* Deposit Details Modal */}
       {showDetails && selectedDeposit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center p-4 z-5[10000]">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -787,12 +780,11 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                       ৳{parseFloat(selectedDeposit.amount || 0).toLocaleString()}
                     </div>
                     <div className="text-blue-600 font-medium">
-                      {METHOD_LABELS[selectedDeposit.method] || selectedDeposit.method}
+                      {selectedDeposit.checkout_items?.method}
                     </div>
                   </div>
                   <div className={`px-4 py-2 rounded-full font-medium flex items-center ${STATUS_COLORS[selectedDeposit.applied]?.text} ${STATUS_COLORS[selectedDeposit.applied]?.bg} border ${STATUS_COLORS[selectedDeposit.applied]?.border}`}>
-                    {STATUS_COLORS[selectedDeposit.applied]?.icon}
-                    <span className="ml-2">{STATUS_COLORS[selectedDeposit.applied]?.label}</span>
+                    <span className="ml-2">{selectedDeposit.status}</span>
                   </div>
                 </div>
 
@@ -813,19 +805,14 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm text-gray-500">Transaction ID</p>
                     <code className="font-mono text-gray-800 bg-gray-100 px-2 py-1 rounded text-sm">
-                      {selectedDeposit.trxid || 'N/A'}
+                      {selectedDeposit.transaction_id || 'N/A'}
                     </code>
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">From Number</p>
-                    <p className="font-medium text-gray-800">{selectedDeposit.from || 'N/A'}</p>
                   </div>
                   
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm text-gray-500">Method</p>
                     <p className="font-medium text-gray-800">
-                      {METHOD_LABELS[selectedDeposit.method] || selectedDeposit.method}
+                 {selectedDeposit.checkout_items?.method}
                     </p>
                   </div>
                   
@@ -849,9 +836,7 @@ const base_url = import.meta.env.VITE_API_KEY_Base_URL;
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Success Status</span>
-                        <span className={`font-medium ${selectedDeposit.success ? 'text-green-600' : 'text-red-600'}`}>
-                          {selectedDeposit.success ? 'Yes' : 'No'}
-                        </span>
+                           <span className="ml-2">{selectedDeposit.status}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Device</span>
