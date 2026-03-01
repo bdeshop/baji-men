@@ -240,7 +240,7 @@ const Deposit = () => {
         {
           payment_amount: parseInt(amount),                    // Must be integer
           user_identity_address: userIdentityAddress,           // Unique identifier
-          callback_url: `${API_BASE_URL}/api/payment/oraclepay-callback`, // Your webhook URL
+          callback_url: `${API_BASE_URL}/api/opay/oraclepay-callback`, // Your webhook URL
           success_redirect_url: `${window.location.origin}/deposit/success`, // Success page
           checkout_items: checkoutItems,                        // Additional data
           invoice_number: invoiceNumber                         // Your invoice number
