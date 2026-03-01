@@ -9,8 +9,8 @@ import { useNavigate } from "react-router-dom";
 const Deposit = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
-  const EXTERNAL_API_URL = "https://api.oraclepay.org/api/external";
-  const API_KEY = "sk_sub_b91d321aaed628d707bebc001b5e09a4de01973ebf0a19a56bf825010ae1a515";
+  const ORACLEPAY_API_URL = "https://api.oraclepay.org/api/opay-business";
+  const ORACLEPAY_TOKEN = "abd895f82df1dccc79b935f96d868a353e923e24762b5126"; // Replace with your actual token
   
   const [activeMethod, setActiveMethod] = useState(null);
   const [amount, setAmount] = useState("");
@@ -22,8 +22,6 @@ const Deposit = () => {
   const [formErrors, setFormErrors] = useState({});
   const [depositMethods, setDepositMethods] = useState([]);
   const [loadingMethods, setLoadingMethods] = useState(true);
-  const [externalPaymentData, setExternalPaymentData] = useState(null);
-  const [isGeneratingPayment, setIsGeneratingPayment] = useState(false);
   const [availableBonuses, setAvailableBonuses] = useState([]);
   const [bonusLoading, setBonusLoading] = useState(false);
   const [selectedBonus, setSelectedBonus] = useState(null);
@@ -83,7 +81,7 @@ const Deposit = () => {
     fetchUserData();
   }, [API_BASE_URL]);
 
-  // Fetch available bonuses and filter out already used ones
+  // Fetch available bonuses
   useEffect(() => {
     const fetchAvailableBonuses = async () => {
       try {
@@ -113,7 +111,7 @@ const Deposit = () => {
           if (userResponse.data.success) {
             const userData = userResponse.data.data;
             
-            // Get all bonus codes that user has already used (active or completed)
+            // Get all bonus codes that user has already used
             const usedBonusCodes = [];
             
             // Check bonusActivityLogs for used bonuses
@@ -163,8 +161,8 @@ const Deposit = () => {
     fetchAvailableBonuses();
   }, [API_BASE_URL]);
 
-  // Map internal method names to external API method names
-  const getExternalMethodName = (methodName) => {
+  // Map internal method names to OraclePay method names
+  const getOraclePayMethodName = (methodName) => {
     const methodMap = {
       'bKash': 'bkash',
       'Nagad': 'nagad',
@@ -172,202 +170,191 @@ const Deposit = () => {
       'Upay': 'upay'
     };
     
-    return methodMap[methodName] || methodName.toLowerCase();
+    return methodMap[methodName] || methodName?.toLowerCase() || 'bkash';
   };
 
-  // Handle external payment submission
-
-
+  // Handle OraclePay payment submission
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  console.log("Payment submitted");
+    e.preventDefault();
+    console.log("Payment submitted");
 
-  // Reset previous status
-  setTransactionStatus(null);
-  setExternalPaymentData(null);
-  
-  // Validate form
-  const errors = {};
-  if (!activeMethod) {
-    errors.method = "Please select a payment method";
-  }
-  if (!amount) {
-    errors.amount = "Amount is required";
-  } else if (parseFloat(amount) <= 0) {
-    errors.amount = "Amount must be greater than 0";
-  } else if (!/^\d+$/.test(amount)) {
-    errors.amount = "Amount must be a whole number";
-  } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 100)) {
-    errors.amount = `Minimum deposit amount is ৳${activeMethod?.minAmount || 100}`;
-  } else if (parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 30000)) {
-    errors.amount = `Maximum deposit amount is ৳${activeMethod?.maxAmount || 30000}`;
-  }
-
-  setFormErrors(errors);
-  if (Object.keys(errors).length > 0) {
-    return;
-  }
-
-  setIsGeneratingPayment(true);
-
-  try {
-    // Get external method name
-    const externalMethod = getExternalMethodName(activeMethod.gatewayName);
+    // Reset previous status
+    setTransactionStatus(null);
     
-    // Create unique user identifier
-    const user = JSON.parse(localStorage.getItem("user"));
-    const userIdentifyAddress = `order-${user.id}-${Date.now()}`;
-    
-    // Payment ID is same as userIdentifyAddress
-    const paymentId = userIdentifyAddress;
-    console.log(userIdentifyAddress)
-    // Call external API
-    const response = await axios.get(
-      `${EXTERNAL_API_URL}/generate`,
-      {
-        params: {
-          methods: externalMethod,
-          amount: parseFloat(amount),
-          userIdentifyAddress: userIdentifyAddress
-        },
-        headers: {
-          'X-API-Key': API_KEY
-        }
-      }
-    );
+    // Validate form
+    const errors = {};
+    if (!activeMethod) {
+      errors.method = "Please select a payment method";
+    }
+    if (!amount) {
+      errors.amount = "Amount is required";
+    } else if (parseFloat(amount) < 5) {
+      errors.amount = "Minimum deposit amount is ৳5";
+    } else if (!/^\d+$/.test(amount)) {
+      errors.amount = "Amount must be a whole number";
+    } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 5)) {
+      errors.amount = `Minimum deposit amount is ৳${activeMethod?.minAmount || 5}`;
+    } else if (parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 50000)) {
+      errors.amount = `Maximum deposit amount is ৳${activeMethod?.maxAmount || 50000}`;
+    }
 
-    console.log("External API Response:", response.data);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
 
-    if (response.data.success) {
-      setExternalPaymentData(response.data);
+    setIsProcessing(true);
+
+    try {
+      // Get user data
+      const user = JSON.parse(localStorage.getItem("user"));
+      const token = localStorage.getItem("usertoken");
       
-      // Save deposit record with pending status
-      try {
-        const token = localStorage.getItem("usertoken");
-        const user = JSON.parse(localStorage.getItem("user"));
+      // Create user identity address (unique identifier for this payment)
+      const userIdentityAddress = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      // Generate invoice number
+      const invoiceNumber = `INV-${user.id}-${Date.now()}`;
+      
+      // Prepare checkout items with bonus information
+      const checkoutItems = {
+        userId: user.id,
+        username: user.username,
+        method: activeMethod.gatewayName,
+        selectedBonus: selectedBonus ? {
+          id: selectedBonus.id,
+          name: selectedBonus.name,
+          code: selectedBonus.bonusCode,
+          type: selectedBonus.bonusType,
+          percentage: selectedBonus.percentage,
+          amount: selectedBonus.amount,
+          calculatedAmount: selectedBonus.calculatedAmount || 0,
+          wageringRequirement: selectedBonus.wageringRequirement
+        } : null,
+        timestamp: new Date().toISOString()
+      };
 
-        // Prepare deposit record according to your backend route
-        const depositRecord = {
-          method: activeMethod.gatewayName,
-          amount: parseFloat(amount),
-          transactionId: `EXT_${Date.now()}`,
-          phoneNumber: userData?.phone || "",
-          playerbalance:userData.balance,
-          // Bonus related fields
-          bonusType: selectedBonus?.bonusType || 'none',
-          bonusAmount: selectedBonus?.calculatedAmount || 0,
-          wageringRequirement: selectedBonus?.wageringRequirement || 0,
-          bonusCode: selectedBonus?.bonusCode || '',
-          
-          // External payment fields
-          paymentId: paymentId,
-          externalPaymentId: response.data.payment_page_url.split('/').pop() || `ext_${Date.now()}`,
-          userIdentifyAddress: userIdentifyAddress,
-          paymentUrl: response.data.payment_page_url,
-          expiresAt: response.data.expiresAt,
-          externalMethods: response.data.methods,
-          
-          // Optional fields with default values
-          currency: 'BDT',
-          rate: 1,
-          charge: {
-            fixed: activeMethod?.fixedCharge || 0,
-            percent: activeMethod?.percentCharge || 0
+      // Create payment link with OraclePay
+      const oraclePayResponse = await axios.post(
+        `${ORACLEPAY_API_URL}/generate-payment-page`,
+        {
+          payment_amount: parseInt(amount),                    // Must be integer
+          user_identity_address: userIdentityAddress,           // Unique identifier
+          callback_url: `${API_BASE_URL}/api/payment/oraclepay-callback`, // Your webhook URL
+          success_redirect_url: `${window.location.origin}/deposit/success`, // Success page
+          checkout_items: checkoutItems,                        // Additional data
+          invoice_number: invoiceNumber                         // Your invoice number
+        },
+        {
+          headers: { 
+            'X-Opay-Business-Token': ORACLEPAY_TOKEN,
+            'Content-Type': 'application/json'
           }
-        };
-
-        // Save to your backend
-        const saveResponse = await axios.post(
-          `${API_BASE_URL}/api/user/deposit`,
-          depositRecord,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        console.log("Deposit record saved:", saveResponse.data);
-        
-        // Update local state with the saved transaction
-        if (saveResponse.data.success) {
-          // Update user data with the new pending transaction
-          setUserData(prev => ({
-            ...prev,
-            depositHistory: [
-              {
-                method: depositRecord.method,
-                amount: depositRecord.amount,
-                status: "pending",
-                transactionId: depositRecord.transactionId,
-                bonusApplied: depositRecord.bonusAmount > 0,
-                bonusType: depositRecord.bonusType,
-                bonusAmount: depositRecord.bonusAmount,
-                wageringRequirement: depositRecord.wageringRequirement,
-                bonusCode: depositRecord.bonusCode,
-                paymentId: depositRecord.paymentId,
-                externalPaymentId: depositRecord.externalPaymentId,
-                userIdentifyAddress: depositRecord.userIdentifyAddress,
-                paymentUrl: depositRecord.paymentUrl,
-                currency: depositRecord.currency,
-                rate: depositRecord.rate,
-                charge: depositRecord.charge,
-                createdAt: new Date()
-              },
-              ...(prev?.depositHistory || [])
-            ].slice(0, 10) // Keep only recent 10 transactions
-          }));
         }
+      );
+
+      console.log("OraclePay Response:", oraclePayResponse.data);
+
+      if (oraclePayResponse.data.success) {
         
-      } catch (err) {
-        console.error("Error saving deposit record:", err.response?.data || err.message);
-        // Show error but continue with payment
+        // Save deposit record to your backend
+        try {
+          const depositRecord = {
+            method: activeMethod.gatewayName,
+            amount: parseFloat(amount),
+            transactionId: `OPAY_${Date.now()}`,
+            phoneNumber: userData?.phone || "",
+            playerbalance: userData?.balance || 0,
+            status: "pending",
+            
+            // OraclePay specific fields
+            oraclePaySessionCode: oraclePayResponse.data.session_code,
+            paymentPageUrl: oraclePayResponse.data.payment_page_url,
+            userIdentityAddress: userIdentityAddress,
+            invoiceNumber: invoiceNumber,
+            
+            // Bonus related fields
+            bonusType: selectedBonus?.bonusType || 'none',
+            bonusAmount: selectedBonus?.calculatedAmount || 0,
+            wageringRequirement: selectedBonus?.wageringRequirement || 0,
+            bonusCode: selectedBonus?.bonusCode || '',
+            
+            // Additional fields
+            checkoutItems: checkoutItems,
+            currency: 'BDT'
+          };
+
+          // Save to your backend
+          const saveResponse = await axios.post(
+            `${API_BASE_URL}/api/user/deposit`,
+            depositRecord,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          console.log("Deposit record saved:", saveResponse.data);
+          
+          // Update local state with the saved transaction
+          if (saveResponse.data.success) {
+            setUserData(prev => ({
+              ...prev,
+              depositHistory: [
+                {
+                  ...depositRecord,
+                  createdAt: new Date()
+                },
+                ...(prev?.depositHistory || [])
+              ].slice(0, 10)
+            }));
+          }
+          
+        } catch (err) {
+          console.error("Error saving deposit record:", err.response?.data || err.message);
+          // Continue with payment even if saving fails
+        }
+
+        // Show success message
         setTransactionStatus({
-          success: false,
-          message: "Payment created but failed to save record. Contact support with payment details."
+          success: true,
+          message: "Redirecting to payment page..."
         });
+
+        // Redirect to OraclePay payment page
+        setTimeout(() => {
+          window.location.href = oraclePayResponse.data.payment_page_url;
+        }, 1500);
+
+      } else {
+        throw new Error(oraclePayResponse.data.message || "Failed to generate payment");
+      }
+      
+    } catch (err) {
+      console.error("OraclePay payment generation error:", err);
+      
+      let errorMessage = "Payment generation failed. Please try again.";
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response.data?.message || "Invalid payment request. Please check your input.";
+      } else if (err.response?.status === 401) {
+        errorMessage = "Invalid API token. Please contact support.";
+      } else if (err.response?.status === 403) {
+        errorMessage = "Access denied. Please contact support.";
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
-      // Show success message
       setTransactionStatus({
-        success: true,
-        message: "Payment page generated successfully! Redirecting..."
+        success: false,
+        message: errorMessage,
       });
-
-      // Redirect to payment page after a short delay
-      setTimeout(() => {
-        window.location.href = response.data.payment_page_url;
-      }, 2000);
-
-      return response.data;
-    } else {
-      throw new Error(response.data.message || "Failed to generate payment");
+      
+    } finally {
+      setIsProcessing(false);
     }
-  } catch (err) {
-    console.error("External payment generation error:", err);
-    
-    let errorMessage = "Payment generation failed. Please try again.";
-    
-    if (err.response?.status === 400) {
-      errorMessage = err.response.data?.message || "Bad request. Please check your input.";
-    } else if (err.response?.status === 401) {
-      errorMessage = "Invalid API key. Please contact support.";
-    } else if (err.response?.status === 403) {
-      errorMessage = "API key inactive or subscription expired.";
-    } else if (err.message) {
-      errorMessage = err.message;
-    }
-
-    setTransactionStatus({
-      success: false,
-      message: errorMessage,
-    });
-    
-    return null;
-  } finally {
-    setIsGeneratingPayment(false);
-  }
   };
 
   // Calculate bonus amount for a specific bonus
@@ -410,6 +397,11 @@ const Deposit = () => {
 
       if (response.data.success) {
         setUserData(response.data.data);
+        setTransactionStatus({
+          success: true,
+          message: "Balance updated successfully!"
+        });
+        setTimeout(() => setTransactionStatus(null), 3000);
       }
     } catch (err) {
       console.error("Error refreshing balance:", err);
@@ -431,7 +423,6 @@ const Deposit = () => {
         setActiveMethod(method);
         setFormErrors({});
         setTransactionStatus(null);
-        setExternalPaymentData(null);
       }}
     >
       <img
@@ -468,8 +459,8 @@ const Deposit = () => {
   };
 
   // Calculate total with selected bonus
-  const totalWithBonus = selectedBonus 
-    ? parseFloat(amount || 0) + calculateBonusAmount(selectedBonus)
+  const totalWithBonus = selectedBonus && amount
+    ? parseFloat(amount) + calculateBonusAmount(selectedBonus)
     : parseFloat(amount || 0);
 
   if (error && !userData) {
@@ -524,7 +515,7 @@ const Deposit = () => {
                 Deposit Funds
               </h1>
               <p className="text-sm md:text-base text-[#8a9ba8]">
-                Add money to your account using secure payment gateway
+                Add money to your account using OraclePay secure payment gateway
               </p>
             </div>
 
@@ -652,10 +643,11 @@ const Deposit = () => {
                                 ? "border-[#ff6b6b]"
                                 : "border-[#2a2f2f]"
                             }`}
-                            placeholder="Enter deposit amount"
+                            placeholder="Enter deposit amount (minimum ৳5)"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             required
+                            min="5"
                           />
                           {formErrors.amount && (
                             <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">
@@ -791,9 +783,9 @@ const Deposit = () => {
                           <button
                             className="w-full bg-gradient-to-r from-[#2a5c45] to-[#3a6c55] hover:from-[#3a6c55] hover:to-[#4a7c65] py-3 md:py-4 rounded-lg text-sm md:text-base text-white font-medium flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg cursor-pointer"
                             type="submit"
-                            disabled={isGeneratingPayment}
+                            disabled={isProcessing}
                           >
-                            {isGeneratingPayment ? (
+                            {isProcessing ? (
                               <>
                                 <svg
                                   className="animate-spin -ml-1 mr-2 h-4 w-4 md:h-5 md:w-5 text-white"
@@ -815,7 +807,7 @@ const Deposit = () => {
                                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                   ></path>
                                 </svg>
-                                Generating Payment Link...
+                                Processing...
                               </>
                             ) : (
                               `Proceed to ${activeMethod.gatewayName} Payment`
@@ -897,19 +889,19 @@ const Deposit = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 01118 0z"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  How to deposit with External Payment Gateway
+                  How to deposit with OraclePay
                 </h3>
                 <ol className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3 list-decimal list-inside">
                   <li>Select your preferred payment method</li>
-                  <li>Enter the amount you want to deposit</li>
+                  <li>Enter the amount you want to deposit (minimum ৳5)</li>
                   <li>Select a bonus option if available (optional)</li>
                   <li>Click "Proceed to [Payment Method] Payment"</li>
-                  <li>You will be redirected to a secure payment page</li>
-                  <li>Complete the payment on the external payment page</li>
-                  <li>After successful payment, you will be redirected back</li>
+                  <li>You will be redirected to OraclePay secure payment page</li>
+                  <li>Complete the payment using your chosen method</li>
+                  <li>After successful payment, you'll be redirected back</li>
                   <li>Your balance will be updated automatically</li>
                 </ol>
               </div>
@@ -1016,6 +1008,11 @@ const Deposit = () => {
                                     ID: {transaction.transactionId}
                                   </p>
                                 )}
+                                {transaction.oraclePaySessionCode && (
+                                  <p className="text-xs text-[#3a8a6f] mt-1">
+                                    Session: {transaction.oraclePaySessionCode}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="text-right">
@@ -1032,7 +1029,7 @@ const Deposit = () => {
                         </div>
                         
                         {/* Bonus Details Section */}
-                        {(transaction.bonusApplied || transaction.bonusType !== 'none') && (
+                        {(transaction.bonusApplied || (transaction.bonusType && transaction.bonusType !== 'none')) && (
                           <div className="p-4 bg-[#1a2a2a] border-b border-[#2a3535]">
                             <h4 className="text-sm font-medium text-white mb-2 flex items-center">
                               <svg

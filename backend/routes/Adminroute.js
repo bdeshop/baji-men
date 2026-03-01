@@ -3017,7 +3017,292 @@ Adminrouter.delete("/games/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete game" });
   }
 });
+// POST create multiple games at once
+Adminrouter.post(
+  "/games/bulk",
+  uploadGameImages.fields([
+    { name: "portraitImage", maxCount: 10 }, // Adjust maxCount as needed
+    { name: "landscapeImage", maxCount: 10 },
+  ]),
+  async (req, res) => {
+    try {
+      let gamesData = req.body.games;
+      
+      // Parse gamesData if it's a string (when sent as FormData)
+      if (typeof gamesData === 'string') {
+        gamesData = JSON.parse(gamesData);
+      }
+      
+      if (!Array.isArray(gamesData) || gamesData.length === 0) {
+        return res.status(400).json({ 
+          error: "Games data must be a non-empty array" 
+        });
+      }
 
+      // Check if gamesData size exceeds limit
+      if (gamesData.length > 50) {
+        return res.status(400).json({ 
+          error: "Cannot add more than 50 games at once" 
+        });
+      }
+
+      const results = {
+        successful: [],
+        failed: []
+      };
+
+      // Process each game
+      for (let i = 0; i < gamesData.length; i++) {
+        const gameData = gamesData[i];
+        const gameIndex = i;
+
+        try {
+          // Validate required fields
+          const requiredFields = ['name', 'provider', 'category', 'gameApiID'];
+          const missingFields = requiredFields.filter(field => !gameData[field]);
+          
+          if (missingFields.length > 0) {
+            results.failed.push({
+              game: gameData,
+              error: `Missing required fields: ${missingFields.join(', ')}`
+            });
+            continue;
+          }
+
+          // Check if gameApiID already exists
+          const existingGame = await Game.findOne({ gameApiID: gameData.gameApiID });
+          if (existingGame) {
+            results.failed.push({
+              game: gameData,
+              error: `Game API ID "${gameData.gameApiID}" is already in use`
+            });
+            continue;
+          }
+
+          let portraitImageValue;
+          let landscapeImageValue;
+
+          // Handle images for this specific game
+          // For bulk upload, we need to map files to specific games
+          // This assumes files are named or indexed in a way that matches the game data
+          if (req.files && req.files.portraitImage && req.files.portraitImage[gameIndex]) {
+            portraitImageValue = `/uploads/games/portrait/${req.files.portraitImage[gameIndex].filename}`;
+          } else if (req.files && req.files.landscapeImage && req.files.landscapeImage[gameIndex]) {
+            landscapeImageValue = `/uploads/games/landscape/${req.files.landscapeImage[gameIndex].filename}`;
+          } else if (gameData.defaultImage) {
+            // Use default image URL if provided
+            portraitImageValue = gameData.defaultImage;
+            landscapeImageValue = gameData.defaultImage;
+          } else {
+            results.failed.push({
+              game: gameData,
+              error: "No image provided for this game"
+            });
+            continue;
+          }
+
+          // If only one image type is provided, use it for both
+          if (portraitImageValue && !landscapeImageValue) {
+            landscapeImageValue = portraitImageValue;
+          } else if (!portraitImageValue && landscapeImageValue) {
+            portraitImageValue = landscapeImageValue;
+          }
+
+          const newGame = new Game({
+            name: gameData.name,
+            gameId: gameData.gameApiID,
+            provider: gameData.provider,
+            category: gameData.category,
+            portraitImage: portraitImageValue,
+            landscapeImage: landscapeImageValue,
+            defaultImage: gameData.defaultImage || null,
+            featured: gameData.featured === "true" || gameData.featured === true || false,
+            status: gameData.status !== undefined ? gameData.status : true,
+            fullScreen: gameData.fullScreen === "true" || gameData.fullScreen === true || false,
+            gameApiID: gameData.gameApiID,
+          });
+
+          const savedGame = await newGame.save();
+          results.successful.push({
+            game: savedGame,
+            message: "Game created successfully"
+          });
+
+        } catch (gameError) {
+          console.error(`Error creating game at index ${gameIndex}:`, gameError);
+          results.failed.push({
+            game: gameData,
+            error: gameError.message || "Failed to create game"
+          });
+        }
+      }
+
+      // Return appropriate response based on results
+      if (results.successful.length === 0) {
+        return res.status(400).json({
+          message: "No games were created successfully",
+          results
+        });
+      }
+
+      if (results.failed.length > 0) {
+        return res.status(207).json({
+          message: `Created ${results.successful.length} game(s), failed to create ${results.failed.length} game(s)`,
+          results
+        });
+      }
+
+      res.status(201).json({
+        message: `Successfully created ${results.successful.length} game(s)`,
+        results
+      });
+
+    } catch (error) {
+      console.error("Error in bulk game creation:", error);
+      res.status(500).json({ 
+        error: "Failed to process bulk game creation",
+        details: error.message 
+      });
+    }
+  }
+);
+
+// Alternative: POST create multiple games using JSON only (no file uploads)
+Adminrouter.post("/games/bulk-json", async (req, res) => {
+  try {
+    const gamesData = req.body.games;
+    
+    if (!Array.isArray(gamesData) || gamesData.length === 0) {
+      return res.status(400).json({ 
+        error: "Games data must be a non-empty array" 
+      });
+    }
+
+    // Check if gamesData size exceeds limit
+    if (gamesData.length > 100) {
+      return res.status(400).json({ 
+        error: "Cannot add more than 100 games at once" 
+      });
+    }
+
+    const results = {
+      successful: [],
+      failed: []
+    };
+
+    // Process each game
+    for (const gameData of gamesData) {
+      try {
+        // Validate required fields
+        const requiredFields = ['name', 'provider', 'category', 'gameApiID'];
+        const missingFields = requiredFields.filter(field => !gameData[field]);
+        
+        if (missingFields.length > 0) {
+          results.failed.push({
+            game: gameData,
+            error: `Missing required fields: ${missingFields.join(', ')}`
+          });
+          continue;
+        }
+
+        // Check if gameApiID already exists
+        const existingGame = await Game.findOne({ gameApiID: gameData.gameApiID });
+        if (existingGame) {
+          results.failed.push({
+            game: gameData,
+            error: `Game API ID "${gameData.gameApiID}" is already in use`
+          });
+          continue;
+        }
+
+        // Validate image URLs if provided
+        if (gameData.portraitImage && !isValidUrl(gameData.portraitImage)) {
+          results.failed.push({
+            game: gameData,
+            error: "Invalid portrait image URL"
+          });
+          continue;
+        }
+
+        if (gameData.landscapeImage && !isValidUrl(gameData.landscapeImage)) {
+          results.failed.push({
+            game: gameData,
+            error: "Invalid landscape image URL"
+          });
+          continue;
+        }
+
+        // Use provided image URLs or default to a placeholder
+        const portraitImage = gameData.portraitImage || gameData.defaultImage || 'https://via.placeholder.com/300x400';
+        const landscapeImage = gameData.landscapeImage || gameData.defaultImage || 'https://via.placeholder.com/400x300';
+
+        const newGame = new Game({
+          name: gameData.name,
+          gameId: gameData.gameApiID,
+          provider: gameData.provider,
+          category: gameData.category,
+          portraitImage: portraitImage,
+          landscapeImage: landscapeImage,
+          defaultImage: gameData.defaultImage || null,
+          featured: gameData.featured === true || false,
+          status: gameData.status !== undefined ? gameData.status : true,
+          fullScreen: gameData.fullScreen === true || false,
+          gameApiID: gameData.gameApiID,
+        });
+
+        const savedGame = await newGame.save();
+        results.successful.push(savedGame);
+
+      } catch (gameError) {
+        console.error("Error creating game:", gameError);
+        results.failed.push({
+          game: gameData,
+          error: gameError.message || "Failed to create game"
+        });
+      }
+    }
+
+    // Return appropriate response
+    if (results.successful.length === 0) {
+      return res.status(400).json({
+        message: "No games were created successfully",
+        results
+      });
+    }
+
+    if (results.failed.length > 0) {
+      return res.status(207).json({
+        message: `Created ${results.successful.length} game(s), failed to create ${results.failed.length} game(s)`,
+        results: {
+          successful: results.successful,
+          failed: results.failed
+        }
+      });
+    }
+
+    res.status(201).json({
+      message: `Successfully created ${results.successful.length} game(s)`,
+      games: results.successful
+    });
+
+  } catch (error) {
+    console.error("Error in bulk game creation:", error);
+    res.status(500).json({ 
+      error: "Failed to process bulk game creation",
+      details: error.message 
+    });
+  }
+});
+
+// Helper function to validate URLs (add this near the top of your file)
+function isValidUrl(string) {
+  try {
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 // GET game categories for dropdown
 Adminrouter.get("/games/categories/list", async (req, res) => {

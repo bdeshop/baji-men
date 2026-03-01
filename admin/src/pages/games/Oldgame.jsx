@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle } from "react-icons/fa";
+import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck } from "react-icons/fa";
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
@@ -21,24 +21,6 @@ const Newgames = () => {
   const [useDefaultImage, setUseDefaultImage] = useState({});
   const [localGames, setLocalGames] = useState([]);
   const [editingGame, setEditingGame] = useState(null);
-
-  // Selection states
-  const [selectedGames, setSelectedGames] = useState(new Set());
-  const [selectAll, setSelectAll] = useState(false);
-  const [bulkActionMode, setBulkActionMode] = useState(false);
-
-  // Bulk add states
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [bulkGames, setBulkGames] = useState([]);
-  const [bulkCategory, setBulkCategory] = useState("");
-  const [bulkFeatured, setBulkFeatured] = useState(false);
-  const [bulkStatus, setBulkStatus] = useState(true);
-  const [bulkFullScreen, setBulkFullScreen] = useState(false);
-  const [bulkUseDefaultImage, setBulkUseDefaultImage] = useState(true);
-  const [bulkImage, setBulkImage] = useState(null);
-  const [bulkImagePreview, setBulkImagePreview] = useState(null);
-  const [bulkSaving, setBulkSaving] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
 
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [loadingGames, setLoadingGames] = useState(false);
@@ -328,8 +310,6 @@ const Newgames = () => {
       setSearchTerm("");
       setUseDefaultImage({});
       setEditingGame(null);
-      setSelectedGames(new Set());
-      setSelectAll(false);
       
       try {
         const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
@@ -430,9 +410,6 @@ const Newgames = () => {
   useEffect(() => {
     const searchFiltered = filterGamesBySearch(games, searchTerm);
     setFilteredGames(searchFiltered);
-    // Clear selections when search changes
-    setSelectedGames(new Set());
-    setSelectAll(false);
   }, [games, searchTerm]);
 
   // Update category for all games when selected category changes
@@ -446,57 +423,6 @@ const Newgames = () => {
       );
     }
   }, [selectedCategory]);
-
-  // Selection handlers
-  const toggleGameSelection = (gameId) => {
-    const newSelected = new Set(selectedGames);
-    if (newSelected.has(gameId)) {
-      newSelected.delete(gameId);
-    } else {
-      newSelected.add(gameId);
-    }
-    setSelectedGames(newSelected);
-    setSelectAll(newSelected.size === filteredGames.filter(g => !g.isSaved).length);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectAll) {
-      setSelectedGames(new Set());
-    } else {
-      const unsavedGames = filteredGames.filter(game => !game.isSaved);
-      const newSelected = new Set(unsavedGames.map(game => game._id));
-      setSelectedGames(newSelected);
-    }
-    setSelectAll(!selectAll);
-  };
-
-  const clearSelections = () => {
-    setSelectedGames(new Set());
-    setSelectAll(false);
-  };
-
-  const handleBulkAction = () => {
-    if (selectedGames.size === 0) {
-      toast.error("Please select at least one game to add");
-      return;
-    }
-
-    const selectedGamesList = filteredGames.filter(game => selectedGames.has(game._id) && !game.isSaved);
-    
-    if (selectedGamesList.length === 0) {
-      toast.error("Selected games are already saved");
-      clearSelections();
-      return;
-    }
-
-    setBulkGames(selectedGamesList);
-    setBulkCategory(selectedCategory);
-    setShowBulkModal(true);
-    setBulkImage(null);
-    setBulkImagePreview(null);
-    setBulkUseDefaultImage(true);
-    setBulkActionMode(false);
-  };
 
   const handleGameDataChange = (gameId, field, value) => {
     setGames((prevGames) =>
@@ -739,210 +665,8 @@ const Newgames = () => {
     }
   };
 
-  // Bulk Add Functions
-  const openBulkModal = () => {
-    if (!selectedProvider) {
-      toast.error("Please select a provider first");
-      return;
-    }
-    
-    if (!selectedCategory) {
-      toast.error("Please select a default category first");
-      return;
-    }
-
-    // Get unsaved games from current filtered list
-    const unsavedGames = filteredGames.filter(game => !game.isSaved);
-    
-    if (unsavedGames.length === 0) {
-      toast.info("No unsaved games available for bulk add");
-      return;
-    }
-
-    setBulkGames(unsavedGames);
-    setBulkCategory(selectedCategory);
-    setShowBulkModal(true);
-    setBulkImage(null);
-    setBulkImagePreview(null);
-    setBulkUseDefaultImage(true);
-    setBulkActionMode(false);
-  };
-
-  const handleBulkImageUpload = (file) => {
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Image size should be less than 10MB.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setBulkImage(file);
-      setBulkImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeBulkImage = () => {
-    setBulkImage(null);
-    setBulkImagePreview(null);
-  };
-
-  const handleBulkAdd = async () => {
-    if (!bulkCategory) {
-      toast.error("Please select a category for bulk add");
-      return;
-    }
-
-    if (!bulkUseDefaultImage && !bulkImage) {
-      toast.error("Please upload an image or use default images");
-      return;
-    }
-
-    setBulkSaving(true);
-    setBulkProgress({ current: 0, total: bulkGames.length });
-
-    const results = {
-      successful: [],
-      failed: []
-    };
-
-    try {
-      // Prepare the data for bulk add
-      const gamesData = bulkGames.map(game => ({
-        name: game.gameName || game.name,
-        provider: game.provider?.providerName || game.provider?.name || "",
-        gameApiID: game.game_code,
-        category: categories.find(c => c._id === bulkCategory)?.name || bulkCategory,
-        featured: bulkFeatured,
-        status: bulkStatus,
-        fullScreen: bulkFullScreen,
-        defaultImage: bulkUseDefaultImage ? (game.image || game.coverImage) : null
-      }));
-
-      // Filter out games without default image if using default image
-      const validGamesData = bulkUseDefaultImage 
-        ? gamesData.filter(game => game.defaultImage)
-        : gamesData;
-
-      if (validGamesData.length === 0) {
-        toast.error("No valid games to add. Some games may be missing default images.");
-        setBulkSaving(false);
-        return;
-      }
-
-      const formData = new FormData();
-      
-      // Add games data as JSON string
-      formData.append('games', JSON.stringify(validGamesData));
-
-      // Add bulk image if not using default images
-      if (!bulkUseDefaultImage && bulkImage) {
-        // For bulk upload with a single image, we need to append the same image for all games
-        // Note: This approach uses the same image for all games in the bulk
-        for (let i = 0; i < validGamesData.length; i++) {
-          formData.append('portraitImage', bulkImage);
-          formData.append('landscapeImage', bulkImage);
-        }
-      }
-
-      const response = await api.post('/api/admin/games/bulk', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          // Update progress based on number of games processed
-          const gamesProcessed = Math.floor((percentCompleted / 100) * validGamesData.length);
-          setBulkProgress({ current: Math.min(gamesProcessed, validGamesData.length), total: validGamesData.length });
-        }
-      });
-
-      if (response.status === 200 || response.status === 201 || response.status === 207) {
-        // Handle partial success
-        const successfulCount = response.data.results?.successful?.length || validGamesData.length;
-        const failedCount = response.data.results?.failed?.length || 0;
-
-        if (failedCount > 0) {
-          toast.warning(`Added ${successfulCount} games, ${failedCount} failed. Check console for details.`);
-          console.log('Failed games:', response.data.results?.failed);
-        } else {
-          toast.success(`Successfully added ${successfulCount} games!`);
-        }
-
-        // Refresh local games list
-        const updatedLocalGames = await fetchAllLocalGames();
-        setLocalGames(updatedLocalGames);
-
-        // Update the games list to mark added games as saved
-        const addedGameIds = response.data.results?.successful?.map(g => g.game?.game_code || g.game?.gameApiID) || 
-                            validGamesData.map(g => g.gameApiID);
-        
-        setGames(prevGames => 
-          prevGames.map(game => ({
-            ...game,
-            isSaved: addedGameIds.includes(game.game_code) ? true : game.isSaved
-          }))
-        );
-
-        setFilteredGames(prevGames => 
-          prevGames.map(game => ({
-            ...game,
-            isSaved: addedGameIds.includes(game.game_code) ? true : game.isSaved
-          }))
-        );
-
-        // Clear selections after successful bulk add
-        clearSelections();
-
-        // Close modal
-        setTimeout(() => {
-          setShowBulkModal(false);
-          resetBulkState();
-        }, 2000);
-      } else {
-        toast.error("Failed to add games in bulk");
-      }
-    } catch (error) {
-      console.error("Error in bulk add:", error);
-      if (error.response) {
-        toast.error(`❌ ${error.response.data.error || error.response.data.message || "Failed to add games in bulk"}`);
-      } else if (error.request) {
-        toast.error("❌ No response from server while adding games");
-      } else {
-        toast.error(`❌ ${error.message}`);
-      }
-    } finally {
-      setBulkSaving(false);
-    }
-  };
-
-  const resetBulkState = () => {
-    setBulkGames([]);
-    setBulkCategory("");
-    setBulkFeatured(false);
-    setBulkStatus(true);
-    setBulkFullScreen(false);
-    setBulkUseDefaultImage(true);
-    setBulkImage(null);
-    setBulkImagePreview(null);
-    setBulkProgress({ current: 0, total: 0 });
-  };
-
   const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
   const selectedProviderName = selectedProviderObj?.providerName || selectedProviderObj?.name || "";
-
-  // Get unsaved games count
-  const unsavedGamesCount = filteredGames.filter(g => !g.isSaved).length;
-  const selectedUnsavedCount = Array.from(selectedGames).filter(id => {
-    const game = filteredGames.find(g => g._id === id);
-    return game && !game.isSaved;
-  }).length;
 
   return (
     <section className="font-nunito min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -1019,79 +743,6 @@ const Newgames = () => {
               )}
             </div>
 
-            {/* Selection and Action Bar */}
-            {!loadingGames && filteredGames.length > 0 && (
-              <div className="mb-6 bg-white rounded-xl  border border-gray-200 overflow-hidden">
-                <div className="p-4 bg-gradient-to-r from-orange-50 to-white border-b border-gray-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={toggleSelectAll}
-                        className="flex items-center space-x-2 text-gray-700 hover:text-orange-600 transition-colors"
-                        disabled={unsavedGamesCount === 0}
-                      >
-                        {selectAll ? (
-                          <FaCheckCircle className="text-orange-500 text-xl" />
-                        ) : (
-                          <FaRegCircle className="text-gray-400 text-xl" />
-                        )}
-                        <span className="font-medium">
-                          {selectAll ? 'Deselect All' : 'Select All'}
-                        </span>
-                      </button>
-                      {selectedGames.size > 0 && (
-                        <>
-                          <span className="text-sm text-gray-600">
-                            {selectedUnsavedCount} of {unsavedGamesCount} unsaved games selected
-                          </span>
-                          <button
-                            onClick={clearSelections}
-                            className="text-sm text-red-600 hover:text-red-800 transition-colors"
-                          >
-                            Clear
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      {selectedUnsavedCount > 0 && (
-                        <button
-                          onClick={handleBulkAction}
-                          className="px-4 py-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center shadow-md"
-                        >
-                          <FaPlusCircle className="mr-2" />
-                          Add Selected ({selectedUnsavedCount})
-                        </button>
-                      )}
-                      
-                      <button
-                        onClick={openBulkModal}
-                        className="px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors duration-200 flex items-center shadow-md"
-                        disabled={unsavedGamesCount === 0}
-                      >
-                        <FaList className="mr-2" />
-                        Add All Unsaved ({unsavedGamesCount})
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Selection Summary */}
-                {selectedGames.size > 0 && (
-                  <div className="px-4 py-2 bg-blue-50 text-sm text-blue-700 flex items-center">
-                    <FaCheckCircle className="mr-2 text-blue-500" />
-                    {selectedUnsavedCount} games ready to be added
-                    {selectedUnsavedCount !== selectedGames.size && (
-                      <span className="ml-1 text-blue-500">
-                        ({selectedGames.size - selectedUnsavedCount} saved games excluded)
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Loading State */}
             {loadingGames && (
               <div className="flex flex-col items-center justify-center py-16">
@@ -1120,10 +771,6 @@ const Newgames = () => {
                       ) : (
                         <>
                           Showing <span className="font-semibold text-orange-600">{filteredGames.length}</span> game{filteredGames.length === 1 ? '' : 's'} from {selectedProviderName}
-                          <span className="ml-2 text-sm">
-                            (<span className="text-green-600">{filteredGames.filter(g => g.isSaved).length} saved</span> • 
-                            <span className="text-orange-600"> {unsavedGamesCount} new</span>)
-                          </span>
                         </>
                       )}
                     </p>
@@ -1145,34 +792,12 @@ const Newgames = () => {
                     <div
                       id={`game-${game._id}`}
                       key={game._id}
-                      className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${
+                      className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl ${
                         game.isSaved 
                           ? 'border-green-300 hover:border-green-400' 
                           : 'border-orange-300 hover:border-orange-400'
-                      } ${editingGame === game._id ? 'ring-4 ring-orange-300' : ''} ${
-                        selectedGames.has(game._id) && !game.isSaved ? 'ring-2 ring-blue-400' : ''
-                      }`}
+                      } ${editingGame === game._id ? 'ring-4 ring-orange-300' : ''}`}
                     >
-                      {/* Selection Checkbox for Unsaved Games */}
-                      {!game.isSaved && (
-                        <div className="absolute top-2 left-2 z-10">
-                          <button
-                            onClick={() => toggleGameSelection(game._id)}
-                            className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 ${
-                              selectedGames.has(game._id)
-                                ? 'bg-blue-500 text-white shadow-lg'
-                                : 'bg-white text-gray-400 border-2 border-gray-300 hover:border-blue-400'
-                            }`}
-                          >
-                            {selectedGames.has(game._id) ? (
-                              <FaCheck className="w-4 h-4" />
-                            ) : (
-                         <FaCheck className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-
                       {/* Game Header */}
                       <div className={`p-4 bg-gradient-to-r ${
                         game.isSaved 
@@ -1417,20 +1042,174 @@ const Newgames = () => {
                           </>
                         )}
 
-                        {/* Quick Add Button for New Games */}
+                        {/* Save Button for New Games */}
                         {!game.isSaved && editingGame !== game._id && (
-                          <div className="mt-3">
-                            <button
-                              onClick={() => {
-                                // Pre-select this game and open bulk modal
-                                setSelectedGames(new Set([game._id]));
-                                handleBulkAction();
-                              }}
-                              className="w-full px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors duration-200 flex items-center justify-center"
-                            >
-                              <FaPlusCircle className="mr-2" /> Add Game
-                            </button>
-                          </div>
+                          <>
+                            {/* Image Source Toggle */}
+                            <div className="mt-3 flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Use Default Image:</span>
+                              <button
+                                onClick={() => toggleUseDefaultImage(game._id)}
+                                className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
+                                  useDefaultImage[game._id] ? 'bg-orange-500' : 'bg-gray-300'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${
+                                    useDefaultImage[game._id] ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            {/* Custom Category Selector */}
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Assign Category
+                              </label>
+                              <div className="relative">
+                                <div className="flex flex-wrap gap-2">
+                                  {categories
+                                    .filter(cat => cat.status)
+                                    .map((category) => (
+                                      <button
+                                        key={category._id}
+                                        onClick={() => handleGameDataChange(game._id, 'localCategory', category._id)}
+                                        className={`px-3 py-1.5 text-sm rounded-lg border transition-all duration-200 ${
+                                          game.localCategory === category._id
+                                            ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                        }`}
+                                      >
+                                        {category.name}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+                              {!game.localCategory && (
+                                <p className="text-xs text-red-500 mt-2 flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  Category is required
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Game Settings */}
+                            <div className="mt-4">
+                              <CustomCheckbox
+                                id={`featured-${game._id}`}
+                                checked={game.localFeatured}
+                                onChange={(e) => handleGameDataChange(game._id, 'localFeatured', e.target.checked)}
+                                label="Featured Game"
+                                description="Show this game in featured section"
+                              />
+                              <CustomCheckbox
+                                id={`status-${game._id}`}
+                                checked={game.localStatus}
+                                onChange={(e) => handleGameDataChange(game._id, 'localStatus', e.target.checked)}
+                                label="Active Status"
+                                description="Game will be visible to users"
+                              />
+                              <CustomCheckbox
+                                id={`fullscreen-${game._id}`}
+                                checked={game.localFullScreen}
+                                onChange={(e) => handleGameDataChange(game._id, 'localFullScreen', e.target.checked)}
+                                label="Full Screen Mode"
+                                description="Launch game in full screen"
+                              />
+                            </div>
+
+                            {/* Image Upload Section - Only show if not using default image */}
+                            {!useDefaultImage[game._id] && (
+                              <div className="mt-6">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Upload Custom Image
+                                    <span className="text-xs text-gray-500 ml-2">(Will be used for both portrait and landscape)</span>
+                                  </label>
+                                  {game.localPortraitPreview ? (
+                                    <div className="relative group">
+                                      <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden">
+                                        <img
+                                          src={game.localPortraitPreview}
+                                          alt="Game Image"
+                                          className="w-full h-full object-contain p-2"
+                                        />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeImage(game._id)}
+                                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        <FaTimes className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <label className="block cursor-pointer">
+                                      <div className="h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
+                                        <FaUpload className="text-gray-400 text-xl mb-2 group-hover:text-orange-500 transition-colors" />
+                                        <span className="text-sm font-medium text-gray-500 group-hover:text-orange-600 transition-colors">
+                                          Upload Game Image
+                                        </span>
+                                        <span className="text-xs text-gray-400 mt-1">PNG, JPG up to 10MB</span>
+                                      </div>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={(e) => handleImageUpload(game._id, e.target.files[0])}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Default Image Info */}
+                            {useDefaultImage[game._id] && (
+                              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                <p className="text-xs text-blue-700 flex items-center">
+                                  <FaImage className="mr-2" />
+                                  Using default image from provider. Toggle switch above to upload custom image.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Save Button */}
+                            <div className="mt-6 pt-4 border-t border-gray-200">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveOrUpdateGame(game._id)}
+                                disabled={
+                                  savingGameId === game._id || 
+                                  !game.localCategory || 
+                                  (!useDefaultImage[game._id] && !game.localPortraitImage)
+                                }
+                                className={`w-full px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
+                                  savingGameId === game._id 
+                                    ? 'bg-gray-400 cursor-wait' 
+                                    : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
+                                } ${
+                                  (!game.localCategory || (!useDefaultImage[game._id] && !game.localPortraitImage)) 
+                                    ? 'opacity-50 cursor-not-allowed' 
+                                    : 'cursor-pointer'
+                                }`}
+                              >
+                                {savingGameId === game._id ? (
+                                  <>
+                                    <FaSpinner className="animate-spin mr-2" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    Save Game
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1495,248 +1274,6 @@ const Newgames = () => {
           </div>
         </main>
       </div>
-
-      {/* Bulk Add Modal */}
-      {showBulkModal && (
-        <div className="fixed inset-0 z-[10000] overflow-y-auto bg-[rgba(0,0,0,0.4)]">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FaList className="text-white text-2xl mr-3" />
-                    <div>
-                      <h3 className="text-xl font-bold text-white">
-                        {bulkActionMode ? 'Add Selected Games' : 'Bulk Add Games'}
-                      </h3>
-                      <p className="text-orange-100 text-sm mt-1">
-                        Adding {bulkGames.length} game{bulkGames.length !== 1 ? 's' : ''} from {selectedProviderName}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowBulkModal(false);
-                      resetBulkState();
-                    }}
-                    className="text-white hover:text-orange-200 transition-colors"
-                  >
-                    <FaTimes className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
-                {/* Bulk Settings */}
-                <div className="space-y-6">
-                  {/* Category Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category for All Games <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {categories
-                        .filter(cat => cat.status)
-                        .map((category) => (
-                          <button
-                            key={category._id}
-                            onClick={() => setBulkCategory(category._id)}
-                            className={`px-4 py-2 text-sm rounded-lg border transition-all duration-200 ${
-                              bulkCategory === category._id
-                                ? 'bg-orange-500 text-white border-orange-500 shadow-md'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
-                            }`}
-                          >
-                            {category.name}
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-
-                  {/* Image Source Toggle */}
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-gray-900">Image Source</h4>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {bulkUseDefaultImage 
-                            ? "Using default images from provider for all games" 
-                            : "Using a single custom image for all games"}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setBulkUseDefaultImage(!bulkUseDefaultImage);
-                          if (!bulkUseDefaultImage) {
-                            setBulkImage(null);
-                            setBulkImagePreview(null);
-                          }
-                        }}
-                        className={`relative inline-flex items-center h-8 rounded-full w-14 transition-colors focus:outline-none ${
-                          bulkUseDefaultImage ? 'bg-orange-500' : 'bg-gray-400'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block w-6 h-6 transform transition-transform bg-white rounded-full shadow-md ${
-                            bulkUseDefaultImage ? 'translate-x-7' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Bulk Image Upload - Only show if not using default images */}
-                  {!bulkUseDefaultImage && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Upload Custom Image (Will be used for all games) <span className="text-red-500">*</span>
-                      </label>
-                      {bulkImagePreview ? (
-                        <div className="relative group">
-                          <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300">
-                            <img
-                              src={bulkImagePreview}
-                              alt="Bulk Game Image"
-                              className="w-full h-full object-contain p-4"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={removeBulkImage}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors"
-                          >
-                            <FaTimes className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="block cursor-pointer">
-                          <div className="h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
-                            <FaUpload className="text-gray-400 text-3xl mb-3 group-hover:text-orange-500 transition-colors" />
-                            <span className="text-sm font-medium text-gray-600 group-hover:text-orange-600 transition-colors">
-                              Click to upload image
-                            </span>
-                            <span className="text-xs text-gray-400 mt-2">PNG, JPG up to 10MB</span>
-                          </div>
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={(e) => handleBulkImageUpload(e.target.files[0])}
-                          />
-                        </label>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Default Image Info */}
-                  {bulkUseDefaultImage && (
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-700 flex items-start">
-                        <FaImage className="mr-2 mt-0.5 flex-shrink-0" />
-                        <span>
-                          Using default images from provider. Games without default images will be skipped.
-                          <br />
-                          <span className="font-medium mt-1 block">
-                            Games with default images: {bulkGames.filter(g => g.image || g.coverImage).length} / {bulkGames.length}
-                          </span>
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Bulk Settings */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Game Settings</h4>
-                    <CustomCheckbox
-                      id="bulk-featured"
-                      checked={bulkFeatured}
-                      onChange={(e) => setBulkFeatured(e.target.checked)}
-                      label="Mark as Featured"
-                      description="Show these games in featured section"
-                    />
-                    <CustomCheckbox
-                      id="bulk-status"
-                      checked={bulkStatus}
-                      onChange={(e) => setBulkStatus(e.target.checked)}
-                      label="Active Status"
-                      description="Games will be visible to users"
-                    />
-                    <CustomCheckbox
-                      id="bulk-fullscreen"
-                      checked={bulkFullScreen}
-                      onChange={(e) => setBulkFullScreen(e.target.checked)}
-                      label="Full Screen Mode"
-                      description="Launch games in full screen"
-                    />
-                  </div>
-
-       
-
-                  {/* Progress Bar */}
-                  {bulkSaving && (
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Adding games...</span>
-                        <span>{bulkProgress.current} / {bulkProgress.total}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div 
-                          className="bg-orange-500 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowBulkModal(false);
-                    resetBulkState();
-                  }}
-                  disabled={bulkSaving}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkAdd}
-                  disabled={
-                    bulkSaving ||
-                    !bulkCategory ||
-                    (!bulkUseDefaultImage && !bulkImage) ||
-                    (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
-                  }
-                  className={`px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
-                    bulkSaving || !bulkCategory || (!bulkUseDefaultImage && !bulkImage) || (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:from-orange-600 hover:to-orange-700'
-                  }`}
-                >
-                  {bulkSaving ? (
-                    <>
-                      <FaSpinner className="animate-spin mr-2" />
-                      Adding {bulkProgress.current}/{bulkProgress.total}...
-                    </>
-                  ) : (
-                    <>
-                      <FaPlusCircle className="mr-2" />
-                      Add {bulkGames.length} Game{bulkGames.length !== 1 ? 's' : ''}
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 };

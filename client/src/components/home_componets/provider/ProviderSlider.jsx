@@ -120,7 +120,7 @@ const ProviderSlider = () => {
 
   // Function to truncate provider name
   const truncateName = (name, maxLength = 20) => {
-    if (name.length > maxLength) {
+    if (name?.length > maxLength) {
       return name.substring(0, maxLength - 3) + '...';
     }
     return name;
@@ -238,7 +238,7 @@ const ProviderSlider = () => {
         className="w-[30px]"
                 />
                 <span className=" pr-2 text-sm text-center text-gray-400 font-[600] truncate-text">
-                  {truncateName(provider.providerName)}
+                  {truncateName(provider.name)}
                 </span>
               </div>
             ))
