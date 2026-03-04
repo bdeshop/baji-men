@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle } from "react-icons/fa";
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
@@ -21,11 +21,6 @@ const Newgames = () => {
   const [useDefaultImage, setUseDefaultImage] = useState({});
   const [localGames, setLocalGames] = useState([]);
   const [editingGame, setEditingGame] = useState(null);
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [gamesPerPage] = useState(30);
-  const [paginatedGames, setPaginatedGames] = useState([]);
 
   // Selection states
   const [selectedGames, setSelectedGames] = useState(new Set());
@@ -63,7 +58,7 @@ const Newgames = () => {
     baseURL: "https://api.oraclegames.live/api",
     timeout: 30000,
     headers: {
-      "x-api-key": premium_api_key,
+      "x-api-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
       "Content-Type": "application/json"
     }
   });
@@ -227,132 +222,6 @@ const Newgames = () => {
     );
   };
 
-  // Update paginated games whenever filteredGames or currentPage changes
-  useEffect(() => {
-    const indexOfLastGame = currentPage * gamesPerPage;
-    const indexOfFirstGame = indexOfLastGame - gamesPerPage;
-    const currentGames = filteredGames.slice(indexOfFirstGame, indexOfLastGame);
-    setPaginatedGames(currentGames);
-  }, [filteredGames, currentPage, gamesPerPage]);
-
-  // Reset to first page when search term changes or provider changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedProvider]);
-
-  // Pagination component
-  const Pagination = () => {
-    const totalPages = Math.ceil(filteredGames.length / gamesPerPage);
-    
-    if (totalPages <= 1) return null;
-
-    const pageNumbers = [];
-    for (let i = 1; i <= totalPages; i++) {
-      pageNumbers.push(i);
-    }
-
-    const renderPageNumbers = () => {
-      // Show 5 pages at a time
-      const maxVisiblePages = 5;
-      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-      if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-      }
-
-      const pages = [];
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
-      return pages;
-    };
-
-    return (
-      <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-8 rounded-xl shadow-sm">
-        <div className="flex flex-1 justify-between sm:hidden">
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
-              currentPage === 1 
-                ? 'text-gray-300 cursor-not-allowed' 
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            Previous
-          </button>
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
-              currentPage === totalPages 
-                ? 'text-gray-300 cursor-not-allowed' 
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            Next
-          </button>
-        </div>
-        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">{((currentPage - 1) * gamesPerPage) + 1}</span> to{' '}
-              <span className="font-medium">
-                {Math.min(currentPage * gamesPerPage, filteredGames.length)}
-              </span>{' '}
-              of <span className="font-medium">{filteredGames.length}</span> results
-            </p>
-          </div>
-          <div>
-            <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 ${
-                  currentPage === 1 
-                    ? 'cursor-not-allowed bg-gray-50' 
-                    : 'hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
-                }`}
-              >
-                <span className="sr-only">Previous</span>
-                <FaChevronLeft className="h-5 w-5" aria-hidden="true" />
-              </button>
-              
-              {renderPageNumbers().map(number => (
-                <button
-                  key={number}
-                  onClick={() => setCurrentPage(number)}
-                  aria-current={currentPage === number ? 'page' : undefined}
-                  className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                    currentPage === number
-                      ? 'z-10 bg-orange-500 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500'
-                      : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
-                  }`}
-                >
-                  {number}
-                </button>
-              ))}
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 ${
-                  currentPage === totalPages 
-                    ? 'cursor-not-allowed bg-gray-50' 
-                    : 'hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
-                }`}
-              >
-                <span className="sr-only">Next</span>
-                <FaChevronRight className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </nav>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Fetch categories from local API
   useEffect(() => {
     const fetchCategories = async () => {
@@ -386,7 +255,7 @@ const Newgames = () => {
           api.get('/api/admin/game-providers'),
           oracleApi.get('/providers')
         ]);
-
+      console.log("externalRes",externalRes)
         const localProviders = localRes.data;
         const externalProviders = externalRes.data;
         const localProviderCodes = new Set(
@@ -461,7 +330,6 @@ const Newgames = () => {
       setEditingGame(null);
       setSelectedGames(new Set());
       setSelectAll(false);
-      setCurrentPage(1);
       
       try {
         const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
@@ -565,7 +433,6 @@ const Newgames = () => {
     // Clear selections when search changes
     setSelectedGames(new Set());
     setSelectAll(false);
-    setCurrentPage(1);
   }, [games, searchTerm]);
 
   // Update category for all games when selected category changes
@@ -1154,7 +1021,7 @@ const Newgames = () => {
 
             {/* Selection and Action Bar */}
             {!loadingGames && filteredGames.length > 0 && (
-              <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="mb-6 bg-white rounded-xl  border border-gray-200 overflow-hidden">
                 <div className="p-4 bg-gradient-to-r from-orange-50 to-white border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center space-x-4">
@@ -1274,7 +1141,7 @@ const Newgames = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {paginatedGames.map((game) => (
+                  {filteredGames.map((game) => (
                     <div
                       id={`game-${game._id}`}
                       key={game._id}
@@ -1300,7 +1167,7 @@ const Newgames = () => {
                             {selectedGames.has(game._id) ? (
                               <FaCheck className="w-4 h-4" />
                             ) : (
-                              <FaCheck className="w-4 h-4" />
+                         <FaCheck className="w-4 h-4" />
                             )}
                           </button>
                         </div>
@@ -1569,9 +1436,6 @@ const Newgames = () => {
                     </div>
                   ))}
                 </div>
-
-                {/* Pagination Component */}
-                <Pagination />
               </div>
             )}
 
@@ -1807,6 +1671,8 @@ const Newgames = () => {
                       description="Launch games in full screen"
                     />
                   </div>
+
+       
 
                   {/* Progress Bar */}
                   {bulkSaving && (

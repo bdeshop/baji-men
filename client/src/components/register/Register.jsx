@@ -1049,11 +1049,11 @@ export default function Register() {
                   </button>
 
                   {/* Additional Links */}
-                  <div className="mt-4 text-center">
+                  {/* <div className="mt-4 text-center">
                     <NavLink to="/forgot-password" className="text-xs md:text-sm text-green-400 hover:text-green-300 hover:underline transition-colors">
                       Forgot password?
                     </NavLink>
-                  </div>
+                  </div> */}
 
                   <div className="mt-4 text-center">
                     <p className="text-gray-400 text-xs">
