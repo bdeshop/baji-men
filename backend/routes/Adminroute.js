@@ -12,17 +12,44 @@ const GameCategory = require("../models/GameCategory");
 const GameProvider = require("../models/GameProvider");
 const {User} = require("../models/User");
 const mongoose=require("mongoose")
+const jwt=require("jsonwebtoken")
+const JWT_SECRET = "BAJI@";
 // Middleware to check if user is authenticated as admin
-const adminAuth = (req, res, next) => {
-  // Implement your authentication logic here
-  // For example, check if user has admin role in JWT token
-  // This is a placeholder - implement according to your auth system
-  const isAuthenticated = true; // Replace with actual authentication check
+// Middleware to check if user is authenticated as admin
+const adminAuth = async (req, res, next) => {
+  try {
+    // Get token from header
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized access - No token provided" });
+    }
 
-  if (!isAuthenticated) {
-    return res.status(401).json({ error: "Unauthorized access" });
+    // Verify token (assuming you're using JWT)
+    const decoded = jwt.verify(token,JWT_SECRET);
+    
+    // Find admin by id
+    const admin = await Admin.findById(decoded.id).select('-password');
+    
+    if (!admin) {
+      return res.status(401).json({ error: "Admin not found" });
+    }
+
+    // Add admin to request object
+    req.user = admin;
+    req.userId = admin._id; // Also add userId separately for convenience
+    
+    next();
+  } catch (error) {
+    console.error("Admin auth error:", error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Token expired" });
+    }
+    res.status(401).json({ error: "Authentication failed" });
   }
-  next();
 };
 
 // ==================== WITHDRAWAL COUNTS ROUTE ====================
@@ -267,7 +294,173 @@ Adminrouter.use(adminAuth);
 
 // GET comprehensive dashboard data
 // ==================== COMPREHENSIVE DASHBOARD ROUTE ====================
+// ==================== ADMIN PASSWORD MANAGEMENT ====================
 
+// PUT update admin password
+Adminrouter.put("/update-password", adminAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Current password, new password, and confirm password are required"
+      });
+    }
+
+    // Check if new password and confirm password match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "New password and confirm password do not match"
+      });
+    }
+
+    // Validate password strength
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 6 characters long"
+      });
+    }
+
+    // Get the admin from the database (assuming req.user contains the admin info)
+    // You need to have the admin ID from your authentication middleware
+    const adminId = req.user._id; // Adjust this based on how you store user in req.user
+    
+    const Admin = mongoose.model('Admin');
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        error: "Admin not found"
+      });
+    }
+
+    // Verify current password
+    const isPasswordValid = await admin.comparePassword(currentPassword);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        error: "Current password is incorrect"
+      });
+    }
+
+    // Update password (the pre-save hook in the Admin model will handle hashing)
+    admin.password = newPassword;
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: "Password updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Error updating admin password:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update password",
+      details: error.message
+    });
+  }
+});
+
+// Alternative route if you want to update password by admin ID (super admin functionality)
+Adminrouter.put("/:id/update-password", adminAuth, async (req, res) => {
+  try {
+    const { newPassword, confirmPassword } = req.body;
+    const { id } = req.params;
+
+    // Check if the current user has permission to update other admin passwords
+    // You might want to add a check here for super admin role
+    const currentAdmin = req.user;
+    if (currentAdmin.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        error: "You don't have permission to update other admin passwords"
+      });
+    }
+
+    // Validation
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "New password and confirm password are required"
+      });
+    }
+
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Passwords do not match"
+      });
+    }
+
+    // Validate password strength
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 6 characters long"
+      });
+    }
+
+    const Admin = mongoose.model('Admin');
+    const admin = await Admin.findById(id);
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        error: "Admin not found"
+      });
+    }
+
+    // Update password (the pre-save hook will handle hashing)
+    admin.password = newPassword;
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: "Admin password updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Error updating admin password:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update password",
+      details: error.message
+    });
+  }
+});
+
+// GET admin profile (optional - to get current admin info)
+Adminrouter.get("/profile", adminAuth, async (req, res) => {
+  try {
+    const adminId = req.user._id;
+    const admin = await Admin.findById(adminId)
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        error: "Admin not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    console.error("Error fetching admin profile:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch admin profile"
+    });
+  }
+});
 // GET comprehensive dashboard data with TOTAL AMOUNTS
 Adminrouter.get("/dashboard", async (req, res) => {
   try {
@@ -9642,6 +9835,7 @@ Adminrouter.get("/social-links/active", async (req, res) => {
 const Notice = require("../models/Notice");
 const MenuGame = require("../models/MenuGame");
 const Bonus = require("../models/Bonus");
+const Admin = require("../models/Admin");
 
 // ==================== NOTICE ROUTES ====================
 // ==================== NOTICE ROUTES ====================

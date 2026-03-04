@@ -60,6 +60,7 @@ import Affiliatedetails from './pages/allaffiliates/Affiliatedetails'
 import Managecommission from './pages/managecommission/Managecommission'
 import Editbonus from './pages/bonus/Editbonus'
 import Viewbonus from './pages/bonus/Viewbonus'
+import Profile from './pages/profile/Profile'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -638,10 +639,10 @@ const App = () => {
         />
    <Route 
           exact 
-          path="/opay/deposit" 
+          path="/admin-profile" 
           element={
             <ProtectedRoute>
-              <Opaydeposit />
+              <Profile/>
             </ProtectedRoute>
           }
         />

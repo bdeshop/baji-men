@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const { User } = require("../models/User");
 const Affiliate = require("../models/Affiliate");
 const mongoose = require("mongoose");
-
+const axios=require("axios")
 // JWT Secret Keys
 const JWT_SECRET = process.env.JWT_SECRET || "fsdfsdfsd43534";
 const AFFILIATE_JWT_SECRET = process.env.AFFILIATE_JWT_SECRET || "dfsdfsdf535345";
@@ -93,7 +93,975 @@ const validatePaymentDetails = (paymentMethod, paymentData) => {
   }
   return { isValid: true };
 };
+// ==================== OTP & PHONE VERIFICATION ROUTES ====================
 
+// OTP Configuration
+const OTP_CONFIG = {
+    EXPIRY_MINUTES: 5,
+    CODE_LENGTH: 6,
+    MAX_ATTEMPTS: 3,
+    RESEND_COOLDOWN_SECONDS: 60,
+    SENDER_ID:'8809617611338',
+    API_BASE_URL:'https://xend.positiveapi.com/api/v3'
+};
+
+// Helper function to generate OTP
+function generateOTP(length = OTP_CONFIG.CODE_LENGTH) {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // Always 6 digits
+}
+
+// Helper function to format phone number for Bangladesh
+function formatBangladeshPhone(phone) {
+    if (!phone) return null;
+    
+    // Remove all non-numeric characters
+    let cleaned = phone.replace(/\D/g, '');
+    
+    // If it starts with 0, remove it
+    if (cleaned.startsWith('0')) {
+        cleaned = cleaned.substring(1);
+    }
+    
+    // If it starts with 880, remove the 88 part
+    if (cleaned.startsWith('880')) {
+        cleaned = cleaned.substring(2);
+    }
+    
+    // Ensure it's a valid Bangladeshi number (10 digits starting with 1)
+    if (cleaned.length === 10 && cleaned.startsWith('1')) {
+        return `+880${cleaned}`;
+    }
+    
+    return null;
+}
+
+// Helper function to send SMS via Xend API
+async function sendSMS(phoneNumber, message) {
+    try {
+        // Format phone number for API (remove + and ensure 880 format)
+        let apiPhone = phoneNumber.replace(/\D/g, '');
+        if (apiPhone.startsWith('880')) {
+            apiPhone = apiPhone;
+        } else if (apiPhone.startsWith('1')) {
+            apiPhone = '880' + apiPhone;
+        }
+        
+        const url = `${OTP_CONFIG.API_BASE_URL}/sms/send`;
+        const params = new URLSearchParams({
+            recipient: apiPhone,
+            sender_id: OTP_CONFIG.SENDER_ID,
+            message: message
+        });
+
+        console.log(`Sending SMS to ${apiPhone}: ${message.substring(0, 20)}...`);
+
+        const response = await axios.get(`${url}?${params.toString()}`);
+        
+        if (response.data && response.data.status === 'success') {
+            return { success: true, data: response.data };
+        } else {
+            console.error('SMS sending failed:', response.data);
+            return { success: false, error: 'SMS sending failed' };
+        }
+    } catch (error) {
+        console.error('Error sending SMS:', error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data?.message || error.message 
+        };
+    }
+}
+
+// Request OTP for phone verification during signup
+Authrouter.post("/request-signup-otp", async (req, res) => {
+    try {
+        const { phone } = req.body;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number is required"
+            });
+        }
+
+        // Format phone number for Bangladesh
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number. Please use a valid 11-digit number starting with 01"
+            });
+        }
+
+        // Check if phone is already registered
+        const existingUser = await User.findOne({ phone: formattedPhone });
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                message: "This phone number is already registered. Please login instead."
+            });
+        }
+
+        // Generate OTP
+        const otpCode = generateOTP();
+        
+        // Calculate expiry time
+        const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
+
+        // Store OTP in memory (you can also use a separate OTP model in production)
+        global.otpStore = global.otpStore || {};
+        
+        global.otpStore[formattedPhone] = {
+            code: otpCode,
+            expiresAt: expiresAt,
+            attempts: 0,
+            purpose: 'signup',
+            createdAt: new Date()
+        };
+
+        // Prepare SMS message in Bengali for better user experience
+        const message = `আপনার ভেরিফিকেশন কোড: ${otpCode}\nএই কোডটি ${OTP_CONFIG.EXPIRY_MINUTES} মিনিটের জন্য বৈধ।\n\nYour verification code is: ${otpCode}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`;
+
+        // Send SMS
+        const smsResult = await sendSMS(formattedPhone, message);
+
+        // For development/testing, always return success with OTP
+        if (process.env.NODE_ENV === 'development') {
+            return res.json({
+                success: true,
+                message: 'OTP sent successfully (Development Mode)',
+                data: {
+                    otp: otpCode, // Only in development
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+        if (smsResult.success) {
+            res.json({
+                success: true,
+                message: 'OTP sent successfully. Please check your phone.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        } else {
+            console.error('SMS sending failed but OTP saved:', smsResult.error);
+            res.json({
+                success: true,
+                message: 'OTP generated but SMS delivery failed. Please try again or use development mode.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone,
+                    devOtp: process.env.NODE_ENV === 'development' ? otpCode : undefined
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error("Request signup OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Request OTP for login
+Authrouter.post("/request-login-otp", async (req, res) => {
+    try {
+        const { phone } = req.body;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number is required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Check if user exists with this phone
+        const user = await User.findOne({ phone: formattedPhone });
+        
+        if (!user) {
+            // Don't reveal that user doesn't exist for security reasons
+            return res.json({
+                success: true,
+                message: "If this phone number is registered, you will receive an OTP"
+            });
+        }
+
+        // Generate OTP
+        const otpCode = generateOTP();
+        const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
+
+        // Store OTP in user record
+        user.otp = {
+            code: otpCode,
+            expiresAt: expiresAt,
+            purpose: 'login',
+            verified: false
+        };
+        
+        await user.save();
+
+        // Prepare SMS message
+        const message = `আপনার লগইন ভেরিফিকেশন কোড: ${otpCode}\nএই কোডটি ${OTP_CONFIG.EXPIRY_MINUTES} মিনিটের জন্য বৈধ।\n\nYour login verification code is: ${otpCode}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`;
+
+        // Send SMS
+        const smsResult = await sendSMS(formattedPhone, message);
+
+        // For development/testing
+        if (process.env.NODE_ENV === 'development') {
+            return res.json({
+                success: true,
+                message: 'OTP sent successfully (Development Mode)',
+                data: {
+                    otp: otpCode,
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+        if (smsResult.success) {
+            res.json({
+                success: true,
+                message: 'OTP sent successfully. Please check your phone.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        } else {
+            console.error('SMS sending failed but OTP saved:', smsResult.error);
+            res.json({
+                success: true,
+                message: 'OTP generated but SMS delivery failed. Please try again or contact support.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error("Request login OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Verify OTP and signup
+Authrouter.post("/verify-signup-otp", async (req, res) => {
+    try {
+        const { phone, otp, userData } = req.body;
+
+        if (!phone || !otp || !userData) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone, OTP, and user data are required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Check OTP from store
+        global.otpStore = global.otpStore || {};
+        const storedOTP = global.otpStore[formattedPhone];
+
+        if (!storedOTP) {
+            return res.status(400).json({
+                success: false,
+                message: "No OTP request found. Please request a new OTP."
+            });
+        }
+
+        if (storedOTP.purpose !== 'signup') {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP purpose. Please request a new OTP."
+            });
+        }
+
+        if (new Date() > new Date(storedOTP.expiresAt)) {
+            // Clear expired OTP
+            delete global.otpStore[formattedPhone];
+            return res.status(400).json({
+                success: false,
+                message: "OTP has expired. Please request a new one."
+            });
+        }
+
+        // Track attempts
+        storedOTP.attempts = (storedOTP.attempts || 0) + 1;
+        
+        if (storedOTP.attempts > OTP_CONFIG.MAX_ATTEMPTS) {
+            delete global.otpStore[formattedPhone];
+            return res.status(400).json({
+                success: false,
+                message: "Too many failed attempts. Please request a new OTP."
+            });
+        }
+
+        // Verify OTP
+        if (storedOTP.code !== otp.toString()) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid OTP. ${OTP_CONFIG.MAX_ATTEMPTS - storedOTP.attempts} attempts remaining.`
+            });
+        }
+
+        // Clear OTP after successful verification
+        delete global.otpStore[formattedPhone];
+
+        // Now create the user (use your existing user creation logic)
+        const { username, password, confirmPassword, fullName, email, referralCode, affiliateCode } = userData;
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const userAgent = req.get('User-Agent') || 'unknown';
+
+        // Validation checks
+        if (!username || !password || !confirmPassword) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Username, password, and confirm password are required" 
+            });
+        }
+
+        if (!/^[a-z0-9_]+$/.test(username)) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Username can only contain lowercase letters, numbers, and underscores." 
+            });
+        }
+
+        if (username.length < 3) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Username must be at least 3 characters long." 
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Password must be at least 6 characters long." 
+            });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ 
+                success: false,
+                message: "Passwords do not match." 
+            });
+        }
+
+        // Check if user already exists
+        const existingUser = await User.findOne({
+            $or: [{ username }, { phone: formattedPhone }, { email }]
+        });
+
+        if (existingUser) {
+            if (existingUser.username === username) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Username already exists." 
+                });
+            }
+            if (existingUser.phone === formattedPhone) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Phone number already registered." 
+                });
+            }
+            if (email && existingUser.email === email) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Email already registered." 
+                });
+            }
+        }
+
+        // Handle referrals
+        let referredBy = null;
+        if (referralCode) {
+            const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+            if (!referrer) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: "Invalid referral code" 
+                });
+            }
+            referredBy = referrer._id;
+        }
+
+        // Generate unique player_id
+        let player_id;
+        let isUnique = false;
+        
+        while (!isUnique) {
+            player_id = 'PL' + Math.random().toString(36).substr(2, 8).toUpperCase();
+            const existingPlayer = await User.findOne({ player_id });
+            if (!existingPlayer) {
+                isUnique = true;
+            }
+        }
+
+        // Create registration source tracking
+        const registrationSource = {
+            type: referredBy ? 'user_referral' : affiliateCode ? 'affiliate_referral' : 'direct',
+            source: 'website',
+            medium: 'organic',
+            campaign: 'signup',
+            userReferralCode: referralCode,
+            affiliateCode: affiliateCode,
+            landingPage: '/register',
+            ipAddress,
+            userAgent,
+            timestamp: new Date()
+        };
+
+        // Create new user
+        const newUser = new User({
+            phone: formattedPhone,
+            username,
+            password,
+            fullName,
+            email: email || null,
+            player_id,
+            referredBy,
+            registrationSource,
+            isPhoneVerified: true // Phone is verified via OTP
+        });
+
+        await newUser.save();
+
+        // Handle affiliate referral (use your existing affiliate logic)
+        let affiliateId = null;
+        if (affiliateCode) {
+            const affiliate = await Affiliate.findOne({ 
+                affiliateCode: affiliateCode.toUpperCase(),
+                status: 'active' 
+            });
+
+            if (affiliate) {
+                affiliateId = affiliate._id;
+                const registrationBonus = Number(affiliate.cpaRate) || 0;
+                
+                const validEarningsHistory = (affiliate.earningsHistory || []).filter(earning => 
+                    earning && earning.sourceAmount !== undefined
+                );
+                
+                const earningRecord = {
+                    amount: registrationBonus,
+                    type: 'registration_bonus',
+                    description: 'New user registration bonus',
+                    status: 'pending',
+                    referredUser: newUser._id,
+                    sourceId: newUser._id,
+                    sourceType: 'registration',
+                    commissionRate: 1,
+                    sourceAmount: registrationBonus,
+                    calculatedAmount: registrationBonus,
+                    earnedAt: new Date(),
+                    metadata: { currency: 'BDT' }
+                };
+                
+                validEarningsHistory.push(earningRecord);
+                
+                await Affiliate.findByIdAndUpdate(affiliate._id, {
+                    $set: { earningsHistory: validEarningsHistory },
+                    $inc: { 
+                        totalEarnings: registrationBonus,
+                        pendingEarnings: registrationBonus,
+                        referralCount: 1
+                    },
+                    $push: {
+                        referredUsers: {
+                            user: newUser._id,
+                            joinedAt: new Date(),
+                            earnedAmount: registrationBonus,
+                            userStatus: 'active',
+                            lastActivity: new Date()
+                        }
+                    }
+                });
+            }
+        }
+
+        // Handle user referral (use your existing logic)
+        if (referredBy) {
+            try {
+                await User.findByIdAndUpdate(referredBy, {
+                    $inc: { 
+                        referralCount: 1,
+                        referralEarnings: 50
+                    },
+                    $push: {
+                        referralUsers: {
+                            username: newUser.username,
+                            user: newUser._id,
+                            joinedAt: new Date(),
+                            earnedAmount: 50
+                        }
+                    }
+                });
+
+                await User.findByIdAndUpdate(referredBy, {
+                    $inc: { balance: 50 }
+                });
+
+            } catch (referralError) {
+                console.error('Error recording user referral:', referralError);
+            }
+        }
+
+        // Update login information
+        newUser.login_count = 1;
+        newUser.last_login = new Date();
+        newUser.first_login = false;
+        await newUser.save();
+
+        // Create login log
+        const { deviceType, browser, os } = getDeviceInfo(userAgent);
+        
+        const loginLog = new LoginLog({
+            userId: newUser._id,
+            username: newUser.username,
+            ipAddress,
+            userAgent,
+            deviceType,
+            browser,
+            os,
+            status: 'success'
+        });
+        
+        await loginLog.save();
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: newUser._id, username: newUser.username },
+            JWT_SECRET,
+            { expiresIn: "30d" }
+        );
+
+        res.status(201).json({
+            success: true,
+            message: "User created successfully",
+            token,
+            user: {
+                id: newUser._id,
+                player_id: newUser.player_id,
+                username: newUser.username,
+                email: newUser.email,
+                phone: newUser.phone,
+                currency: newUser.currency,
+                balance: newUser.balance,
+                referralCode: newUser.referralCode,
+                affiliateId: affiliateId,
+                first_login: newUser.first_login,
+                login_count: newUser.login_count,
+                last_login: newUser.last_login,
+                isPhoneVerified: true
+            }
+        });
+
+    } catch (error) {
+        console.error("Verify signup OTP error:", error);
+        res.status(500).json({ 
+            success: false,
+            message: "Internal server error" 
+        });
+    }
+});
+
+// Verify OTP and login
+Authrouter.post("/verify-login-otp", async (req, res) => {
+    try {
+        const { phone, otp } = req.body;
+
+        if (!phone || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone and OTP are required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Find user by phone
+        const user = await User.findOne({ phone: formattedPhone }).select("+password");
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found with this phone number"
+            });
+        }
+
+        // Check OTP
+        if (!user.otp || user.otp.purpose !== 'login') {
+            return res.status(400).json({
+                success: false,
+                message: "No login OTP request found. Please request a new OTP."
+            });
+        }
+
+        if (new Date() > new Date(user.otp.expiresAt)) {
+            return res.status(400).json({
+                success: false,
+                message: "OTP has expired. Please request a new one."
+            });
+        }
+
+        if (user.otp.code !== otp.toString()) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP. Please try again."
+            });
+        }
+
+        // Mark OTP as verified
+        user.otp.verified = true;
+        
+        // Update login info
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const userAgent = req.get('User-Agent') || 'unknown';
+        
+        user.login_count = (user.login_count || 0) + 1;
+        user.last_login = new Date();
+        user.first_login = false;
+        
+        await user.save();
+
+        // Create login log
+        const { deviceType, browser, os } = getDeviceInfo(userAgent);
+        
+        const loginLog = new LoginLog({
+            userId: user._id,
+            username: user.username,
+            ipAddress,
+            userAgent,
+            deviceType,
+            browser,
+            os,
+            status: 'success'
+        });
+        
+        await loginLog.save();
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id, username: user.username },
+            JWT_SECRET,
+            { expiresIn: "30d" }
+        );
+
+        res.json({
+            success: true,
+            message: "Login successful",
+            token,
+            user: {
+                id: user._id,
+                player_id: user.player_id,
+                username: user.username,
+                email: user.email,
+                phone: user.phone,
+                currency: user.currency,
+                balance: user.balance,
+                bonusBalance: user.bonusBalance,
+                referralCode: user.referralCode,
+                first_login: user.first_login,
+                login_count: user.login_count,
+                last_login: user.last_login,
+                isPhoneVerified: user.isPhoneVerified,
+                isEmailVerified: user.isEmailVerified,
+                kycStatus: user.kycStatus
+            }
+        });
+
+    } catch (error) {
+        console.error("Verify login OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Resend OTP for signup
+Authrouter.post("/resend-signup-otp", async (req, res) => {
+    try {
+        const { phone } = req.body;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number is required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Check cooldown
+        global.otpStore = global.otpStore || {};
+        const existingOTP = global.otpStore[formattedPhone];
+        
+        if (existingOTP) {
+            const timeSinceLastRequest = (new Date() - new Date(existingOTP.createdAt)) / 1000;
+            if (timeSinceLastRequest < OTP_CONFIG.RESEND_COOLDOWN_SECONDS) {
+                const waitSeconds = Math.ceil(OTP_CONFIG.RESEND_COOLDOWN_SECONDS - timeSinceLastRequest);
+                return res.status(429).json({
+                    success: false,
+                    message: `Please wait ${waitSeconds} seconds before requesting a new OTP`
+                });
+            }
+        }
+
+        // Generate new OTP
+        const otpCode = generateOTP();
+        const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
+
+        // Store new OTP
+        global.otpStore[formattedPhone] = {
+            code: otpCode,
+            expiresAt: expiresAt,
+            attempts: 0,
+            purpose: 'signup',
+            createdAt: new Date()
+        };
+
+        // Send SMS
+        const message = `আপনার নতুন ভেরিফিকেশন কোড: ${otpCode}\nএই কোডটি ${OTP_CONFIG.EXPIRY_MINUTES} মিনিটের জন্য বৈধ।\n\nYour new verification code is: ${otpCode}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`;
+        
+        const smsResult = await sendSMS(formattedPhone, message);
+
+        if (process.env.NODE_ENV === 'development') {
+            return res.json({
+                success: true,
+                message: 'OTP resent successfully (Development Mode)',
+                data: {
+                    otp: otpCode,
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+        if (smsResult.success) {
+            res.json({
+                success: true,
+                message: 'OTP resent successfully. Please check your phone.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'OTP regenerated but SMS delivery failed. Please try again.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error("Resend signup OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Request OTP for password reset
+Authrouter.post("/request-password-reset-otp", async (req, res) => {
+    try {
+        const { phone } = req.body;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number is required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Find user by phone
+        const user = await User.findOne({ phone: formattedPhone });
+
+        if (!user) {
+            // Don't reveal that user doesn't exist for security
+            return res.json({
+                success: true,
+                message: "If this phone number is registered, you will receive an OTP"
+            });
+        }
+
+        // Generate OTP
+        const otpCode = generateOTP();
+        const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
+
+        // Store OTP in user record
+        user.otp = {
+            code: otpCode,
+            expiresAt: expiresAt,
+            purpose: 'password_reset',
+            verified: false
+        };
+        
+        await user.save();
+
+        // Send SMS
+        const message = `আপনার পাসওয়ার্ড রিসেট কোড: ${otpCode}\nএই কোডটি ${OTP_CONFIG.EXPIRY_MINUTES} মিনিটের জন্য বৈধ।\n\nYour password reset code is: ${otpCode}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`;
+        
+        await sendSMS(formattedPhone, message);
+
+        res.json({
+            success: true,
+            message: "If this phone number is registered, you will receive an OTP",
+            data: process.env.NODE_ENV === 'development' ? { otp: otpCode } : undefined
+        });
+
+    } catch (error) {
+        console.error("Request password reset OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Verify OTP and reset password
+Authrouter.post("/reset-password-with-otp", async (req, res) => {
+    try {
+        const { phone, otp, newPassword, confirmPassword } = req.body;
+
+        if (!phone || !otp || !newPassword || !confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone, OTP, new password, and confirm password are required"
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Passwords do not match"
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters long"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+
+        // Find user by phone
+        const user = await User.findOne({ phone: formattedPhone }).select('+password');
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // Check OTP
+        if (!user.otp || user.otp.purpose !== 'password_reset') {
+            return res.status(400).json({
+                success: false,
+                message: "No password reset request found. Please request a new OTP."
+            });
+        }
+
+        if (new Date() > new Date(user.otp.expiresAt)) {
+            return res.status(400).json({
+                success: false,
+                message: "OTP has expired. Please request a new one."
+            });
+        }
+
+        if (user.otp.code !== otp.toString()) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP. Please try again."
+            });
+        }
+
+        // Update password
+        user.password = newPassword;
+        user.otp.verified = true;
+        
+        await user.save();
+
+        res.json({
+            success: true,
+            message: "Password reset successfully. You can now login with your new password."
+        });
+
+    } catch (error) {
+        console.error("Reset password with OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
 // Affiliate Registration Route
 Authrouter.post("/affiliate/register", async (req, res) => {
   try {
@@ -1096,5 +2064,9 @@ Authrouter.post("/login", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
+
+
 
 module.exports = Authrouter;

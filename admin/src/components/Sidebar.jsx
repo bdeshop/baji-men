@@ -456,6 +456,7 @@ const Sidebar = ({ isOpen }) => {
             { to: '/social-address/social-links', text: 'All Social Links' },
           ],
         },
+        
       ].map(({ label, icon, key, links, count: menuCount }) => (
         <div key={key} className="mb-2">
           <div
@@ -514,7 +515,23 @@ const Sidebar = ({ isOpen }) => {
           </div>
         </div>
       ))}
-
+      <div className="mb-3">
+        <NavLink
+          to="/admin-profile"
+          className={({ isActive }) =>
+            `flex items-center justify-between w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 group ${
+              isActive
+                ? 'bg-orange-700 text-white font-semibold shadow-lg shadow-orange-900/30'
+                : 'hover:bg-orange-800/40 hover:text-white text-orange-400 hover:translate-x-1'
+            }`
+          }
+        >
+          <span className="flex items-center gap-3">
+            <FiUsers className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
+            Admin Profile
+          </span>
+        </NavLink>
+      </div>
       {/* Support Section */}
       <div className="mt-8 pt-4 border-t border-gray-700">
         <NavLink
