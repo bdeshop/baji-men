@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle } from "react-icons/fa";
+import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
@@ -15,6 +15,13 @@ const Newgames = () => {
   const [selectedProvider, setSelectedProvider] = useState("");
   const [games, setGames] = useState([]);
   const [filteredGames, setFilteredGames] = useState([]);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [gamesPerPage] = useState(30);
+  const [paginatedGames, setPaginatedGames] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
+  
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,6 +59,7 @@ const Newgames = () => {
   const api = axios.create({
     baseURL: base_url,
     timeout: 30000,
+        headers: { 'Content-Type': 'multipart/form-data',"Authorization":localStorage.getItem("adminToken") }
   });
 
   const oracleApi = axios.create({
@@ -196,13 +204,19 @@ const Newgames = () => {
       <input
         type="text"
         value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+        onChange={(e) => {
+          setSearchTerm(e.target.value);
+          setCurrentPage(1); // Reset to first page on search
+        }}
         placeholder="Search games by name..."
         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
       />
       {searchTerm && (
         <button
-          onClick={() => setSearchTerm("")}
+          onClick={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
+          }}
           className="absolute inset-y-0 right-0 pr-3 flex items-center"
         >
           <FaTimes className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -211,6 +225,85 @@ const Newgames = () => {
     </div>
   );
 
+  // Pagination Component
+  const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+    const getPageNumbers = () => {
+      const delta = 2;
+      const range = [];
+      const rangeWithDots = [];
+      let l;
+
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+          range.push(i);
+        }
+      }
+
+      range.forEach((i) => {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (i - l !== 1) {
+            rangeWithDots.push('...');
+          }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      });
+
+      return rangeWithDots;
+    };
+
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-center space-x-2 mt-8">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`p-2 rounded-lg border transition-all duration-200 ${
+            currentPage === 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+              : 'bg-white text-gray-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 border-gray-300'
+          }`}
+        >
+          <FaChevronLeft className="w-4 h-4" />
+        </button>
+
+        <div className="flex items-center space-x-1">
+          {getPageNumbers().map((page, index) => (
+            <button
+              key={index}
+              onClick={() => typeof page === 'number' && onPageChange(page)}
+              disabled={page === '...'}
+              className={`min-w-[40px] h-10 px-3 rounded-lg font-medium transition-all duration-200 ${
+                page === currentPage
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : page === '...'
+                  ? 'cursor-default text-gray-600'
+                  : 'bg-white text-gray-700 hover:bg-orange-50 hover:text-orange-600 border border-gray-300'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded-lg border transition-all duration-200 ${
+            currentPage === totalPages
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+              : 'bg-white text-gray-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 border-gray-300'
+          }`}
+        >
+          <FaChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  };
+
   // Function to filter games based on search term
   const filterGamesBySearch = (gamesList, term) => {
     if (!term.trim()) return gamesList;
@@ -218,9 +311,19 @@ const Newgames = () => {
     const searchTermLower = term.toLowerCase();
     return gamesList.filter(game => 
       game.gameName?.toLowerCase().includes(searchTermLower) ||
+      game.name?.toLowerCase().includes(searchTermLower) ||
       (game.provider?.providerName?.toLowerCase().includes(searchTermLower) || false)
     );
   };
+
+  // Update paginated games when filtered games or current page changes
+  useEffect(() => {
+    const indexOfLastGame = currentPage * gamesPerPage;
+    const indexOfFirstGame = indexOfLastGame - gamesPerPage;
+    const currentGames = filteredGames.slice(indexOfFirstGame, indexOfLastGame);
+    setPaginatedGames(currentGames);
+    setTotalPages(Math.ceil(filteredGames.length / gamesPerPage));
+  }, [filteredGames, currentPage, gamesPerPage]);
 
   // Fetch categories from local API
   useEffect(() => {
@@ -320,6 +423,7 @@ const Newgames = () => {
       setGames([]);
       setFilteredGames([]);
       setSearchTerm("");
+      setCurrentPage(1);
       return;
     }
 
@@ -330,6 +434,7 @@ const Newgames = () => {
       setEditingGame(null);
       setSelectedGames(new Set());
       setSelectAll(false);
+      setCurrentPage(1); // Reset to first page when provider changes
       
       try {
         const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
@@ -433,6 +538,7 @@ const Newgames = () => {
     // Clear selections when search changes
     setSelectedGames(new Set());
     setSelectAll(false);
+    setCurrentPage(1); // Reset to first page when search changes
   }, [games, searchTerm]);
 
   // Update category for all games when selected category changes
@@ -944,6 +1050,15 @@ const Newgames = () => {
     return game && !game.isSaved;
   }).length;
 
+  // Page change handler
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    // Scroll to top of games grid
+    setTimeout(() => {
+      document.getElementById('games-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
   return (
     <section className="font-nunito min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Header toggleSidebar={toggleSidebar} />
@@ -1021,7 +1136,7 @@ const Newgames = () => {
 
             {/* Selection and Action Bar */}
             {!loadingGames && filteredGames.length > 0 && (
-              <div className="mb-6 bg-white rounded-xl  border border-gray-200 overflow-hidden">
+              <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="p-4 bg-gradient-to-r from-orange-50 to-white border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center space-x-4">
@@ -1106,7 +1221,7 @@ const Newgames = () => {
 
             {/* Games Grid */}
             {!loadingGames && filteredGames.length > 0 && (
-              <div>
+              <div id="games-grid">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-800">
@@ -1119,7 +1234,7 @@ const Newgames = () => {
                         </>
                       ) : (
                         <>
-                          Showing <span className="font-semibold text-orange-600">{filteredGames.length}</span> game{filteredGames.length === 1 ? '' : 's'} from {selectedProviderName}
+                          Showing <span className="font-semibold text-orange-600">{paginatedGames.length}</span> of <span className="font-semibold">{filteredGames.length}</span> games from {selectedProviderName}
                           <span className="ml-2 text-sm">
                             (<span className="text-green-600">{filteredGames.filter(g => g.isSaved).length} saved</span> • 
                             <span className="text-orange-600"> {unsavedGamesCount} new</span>)
@@ -1137,11 +1252,18 @@ const Newgames = () => {
                         Clear Search
                       </button>
                     )}
+                    
+                    {/* Page Info */}
+                    {!searchTerm && (
+                      <div className="text-sm text-gray-600">
+                        Page {currentPage} of {totalPages}
+                      </div>
+                    )}
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredGames.map((game) => (
+                  {paginatedGames.map((game) => (
                     <div
                       id={`game-${game._id}`}
                       key={game._id}
@@ -1167,7 +1289,7 @@ const Newgames = () => {
                             {selectedGames.has(game._id) ? (
                               <FaCheck className="w-4 h-4" />
                             ) : (
-                         <FaCheck className="w-4 h-4" />
+                              <FaCheck className="w-4 h-4 opacity-0" />
                             )}
                           </button>
                         </div>
@@ -1436,6 +1558,13 @@ const Newgames = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
               </div>
             )}
 
@@ -1671,8 +1800,6 @@ const Newgames = () => {
                       description="Launch games in full screen"
                     />
                   </div>
-
-       
 
                   {/* Progress Bar */}
                   {bulkSaving && (

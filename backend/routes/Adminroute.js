@@ -13,7 +13,6 @@ const GameProvider = require("../models/GameProvider");
 const {User} = require("../models/User");
 const mongoose=require("mongoose")
 const jwt=require("jsonwebtoken")
-const JWT_SECRET = "BAJI@";
 // Middleware to check if user is authenticated as admin
 // Middleware to check if user is authenticated as admin
 const adminAuth = async (req, res, next) => {
@@ -26,7 +25,7 @@ const adminAuth = async (req, res, next) => {
     }
 
     // Verify token (assuming you're using JWT)
-    const decoded = jwt.verify(token,JWT_SECRET);
+    const decoded = jwt.verify(token,process.env.JWT_SECRET);
     
     // Find admin by id
     const admin = await Admin.findById(decoded.id).select('-password');
@@ -287,9 +286,6 @@ const uploadPromotional = multer({
   },
   fileFilter: fileFilter,
 });
-
-// Apply admin authentication middleware to all routes
-Adminrouter.use(adminAuth);
 // ==================== COMPREHENSIVE DASHBOARD ROUTE ====================
 
 // GET comprehensive dashboard data

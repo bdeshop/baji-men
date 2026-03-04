@@ -2,7 +2,6 @@ const express = require("express");
 const Adminauth = express.Router();
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
-const JWT_SECRET = "BAJI@";
 const bcrypt = require("bcryptjs");
 // Signup route
 Adminauth.post("/signup", async (req, res) => {
@@ -20,7 +19,7 @@ Adminauth.post("/signup", async (req, res) => {
     await admin.save();
 
     // Generate JWT token
-    const token = jwt.sign({ id: admin._id }, JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
     res.status(201).json({
       message: "Admin created successfully",
@@ -54,7 +53,7 @@ Adminauth.post("/login", async (req, res) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ id: admin._id }, JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
     res.json({
       message: "Login successful",
