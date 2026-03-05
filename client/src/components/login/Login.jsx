@@ -14,6 +14,10 @@ export default function Login() {
   const [referralCode, setReferralCode] = useState("");
   const [affiliateCode, setAffiliateCode] = useState("");
   
+  // Login specific state
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  
   // OTP state with 6 separate digits
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const [otpSent, setOtpSent] = useState(false);
@@ -508,7 +512,65 @@ export default function Login() {
     }
   };
 
-  // Request OTP for login
+  // ============ NEW LOGIN FUNCTION WITH USERNAME/PASSWORD ============
+  const handleUsernamePasswordLogin = async (e) => {
+    e.preventDefault();
+    
+    // Validate inputs
+    if (!loginUsername) {
+      setLoginError("Username is required.");
+      return;
+    }
+    
+    if (!loginPassword) {
+      setLoginError("Password is required.");
+      return;
+    }
+
+    setIsLoading(true);
+    setLoginError("");
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+        username: loginUsername,
+        password: loginPassword
+      });
+
+      if (response.data.success) {
+        toast.success('Login successful!', {
+          position: "top-right",
+          autoClose: 3000,
+        });
+
+        // Store token in localStorage
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('usertoken', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+
+        // Redirect to home page
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+      } else {
+        toast.error(response.data.error || response.data.message || 'Login failed');
+        setLoginError(response.data.error || response.data.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Login failed. Please check your credentials.';
+      setLoginError(errorMessage);
+      
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // ============ END OF NEW LOGIN FUNCTION ============
+
+  // Request OTP for login (keeping for backward compatibility or if you want both options)
   const requestLoginOTP = async () => {
     if (!phone) {
       setLoginError("Phone number is required.");
@@ -566,7 +628,7 @@ export default function Login() {
     }
   };
 
-  // Verify OTP and login
+  // Verify OTP and login (keeping for backward compatibility)
   const verifyLoginOTP = async (e) => {
     e.preventDefault();
 
@@ -604,6 +666,7 @@ export default function Login() {
 
         // Store token in localStorage
         localStorage.setItem('token', response.data.token);
+        localStorage.setItem('usertoken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
 
         // Redirect to home page
@@ -640,17 +703,10 @@ export default function Login() {
     }
   };
 
-  // Handle login form submission
+  // Handle login form submission - UPDATED to use username/password
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!otpSent) {
-      // First step: request OTP
-      await requestLoginOTP();
-    } else {
-      // Second step: verify OTP
-      await verifyLoginOTP(e);
-    }
+    await handleUsernamePasswordLogin(e);
   };
 
   // Cancel OTP verification and go back
@@ -716,6 +772,9 @@ export default function Login() {
                   setOtpSent(false);
                   setOtpDigits(["", "", "", "", "", ""]);
                   setOtpError("");
+                  setLoginError("");
+                  setLoginUsername("");
+                  setLoginPassword("");
                 }} 
                 className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${!isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
@@ -727,6 +786,7 @@ export default function Login() {
                   setOtpSent(false);
                   setOtpDigits(["", "", "", "", "", ""]);
                   setOtpError("");
+                  setSignupError("");
                 }} 
                 className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
@@ -945,97 +1005,64 @@ export default function Login() {
                   {signupError && !otpSent && <p className="text-red-400 text-xs mt-3 text-center">{signupError}</p>}
                 </form>
               ) : (
-                /* Login Form */
+                /* Login Form - UPDATED with Username/Password */
                 <form onSubmit={handleLoginSubmit}>
-                  {/* Phone Number Input for Login */}
+                  {/* Username Input for Login */}
                   <div className="mb-4">
-                    <label htmlFor="loginPhone" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Phone number</label>
+                    <label htmlFor="loginUsername" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Username</label>
                     <div className="flex items-stretch bg-[#222424] overflow-hidden hover:border-gray-600 transition-colors">
-                      <div className="flex items-center px-2 md:px-3 rounded-l border-r border-gray-700">
-                        <img src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/flag-type/BD.png?v=1754999737902&source=drccdnsrc" alt="Bangladesh Flag" className="w-5 h-5 md:w-6 md:h-6 mr-1 md:mr-2 rounded-full" />
-                        <span className="text-white text-sm md:text-base font-[300]">+880</span>
+                      <div className="flex items-center px-3 rounded-l border-r border-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
                       </div>
                       <div className="flex items-center flex-grow pl-2 md:pl-3">
                         <input
-                          type="tel"
-                          id="loginPhone"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                          type="text"
+                          id="loginUsername"
+                          value={loginUsername}
+                          onChange={(e) => setLoginUsername(e.target.value)}
                           className="w-full py-2 md:py-3.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
-                          placeholder="Enter phone number"
-                          disabled={isLoading || otpSent}
+                          placeholder="Enter your username"
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* OTP Section for Login - Show only when OTP is sent */}
-                  {otpSent && (
-                    <div className="mb-6 p-5 bg-[#1a1c1d] rounded-lg border border-gray-700">
-                      <label className="block text-sm md:text-sm text-gray-200 mb-4 font-[300] text-center">
-                        Enter 6-digit OTP sent to +880{phone}
-                      </label>
-                      
-                      {/* 6-digit OTP Input Fields */}
-                      <div className="flex justify-between gap-2 mb-4" onPaste={handleOtpPaste}>
-                        {otpDigits.map((digit, index) => (
-                          <input
-                            key={index}
-                            ref={otpRefs[index]}
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={1}
-                            value={digit}
-                            onChange={(e) => handleOtpChange(index, e.target.value)}
-                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                            className="w-12 h-12 md:w-14 md:h-14 bg-[#222424] text-white text-center text-xl font-bold rounded-lg border border-gray-600 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-                            disabled={isLoading}
-                          />
-                        ))}
+                  {/* Password Input for Login */}
+                  <div className="mb-4">
+                    <label htmlFor="loginPassword" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Password</label>
+                    <div className="flex items-stretch bg-[#222424] overflow-hidden hover:border-gray-600 transition-colors">
+                      <div className="flex items-center px-3 rounded-l border-r border-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
                       </div>
-                      
-                      {loginError && <p className="text-red-400 text-xs mb-3 text-center">{loginError}</p>}
-                      
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm text-gray-400">
-                          {timeLeft > 0 ? (
-                            <span>Expires in: <span className="text-yellow-400 font-mono">{formatTimeLeft(timeLeft)}</span></span>
-                          ) : (
-                            <span className="text-red-400">OTP expired</span>
-                          )}
-                        </div>
-                        
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={cancelOTPVerification}
-                            className="text-sm text-gray-400 hover:text-white px-3 py-1 border border-gray-600 rounded hover:border-gray-500 transition-colors"
-                          >
-                            Back
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={requestLoginOTP}
-                            disabled={!canResend || isLoading}
-                            className={`text-sm px-3 py-1 rounded transition-colors ${
-                              canResend 
-                                ? 'text-green-400 hover:text-green-300 border border-green-800 hover:border-green-600' 
-                                : 'text-gray-600 border border-gray-700 cursor-not-allowed'
-                            }`}
-                          >
-                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
-                          </button>
-                        </div>
+                      <div className="flex items-center flex-grow pl-2 md:pl-3">
+                        <input
+                          type="password"
+                          id="loginPassword"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          className="w-full py-2 md:py-3.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
+                          placeholder="Enter your password"
+                          disabled={isLoading}
+                        />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Error Message */}
+                  {loginError && (
+                    <p className="text-red-400 text-xs mb-3 text-center">{loginError}</p>
                   )}
 
                   {/* Login Button */}
                   <button
                     type="submit"
                     className="w-full py-3 md:py-4 bg-[#0C4D38] cursor-pointer text-white text-sm font-[500] mt-2 shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isLoading || (otpSent && getFullOtp().length !== 6)}
+                    disabled={isLoading}
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">
@@ -1043,17 +1070,17 @@ export default function Login() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {otpSent ? 'Verifying OTP...' : 'Sending OTP...'}
+                        Logging in...
                       </span>
-                    ) : otpSent ? 'Verify OTP & Login' : 'Send OTP'}
+                    ) : 'Login'}
                   </button>
 
-                  {/* Additional Links */}
-                  {/* <div className="mt-4 text-center">
+                  {/* Forgot Password Link */}
+                  <div className="mt-4 text-right">
                     <NavLink to="/forgot-password" className="text-xs md:text-sm text-green-400 hover:text-green-300 hover:underline transition-colors">
                       Forgot password?
                     </NavLink>
-                  </div> */}
+                  </div>
 
                   <div className="mt-4 text-center">
                     <p className="text-gray-400 text-xs">
@@ -1064,6 +1091,9 @@ export default function Login() {
                           setIsSignUpActive(true);
                           setOtpSent(false);
                           setOtpDigits(["", "", "", "", "", ""]);
+                          setLoginUsername("");
+                          setLoginPassword("");
+                          setLoginError("");
                         }}
                         className="text-green-400 hover:text-green-300 font-medium hover:underline transition-colors"
                       >

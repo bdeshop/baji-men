@@ -325,6 +325,19 @@ const Newgames = () => {
     setTotalPages(Math.ceil(filteredGames.length / gamesPerPage));
   }, [filteredGames, currentPage, gamesPerPage]);
 
+  // Reset select all when page changes
+  useEffect(() => {
+    // Check if all items on current page are selected
+    const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
+    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game._id)).length;
+    
+    if (currentPageUnsavedGames.length > 0) {
+      setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length);
+    } else {
+      setSelectAll(false);
+    }
+  }, [paginatedGames, selectedGames]);
+
   // Fetch categories from local API
   useEffect(() => {
     const fetchCategories = async () => {
@@ -562,18 +575,35 @@ const Newgames = () => {
       newSelected.add(gameId);
     }
     setSelectedGames(newSelected);
-    setSelectAll(newSelected.size === filteredGames.filter(g => !g.isSaved).length);
+    
+    // Check if all unsaved games on current page are selected
+    const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
+    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game._id)).length;
+    setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
   };
 
   const toggleSelectAll = () => {
     if (selectAll) {
-      setSelectedGames(new Set());
-    } else {
-      const unsavedGames = filteredGames.filter(game => !game.isSaved);
-      const newSelected = new Set(unsavedGames.map(game => game._id));
+      // Deselect all games on current page
+      const newSelected = new Set(selectedGames);
+      paginatedGames.forEach(game => {
+        if (!game.isSaved) {
+          newSelected.delete(game._id);
+        }
+      });
       setSelectedGames(newSelected);
+      setSelectAll(false);
+    } else {
+      // Select all unsaved games on current page
+      const newSelected = new Set(selectedGames);
+      paginatedGames.forEach(game => {
+        if (!game.isSaved) {
+          newSelected.add(game._id);
+        }
+      });
+      setSelectedGames(newSelected);
+      setSelectAll(true);
     }
-    setSelectAll(!selectAll);
   };
 
   const clearSelections = () => {
@@ -1050,6 +1080,10 @@ const Newgames = () => {
     return game && !game.isSaved;
   }).length;
 
+  // Get current page unsaved games count
+  const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
+  const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game._id)).length;
+
   // Page change handler
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -1143,7 +1177,7 @@ const Newgames = () => {
                       <button
                         onClick={toggleSelectAll}
                         className="flex items-center space-x-2 text-gray-700 hover:text-orange-600 transition-colors"
-                        disabled={unsavedGamesCount === 0}
+                        disabled={currentPageUnsavedGames.length === 0}
                       >
                         {selectAll ? (
                           <FaCheckCircle className="text-orange-500 text-xl" />
@@ -1151,19 +1185,19 @@ const Newgames = () => {
                           <FaRegCircle className="text-gray-400 text-xl" />
                         )}
                         <span className="font-medium">
-                          {selectAll ? 'Deselect All' : 'Select All'}
+                          {selectAll ? 'Deselect All on Page' : 'Select All on Page'}
                         </span>
                       </button>
                       {selectedGames.size > 0 && (
                         <>
                           <span className="text-sm text-gray-600">
-                            {selectedUnsavedCount} of {unsavedGamesCount} unsaved games selected
+                            {currentPageSelectedCount} of {currentPageUnsavedGames.length} on this page • {selectedUnsavedCount} total selected
                           </span>
                           <button
                             onClick={clearSelections}
                             className="text-sm text-red-600 hover:text-red-800 transition-colors"
                           >
-                            Clear
+                            Clear All
                           </button>
                         </>
                       )}
@@ -1196,10 +1230,10 @@ const Newgames = () => {
                 {selectedGames.size > 0 && (
                   <div className="px-4 py-2 bg-blue-50 text-sm text-blue-700 flex items-center">
                     <FaCheckCircle className="mr-2 text-blue-500" />
-                    {selectedUnsavedCount} games ready to be added
-                    {selectedUnsavedCount !== selectedGames.size && (
+                    {selectedUnsavedCount} unsaved games selected total
+                    {currentPageSelectedCount > 0 && (
                       <span className="ml-1 text-blue-500">
-                        ({selectedGames.size - selectedUnsavedCount} saved games excluded)
+                        ({currentPageSelectedCount} on current page)
                       </span>
                     )}
                   </div>

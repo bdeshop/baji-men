@@ -102,7 +102,8 @@ const OTP_CONFIG = {
     MAX_ATTEMPTS: 3,
     RESEND_COOLDOWN_SECONDS: 60,
     SENDER_ID:'8809617611338',
-    API_BASE_URL:'https://xend.positiveapi.com/api/v3'
+    API_BASE_URL:'https://xend.positiveapi.com/api/v3',
+    TOKEN:"419|xFSHHY3vGlHDNE3XFijfExhQBpWsC64VsL51BYPO"
 };
 
 // Helper function to generate OTP
@@ -136,6 +137,7 @@ function formatBangladeshPhone(phone) {
 }
 
 // Helper function to send SMS via Xend API
+// Helper function to send SMS via Xend API
 async function sendSMS(phoneNumber, message) {
     try {
         // Format phone number for API (remove + and ensure 880 format)
@@ -147,16 +149,25 @@ async function sendSMS(phoneNumber, message) {
         }
         
         const url = `${OTP_CONFIG.API_BASE_URL}/sms/send`;
-        const params = new URLSearchParams({
+        
+        // Prepare the request body
+        const requestBody = {
             recipient: apiPhone,
             sender_id: OTP_CONFIG.SENDER_ID,
             message: message
-        });
+        };
 
         console.log(`Sending SMS to ${apiPhone}: ${message.substring(0, 20)}...`);
 
-        const response = await axios.get(`${url}?${params.toString()}`);
+        // Make POST request with Authorization header
+        const response = await axios.post(url, requestBody, {
+            headers: {
+                'Authorization': `Bearer ${OTP_CONFIG.TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        });
         
+        // Check response status
         if (response.data && response.data.status === 'success') {
             return { success: true, data: response.data };
         } else {
@@ -2008,26 +2019,31 @@ Authrouter.get("/affiliate-stats", async (req, res) => {
   }
 });
 
-// Login route
+// Login route - Complete version
 Authrouter.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.get('User-Agent') || 'unknown';
 
+    // Validation
     if (!username || !password) {
-      return res.status(400).json({ error: "Username and password are required" });
+      return res.status(400).json({ 
+        success: false,
+        error: "Username and password are required" 
+      });
     }
 
+    // Find user by username and explicitly select password field
     const user = await User.findOne({ username }).select("+password");
     
     const { deviceType, browser, os } = getDeviceInfo(userAgent);
 
-    // Check if user exists first
+    // Check if user exists
     if (!user) {
       // Create failed login log without userId
       const loginLog = new LoginLog({
-        userId: null, // This will still fail if schema requires it
+        userId: null,
         username,
         ipAddress,
         userAgent,
@@ -2039,10 +2055,87 @@ Authrouter.post("/login", async (req, res) => {
       });
       
       await loginLog.save();
-      return res.status(401).json({ error: "Email Or Password is wrong!" });
+      
+      return res.status(401).json({ 
+        success: false,
+        error: "Invalid username or password" 
+      });
     }
 
-    // User exists, create login log with userId
+    // Check if user is active
+    if (user.status !== 'active') {
+      // Create failed login log
+      const loginLog = new LoginLog({
+        userId: user._id,
+        username,
+        ipAddress,
+        userAgent,
+        deviceType,
+        browser,
+        os,
+        status: 'failed',
+        failureReason: `account_${user.status}`
+      });
+      
+      await loginLog.save();
+      
+      return res.status(403).json({ 
+        success: false,
+        error: `Your account is ${user.status}. Please contact support.` 
+      });
+    }
+
+    // Verify password using the method from your User model
+    const isPasswordValid = await user.verifyPassword(password);
+    
+    if (!isPasswordValid) {
+      // Create failed login log
+      const loginLog = new LoginLog({
+        userId: user._id,
+        username,
+        ipAddress,
+        userAgent,
+        deviceType,
+        browser,
+        os,
+        status: 'failed',
+        failureReason: 'invalid_password'
+      });
+      
+      await loginLog.save();
+      
+      return res.status(401).json({ 
+        success: false,
+        error: "Invalid username or password" 
+      });
+    }
+
+    // Update user login information
+    user.login_count = (user.login_count || 0) + 1;
+    user.last_login = new Date();
+    user.first_login = false;
+    
+    // Add login history
+    if (!user.loginHistory) {
+      user.loginHistory = [];
+    }
+    
+    user.loginHistory.push({
+      ipAddress,
+      device: deviceType,
+      userAgent,
+      location: 'Unknown', // You can add IP geolocation later
+      timestamp: new Date()
+    });
+    
+    // Keep only last 10 login history entries
+    if (user.loginHistory.length > 10) {
+      user.loginHistory = user.loginHistory.slice(-10);
+    }
+    
+    await user.save();
+
+    // Create successful login log
     const loginLog = new LoginLog({
       userId: user._id,
       username,
@@ -2057,16 +2150,69 @@ Authrouter.post("/login", async (req, res) => {
     
     await loginLog.save();
 
-    // Rest of your login logic...
-    
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        username: user.username,
+        role: user.role 
+      },
+      JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    // Return success response with user data (excluding sensitive information)
+    res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        player_id: user.player_id,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        currency: user.currency,
+        balance: user.balance,
+        bonusBalance: user.bonusBalance,
+        total_deposit: user.total_deposit,
+        total_withdraw: user.total_withdraw,
+        total_bet: user.total_bet,
+        total_wins: user.total_wins,
+        referralCode: user.referralCode,
+        role: user.role,
+        status: user.status,
+        first_login: user.first_login,
+        login_count: user.login_count,
+        last_login: user.last_login,
+        isPhoneVerified: user.isPhoneVerified,
+        isEmailVerified: user.isEmailVerified,
+        kycStatus: user.kycStatus,
+        language: user.language,
+        themePreference: user.themePreference,
+        avatar: user.avatar,
+        // Virtual fields
+        accountAgeInDays: user.accountAgeInDays,
+        isNewUser: user.isNewUser,
+        availableBalance: user.availableBalance,
+        withdrawableAmount: user.withdrawableAmount,
+        wageringStatus: user.wageringStatus,
+        isAffiliateReferred: user.isAffiliateReferred,
+        // Bonus offers if applicable
+        availableBonuses: user.getAvailableBonusOffers ? user.getAvailableBonusOffers() : []
+      }
+    });
+
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    
+    // Log the error but don't expose internal details
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error during login" 
+    });
   }
 });
-
-
-
 
 
 module.exports = Authrouter;
