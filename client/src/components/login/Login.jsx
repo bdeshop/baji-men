@@ -43,7 +43,7 @@ export default function Login() {
   const [otpError, setOtpError] = useState("");
   const [referralError, setReferralError] = useState("");
   
-  const [isSignUpActive, setIsSignUpActive] = useState(false);
+  const [isSignUpActive, setIsSignUpActive] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingReferral, setIsCheckingReferral] = useState(false);
   const [referralValid, setReferralValid] = useState(false);

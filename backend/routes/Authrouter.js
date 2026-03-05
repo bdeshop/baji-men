@@ -992,7 +992,419 @@ Authrouter.post("/request-password-reset-otp", async (req, res) => {
         });
     }
 });
+// Update the request-otp route - replace the existing one
+Authrouter.post("/forgot-password/request-otp", async (req, res) => {
+    try {
+        const { phone } = req.body;
 
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number is required"
+            });
+        }
+
+        // Format phone number for Bangladesh
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number. Please use a valid 11-digit number starting with 01"
+            });
+        }
+
+        // Check if user exists with this phone
+        const user = await User.findOne({ phone: formattedPhone });
+        
+        if (!user) {
+            // For security, don't reveal that user doesn't exist
+            return res.json({
+                success: true,
+                message: "If this phone number is registered, you will receive an OTP"
+            });
+        }
+
+        // Generate OTP
+        const otpCode = generateOTP();
+        const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
+
+        // Store OTP in the EXISTING otp field (not resetPasswordOTP)
+        user.otp = {
+            code: otpCode,
+            expiresAt: expiresAt,
+            purpose: 'password_reset', // Change purpose to password_reset
+            verified: false,
+            attempts: 0,
+            createdAt: new Date()
+        };
+        
+        await user.save();
+
+        // Prepare SMS message
+        const message = `আপনার পাসওয়ার্ড রিসেট কোড: ${otpCode}\nএই কোডটি ${OTP_CONFIG.EXPIRY_MINUTES} মিনিটের জন্য বৈধ।\n\nYour password reset code is: ${otpCode}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`;
+
+        // Send SMS
+        const smsResult = await sendSMS(formattedPhone, message);
+
+        // For development/testing
+        if (process.env.NODE_ENV === 'development') {
+            return res.json({
+                success: true,
+                message: 'OTP sent successfully (Development Mode)',
+                data: {
+                    otp: otpCode,
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+        if (smsResult.success) {
+            res.json({
+                success: true,
+                message: 'OTP sent successfully. Please check your phone.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        } else {
+            console.error('SMS sending failed but OTP saved:', smsResult.error);
+            res.json({
+                success: true,
+                message: 'OTP generated but SMS delivery failed. Please try again or contact support.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone,
+                    devOtp: process.env.NODE_ENV === 'development' ? otpCode : undefined
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error("Request password reset OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Update verify-otp route
+Authrouter.post("/forgot-password/verify-otp", async (req, res) => {
+    try {
+        const { phone, otp } = req.body;
+
+        if (!phone || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number and OTP are required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Find user by phone
+        const user = await User.findOne({ phone: formattedPhone });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found with this phone number"
+            });
+        }
+
+        // Check if OTP exists in the otp field
+        if (!user.otp || user.otp.purpose !== 'password_reset') {
+            return res.status(400).json({
+                success: false,
+                message: "No password reset request found. Please request a new OTP."
+            });
+        }
+
+        // Track attempts
+        user.otp.attempts = (user.otp.attempts || 0) + 1;
+        
+        if (user.otp.attempts > OTP_CONFIG.MAX_ATTEMPTS) {
+            // Clear OTP after too many attempts
+            user.otp = undefined;
+            await user.save();
+            
+            return res.status(400).json({
+                success: false,
+                message: "Too many failed attempts. Please request a new OTP."
+            });
+        }
+
+        // Check expiry
+        if (new Date() > new Date(user.otp.expiresAt)) {
+            user.otp = undefined;
+            await user.save();
+            
+            return res.status(400).json({
+                success: false,
+                message: "OTP has expired. Please request a new one."
+            });
+        }
+
+        // Verify OTP
+        if (user.otp.code !== otp.toString()) {
+            await user.save(); // Save attempt count
+            
+            return res.status(400).json({
+                success: false,
+                message: `Invalid OTP. ${OTP_CONFIG.MAX_ATTEMPTS - user.otp.attempts} attempts remaining.`
+            });
+        }
+
+        // Mark OTP as verified
+        user.otp.verified = true;
+        user.otp.verifiedAt = new Date();
+        
+        // Generate a temporary token for password reset (valid for 15 minutes)
+        const resetToken = jwt.sign(
+            { 
+                userId: user._id, 
+                purpose: 'password_reset',
+                phone: user.phone 
+            },
+            JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'OTP verified successfully',
+            data: {
+                resetToken,
+                phone: formattedPhone
+            }
+        });
+
+    } catch (error) {
+        console.error("Verify password reset OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Update reset password route
+Authrouter.post("/forgot-password/reset", async (req, res) => {
+    try {
+        const { resetToken, newPassword, confirmPassword } = req.body;
+
+        if (!resetToken || !newPassword || !confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Reset token, new password, and confirm password are required"
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Passwords do not match"
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters long"
+            });
+        }
+
+        // Verify reset token
+        let decoded;
+        try {
+            decoded = jwt.verify(resetToken, JWT_SECRET);
+            
+            if (decoded.purpose !== 'password_reset') {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid reset token purpose"
+                });
+            }
+        } catch (error) {
+            if (error.name === 'TokenExpiredError') {
+                return res.status(400).json({
+                    success: false,
+                    message: "Reset token has expired. Please request a new OTP."
+                });
+            }
+            return res.status(400).json({
+                success: false,
+                message: "Invalid reset token"
+            });
+        }
+
+        // Find user
+        const user = await User.findById(decoded.userId).select('+password');
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // Check if OTP was verified
+        if (!user.otp || !user.otp.verified || user.otp.purpose !== 'password_reset') {
+            return res.status(400).json({
+                success: false,
+                message: "OTP not verified. Please complete OTP verification first."
+            });
+        }
+
+        // Update password
+        user.password = newPassword;
+        
+        // Clear OTP data
+        user.otp = undefined;
+        
+        // Update password change timestamp (add this field to your schema if needed)
+        user.passwordChangedAt = new Date();
+        
+        await user.save();
+
+        // Send confirmation SMS
+        const message = `আপনার পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।\n\nYour password has been changed successfully.`;
+        await sendSMS(user.phone, message).catch(err => 
+            console.error('Failed to send password change SMS:', err)
+        );
+
+        res.json({
+            success: true,
+            message: "Password reset successfully. You can now login with your new password."
+        });
+
+    } catch (error) {
+        console.error("Reset password error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
+
+// Update resend OTP route
+Authrouter.post("/forgot-password/resend-otp", async (req, res) => {
+    try {
+        const { phone } = req.body;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number is required"
+            });
+        }
+
+        // Format phone number
+        const formattedPhone = formatBangladeshPhone(phone);
+        
+        if (!formattedPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid Bangladeshi phone number"
+            });
+        }
+
+        // Find user
+        const user = await User.findOne({ phone: formattedPhone });
+
+        if (!user) {
+            return res.json({
+                success: true,
+                message: "If this phone number is registered, you will receive an OTP"
+            });
+        }
+
+        // Check cooldown
+        if (user.otp && user.otp.createdAt) {
+            const timeSinceLastRequest = (new Date() - new Date(user.otp.createdAt)) / 1000;
+            if (timeSinceLastRequest < OTP_CONFIG.RESEND_COOLDOWN_SECONDS) {
+                const waitSeconds = Math.ceil(OTP_CONFIG.RESEND_COOLDOWN_SECONDS - timeSinceLastRequest);
+                return res.status(429).json({
+                    success: false,
+                    message: `Please wait ${waitSeconds} seconds before requesting a new OTP`
+                });
+            }
+        }
+
+        // Generate new OTP
+        const otpCode = generateOTP();
+        const expiresAt = new Date(Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000);
+
+        // Store new OTP in the existing otp field
+        user.otp = {
+            code: otpCode,
+            expiresAt: expiresAt,
+            purpose: 'password_reset',
+            verified: false,
+            attempts: 0,
+            createdAt: new Date()
+        };
+        
+        await user.save();
+
+        // Send SMS
+        const message = `আপনার নতুন পাসওয়ার্ড রিসেট কোড: ${otpCode}\nএই কোডটি ${OTP_CONFIG.EXPIRY_MINUTES} মিনিটের জন্য বৈধ।\n\nYour new password reset code is: ${otpCode}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`;
+        
+        const smsResult = await sendSMS(formattedPhone, message);
+
+        if (process.env.NODE_ENV === 'development') {
+            return res.json({
+                success: true,
+                message: 'OTP resent successfully (Development Mode)',
+                data: {
+                    otp: otpCode,
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+        if (smsResult.success) {
+            res.json({
+                success: true,
+                message: 'OTP resent successfully. Please check your phone.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'OTP regenerated but SMS delivery failed. Please try again.',
+                data: {
+                    expiresAt: expiresAt,
+                    phone: formattedPhone
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error("Resend password reset OTP error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
 // Verify OTP and reset password
 Authrouter.post("/reset-password-with-otp", async (req, res) => {
     try {

@@ -29,6 +29,7 @@ import Privacypolicy from "./pages/termsandpolicy/Privacypolicy";
 import Termsandcondition from "./pages/termsandpolicy/Termsandcondition";
 import Responsiblegaming from "./pages/termsandpolicy/Responsiblegaming";
 import KycPolicy from "./pages/termsandpolicy/KycPolicy";
+import ForgotPassword from "./components/ForgotPassword/ForgotPassword";
 
 const AuthContext = createContext();
 
@@ -199,7 +200,14 @@ const App = () => {
                 </AuthRoute>
               }
             />
-
+    <Route
+              path="/forgot-password"
+              element={
+                <AuthRoute>
+                  <ForgotPassword />
+                </AuthRoute>
+              }
+            />
             {/* Public routes (accessible to all users) */}
             <Route
               path="/"
