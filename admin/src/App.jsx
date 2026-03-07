@@ -637,6 +637,16 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+           <Route 
+          exact 
+          path="/opay/deposit" 
+          element={
+            <ProtectedRoute>
+              <Opaydeposit />
+            </ProtectedRoute>
+          }
+        />
+        
    <Route 
           exact 
           path="/admin-profile" 
