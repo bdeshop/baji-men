@@ -9,8 +9,10 @@ import { useNavigate } from "react-router-dom";
 const Deposit = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
-  const [activeMethod, setActiveMethod] = useState("bkash");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const ORACLEPAY_API_URL = "https://api.oraclepay.org/api/opay-business";
+  const ORACLEPAY_TOKEN = "abd895f82df1dccc79b935f96d868a353e923e24762b5126"; // Replace with your actual token
+  
+  const [activeMethod, setActiveMethod] = useState(null);
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState(null);
@@ -18,93 +20,38 @@ const Deposit = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formErrors, setFormErrors] = useState({});
-  const [transactionId, setTransactionId] = useState("");
-  const [selectedBonus, setSelectedBonus] = useState("none");
-  const navigate=useNavigate();
+  const [depositMethods, setDepositMethods] = useState([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
+  const [availableBonuses, setAvailableBonuses] = useState([]);
+  const [bonusLoading, setBonusLoading] = useState(false);
+  const [selectedBonus, setSelectedBonus] = useState(null);
+  const navigate = useNavigate();
+
   const quickAmounts = [300, 500, 1000, 2000, 5000];
-  const MIN_DEPOSIT = 300;
-  const MAX_DEPOSIT = 50000;
 
-  // Payment method instructions
-  const paymentGuides = {
-    bkash: [
-      {
-        step: "Dial",
-        description: "Open your phone's dialer and enter *247#.",
-      },
-      {
-        step: "Select Option",
-        description: "Choose 'Send Money' and enter 01889921959.",
-      },
-      { step: "Enter Amount", description: "Input the deposit amount." },
-      {
-        step: "Confirm with PIN",
-        description: "Enter your bKash PIN to confirm.",
-      },
-      {
-        step: "Copy Transaction ID",
-        description: "Save the transaction ID from the confirmation message.",
-      },
-    ],
-    nagad: [
-      {
-        step: "Dial",
-        description: "Open your phone's dialer and enter *167#.",
-      },
-      {
-        step: "Select Option",
-        description: "Choose 'Send Money' and enter 01889921959",
-      },
-      { step: "Enter Amount", description: "Input the deposit amount." },
-      {
-        step: "Confirm with PIN",
-        description: "Enter your Nagad PIN to confirm.",
-      },
-      {
-        step: "Copy Transaction ID",
-        description: "Save the transaction ID from the confirmation message.",
-      },
-    ],
-    rocket: [
-      {
-        step: "Dial",
-        description: "Open your phone's dialer and enter *322#.",
-      },
-      {
-        step: "Select Option",
-        description: "Choose 'Send Money' and enter the 01889921959",
-      },
-      { step: "Enter Amount", description: "Input the deposit amount." },
-      {
-        step: "Confirm with PIN",
-        description: "Enter your Rocket PIN to confirm.",
-      },
-      {
-        step: "Copy Transaction ID",
-        description: "Save the transaction ID from the confirmation message.",
-      },
-    ],
-    upay: [
-      {
-        step: "Dial",
-        description: "Open your phone's dialer and enter *268#.",
-      },
-      {
-        step: "Select Option",
-        description: "Choose 'Send Money' and enter the 01889921959",
-      },
-      { step: "Enter Amount", description: "Input the deposit amount." },
-      {
-        step: "Confirm with PIN",
-        description: "Enter your Upay PIN to confirm.",
-      },
-      {
-        step: "Copy Transaction ID",
-        description: "Save the transaction ID from the confirmation message.",
-      },
-    ],
-  };
+  // Fetch deposit methods
+  useEffect(() => {
+    const fetchDepositMethods = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/deposit-methods`);
+        if (response.data.success && response.data.method) {
+          setDepositMethods(response.data.method);
+          if (response.data.method.length > 0) {
+            setActiveMethod(response.data.method[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching deposit methods:", err);
+        setError("Failed to load deposit methods");
+      } finally {
+        setLoadingMethods(false);
+      }
+    };
 
+    fetchDepositMethods();
+  }, [API_BASE_URL]);
+
+  // Fetch user data
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -132,109 +79,270 @@ const Deposit = () => {
     };
 
     fetchUserData();
-  }, []);
+  }, [API_BASE_URL]);
 
-  const validateForm = () => {
+  // Fetch available bonuses
+  useEffect(() => {
+    const fetchAvailableBonuses = async () => {
+      try {
+        setBonusLoading(true);
+        const token = localStorage.getItem("usertoken");
+        const response = await axios.get(
+          `${API_BASE_URL}/api/user/bonuses/available`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.data.success && response.data.data) {
+          // Filter out bonuses that user has already used
+          const user = JSON.parse(localStorage.getItem("user"));
+          const userResponse = await axios.get(
+            `${API_BASE_URL}/api/user/all-information/${user.id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (userResponse.data.success) {
+            const userData = userResponse.data.data;
+            
+            // Get all bonus codes that user has already used
+            const usedBonusCodes = [];
+            
+            // Check bonusActivityLogs for used bonuses
+            if (userData.bonusActivityLogs && Array.isArray(userData.bonusActivityLogs)) {
+              userData.bonusActivityLogs.forEach(log => {
+                if (log.bonusCode && (log.status === 'active' || log.status === 'completed')) {
+                  usedBonusCodes.push(log.bonusCode);
+                }
+              });
+            }
+            
+            // Check activeBonuses for used bonuses
+            if (userData.bonusInfo && userData.bonusInfo.activeBonuses && Array.isArray(userData.bonusInfo.activeBonuses)) {
+              userData.bonusInfo.activeBonuses.forEach(bonus => {
+                if (bonus.bonusCode) {
+                  usedBonusCodes.push(bonus.bonusCode);
+                }
+              });
+            }
+            
+            // Filter out bonuses that user has already used
+            const filteredBonuses = response.data.data.filter(bonus => {
+              // If bonus has no code, show it (generic bonuses)
+              if (!bonus.bonusCode) return true;
+              
+              // Check if this bonus code has been used
+              const isUsed = usedBonusCodes.includes(bonus.bonusCode);
+              
+              // Special case: first deposit bonus
+              if (bonus.bonusType === 'first_deposit' && userData.bonusInfo?.firstDepositBonusClaimed) {
+                return false;
+              }
+              
+              return !isUsed;
+            });
+            
+            setAvailableBonuses(filteredBonuses);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching bonuses:", err);
+      } finally {
+        setBonusLoading(false);
+      }
+    };
+
+    fetchAvailableBonuses();
+  }, [API_BASE_URL]);
+
+  // Map internal method names to OraclePay method names
+  const getOraclePayMethodName = (methodName) => {
+    const methodMap = {
+      'bKash': 'bkash',
+      'Nagad': 'nagad',
+      'Rocket': 'rocket',
+      'Upay': 'upay'
+    };
+    
+    return methodMap[methodName] || methodName?.toLowerCase() || 'bkash';
+  };
+
+  // Handle OraclePay payment submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log("Payment submitted");
+
+    // Reset previous status
+    setTransactionStatus(null);
+    
+    // Validate form
     const errors = {};
-
-    // Phone validation
-    if (!phoneNumber.trim()) {
-      errors.phoneNumber = "Phone number is required";
-    } else if (!/^01[3-9]\d{8}$/.test(phoneNumber)) {
-      errors.phoneNumber = "Please enter a valid Bangladeshi phone number";
+    if (!activeMethod) {
+      errors.method = "Please select a payment method";
     }
-
-    // Amount validation
     if (!amount) {
       errors.amount = "Amount is required";
-    } else if (parseFloat(amount) < MIN_DEPOSIT) {
-      errors.amount = `Minimum deposit amount is ৳${MIN_DEPOSIT}`;
-    } else if (parseFloat(amount) > MAX_DEPOSIT) {
-      errors.amount = `Maximum deposit amount is ৳${MAX_DEPOSIT}`;
+    } else if (parseFloat(amount) < 5) {
+      errors.amount = "Minimum deposit amount is ৳5";
     } else if (!/^\d+$/.test(amount)) {
       errors.amount = "Amount must be a whole number";
-    }
-
-    // Transaction ID validation for all methods
-    if (!transactionId.trim()) {
-      errors.transactionId = "Transaction ID is required";
-    } else if (transactionId.length < 5) {
-      errors.transactionId = "Transaction ID must be at least 5 characters";
+    } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 5)) {
+      errors.amount = `Minimum deposit amount is ৳${activeMethod?.minAmount || 5}`;
+    } else if (parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 50000)) {
+      errors.amount = `Maximum deposit amount is ৳${activeMethod?.maxAmount || 50000}`;
     }
 
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
 
     setIsProcessing(true);
-    setTransactionStatus(null);
 
     try {
+      // Get user data
       const user = JSON.parse(localStorage.getItem("user"));
       const token = localStorage.getItem("usertoken");
-
-      if (!token) {
-        throw new Error("Authentication token not found");
-      }
-
-      const depositData = {
-        method: activeMethod,
-        phoneNumber,
-        amount: parseFloat(amount),
-        transactionId: transactionId,
-        bonus: selectedBonus,
+      
+      // Create user identity address (unique identifier for this payment)
+      const userIdentityAddress = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      // Generate invoice number
+      const invoiceNumber = `INV-${user.id}-${Date.now()}`;
+      
+      // Prepare checkout items with bonus information
+      const checkoutItems = {
+        userId: user.id,
+        username: user.username,
+        method: activeMethod.gatewayName,
+        selectedBonus: selectedBonus ? {
+          id: selectedBonus.id,
+          name: selectedBonus.name,
+          code: selectedBonus.bonusCode,
+          type: selectedBonus.bonusType,
+          percentage: selectedBonus.percentage,
+          amount: selectedBonus.amount,
+          calculatedAmount: selectedBonus.calculatedAmount || 0,
+          wageringRequirement: selectedBonus.wageringRequirement
+        } : null,
+        timestamp: new Date().toISOString()
       };
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/user/deposit`,
-        depositData,
+      // Create payment link with OraclePay
+      const oraclePayResponse = await axios.post(
+        `${ORACLEPAY_API_URL}/generate-payment-page`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          payment_amount: parseInt(amount),                    // Must be integer
+          user_identity_address: userIdentityAddress,           // Unique identifier
+          callback_url: `${API_BASE_URL}/api/opay/oraclepay-callback`, // Your webhook URL
+          success_redirect_url: `${window.location.origin}/deposit/success`, // Success page
+          checkout_items: checkoutItems,                        // Additional data
+          invoice_number: invoiceNumber                         // Your invoice number
+        },
+        {
+          headers: { 
+            'X-Opay-Business-Token': ORACLEPAY_TOKEN,
+            'Content-Type': 'application/json'
+          }
         }
       );
 
-      if (response.data.success) {
+      console.log("OraclePay Response:", oraclePayResponse.data);
+
+      if (oraclePayResponse.data.success) {
+        
+        // Save deposit record to your backend
+        try {
+          const depositRecord = {
+            method: activeMethod.gatewayName,
+            amount: parseFloat(amount),
+            transactionId: `OPAY_${Date.now()}`,
+            phoneNumber: userData?.phone || "",
+            playerbalance: userData?.balance || 0,
+            status: "pending",
+            
+            // OraclePay specific fields
+            oraclePaySessionCode: oraclePayResponse.data.session_code,
+            paymentPageUrl: oraclePayResponse.data.payment_page_url,
+            userIdentityAddress: userIdentityAddress,
+            invoiceNumber: invoiceNumber,
+            
+            // Bonus related fields
+            bonusType: selectedBonus?.bonusType || 'none',
+            bonusAmount: selectedBonus?.calculatedAmount || 0,
+            wageringRequirement: selectedBonus?.wageringRequirement || 0,
+            bonusCode: selectedBonus?.bonusCode || '',
+            
+            // Additional fields
+            checkoutItems: checkoutItems,
+            currency: 'BDT'
+          };
+
+          // Save to your backend
+          const saveResponse = await axios.post(
+            `${API_BASE_URL}/api/user/deposit`,
+            depositRecord,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          console.log("Deposit record saved:", saveResponse.data);
+          
+          // Update local state with the saved transaction
+          if (saveResponse.data.success) {
+            setUserData(prev => ({
+              ...prev,
+              depositHistory: [
+                {
+                  ...depositRecord,
+                  createdAt: new Date()
+                },
+                ...(prev?.depositHistory || [])
+              ].slice(0, 10)
+            }));
+          }
+          
+        } catch (err) {
+          console.error("Error saving deposit record:", err.response?.data || err.message);
+          // Continue with payment even if saving fails
+        }
+
+        // Show success message
         setTransactionStatus({
           success: true,
-          message:
-            response.data.message ||
-            "Deposit request submitted successfully! Your balance will be updated after verification.",
+          message: "Redirecting to payment page..."
         });
 
-        // Update user data to reflect the new balance
-        if (response.data.newBalance !== undefined) {
-          setUserData((prev) => ({
-            ...prev,
-            balance: response.data.newBalance,
-          }));
-        }
-        navigate("/");
-        // Reset form
-        setPhoneNumber("");
-        setAmount("");
-        setTransactionId("");
-        setSelectedBonus("none");
-      } else {
-        throw new Error(response.data.message || "Deposit failed");
-      }
-    } catch (err) {
-      console.error("Deposit error:", err);
-      let errorMessage = "Deposit failed. Please try again.";
+        // Redirect to OraclePay payment page
+        setTimeout(() => {
+          window.location.href = oraclePayResponse.data.payment_page_url;
+        }, 1500);
 
-      if (err.response?.status === 401) {
-        errorMessage = "Authentication failed. Please login again.";
-        localStorage.removeItem("usertoken");
-        localStorage.removeItem("user");
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
+      } else {
+        throw new Error(oraclePayResponse.data.message || "Failed to generate payment");
+      }
+      
+    } catch (err) {
+      console.error("OraclePay payment generation error:", err);
+      
+      let errorMessage = "Payment generation failed. Please try again.";
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response.data?.message || "Invalid payment request. Please check your input.";
+      } else if (err.response?.status === 401) {
+        errorMessage = "Invalid API token. Please contact support.";
+      } else if (err.response?.status === 403) {
+        errorMessage = "Access denied. Please contact support.";
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -243,9 +351,29 @@ const Deposit = () => {
         success: false,
         message: errorMessage,
       });
+      
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Calculate bonus amount for a specific bonus
+  const calculateBonusAmount = (bonus) => {
+    if (!amount || isNaN(parseFloat(amount))) return 0;
+    
+    const amountNum = parseFloat(amount);
+    let calculatedBonus = 0;
+    
+    if (bonus.percentage > 0) {
+      calculatedBonus = (amountNum * bonus.percentage) / 100;
+      if (bonus.maxBonus && calculatedBonus > bonus.maxBonus) {
+        calculatedBonus = bonus.maxBonus;
+      }
+    } else if (bonus.amount > 0) {
+      calculatedBonus = bonus.amount;
+    }
+    
+    return calculatedBonus;
   };
 
   const handleRefreshBalance = async () => {
@@ -269,6 +397,11 @@ const Deposit = () => {
 
       if (response.data.success) {
         setUserData(response.data.data);
+        setTransactionStatus({
+          success: true,
+          message: "Balance updated successfully!"
+        });
+        setTimeout(() => setTransactionStatus(null), 3000);
       }
     } catch (err) {
       console.error("Error refreshing balance:", err);
@@ -276,29 +409,61 @@ const Deposit = () => {
     }
   };
 
-  // Helper function to render payment method buttons
-  const renderPaymentMethodButton = (method, imgSrc, alt) => (
+  // Render payment method buttons dynamically
+  const renderPaymentMethodButton = (method) => (
     <button
       type="button"
-      className={`px-3 py-3 md:px-4 md:py-4 rounded-lg flex flex-col items-center justify-center transition-all ${
-        activeMethod === method
+      key={method._id}
+      className={`px-3 py-3 md:px-4 md:py-4 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+        activeMethod?._id === method._id
           ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
           : "bg-[#1a1f1f] hover:bg-[#1f2525] border-2 border-transparent"
       }`}
-      onClick={() => setActiveMethod(method)}
+      onClick={() => {
+        setActiveMethod(method);
+        setFormErrors({});
+        setTransactionStatus(null);
+      }}
     >
       <img
-        src={imgSrc}
-        alt={alt}
-        className={`w-8 h-8 md:w-10 md:h-10 mb-1 md:mb-2 object-contain ${
-          method === "upay" ? "rounded-full" : ""
-        }`}
+        src={`${API_BASE_URL}/images/${method.image}`}
+        alt={method.gatewayName}
+        className="w-8 h-8 md:w-10 md:h-10 mb-1 md:mb-2 object-contain"
       />
-      <span className="text-xs font-medium">{alt}</span>
+      <span className="text-xs font-medium">{method.gatewayName}</span>
     </button>
   );
 
-  if (error) {
+  // Format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Format time ago
+  const timeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    return `${Math.floor(diffInSeconds / 86400)} days ago`;
+  };
+
+  // Calculate total with selected bonus
+  const totalWithBonus = selectedBonus && amount
+    ? parseFloat(amount) + calculateBonusAmount(selectedBonus)
+    : parseFloat(amount || 0);
+
+  if (error && !userData) {
     return (
       <div className="flex justify-center items-center h-screen bg-[#0a0f0f]">
         <div className="bg-[#1a1f1f] text-[#ff6b6b] p-6 rounded-lg max-w-md text-center border border-[#2a2f2f]">
@@ -350,7 +515,7 @@ const Deposit = () => {
                 Deposit Funds
               </h1>
               <p className="text-sm md:text-base text-[#8a9ba8]">
-                Add money to your account using mobile banking
+                Add money to your account using OraclePay secure payment gateway
               </p>
             </div>
 
@@ -393,6 +558,11 @@ const Deposit = () => {
                   <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white">
                     ৳ {userData ? userData.balance?.toLocaleString() : "0.00"}
                   </h2>
+                  {userData?.bonusBalance > 0 && (
+                    <p className="text-sm text-[#3a8a6f] mt-1">
+                      Bonus Balance: ৳{userData.bonusBalance?.toLocaleString()}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={handleRefreshBalance}
@@ -417,451 +587,546 @@ const Deposit = () => {
               </div>
             </div>
 
-            {/* Payment Methods */}
-            <div className="bg-[#1a1f1f] rounded-[2px] overflow-hidden mb-6 md:mb-8 border border-[#2a2f2f]">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 md:p-4 border-b border-[#2a2f2f]">
-                {renderPaymentMethodButton(
-                  "bkash",
-                  "https://xxxbetgames.com/icons-xxx/payments/75.svg",
-                  "Bkash"
-                )}
-                {renderPaymentMethodButton(
-                  "nagad",
-                  "https://xxxbetgames.com/icons-xxx/payments/76.svg",
-                  "Nagad"
-                )}
-                {renderPaymentMethodButton(
-                  "rocket",
-                  "https://i.ibb.co.com/gMyjnRgy/Rocket-mobile-banking-logo-svg.png",
-                  "Rocket"
-                )}
-                {renderPaymentMethodButton(
-                  "upay",
-                  "https://i.ibb.co.com/Dfx6hxVf/upay-ucbfintech-logo.jpg",
-                  "Upay"
-                )}
-              </div>
-
-              {/* Payment Instructions */}
-              <div className="p-4 md:p-6 border-t border-[#2a2f2f]">
-                <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4 text-white flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5 mr-2 text-[#3a8a6f]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  {activeMethod.charAt(0).toUpperCase() + activeMethod.slice(1)}{" "}
-                  Payment Instructions
-                </h3>
-                <ul className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3">
-                  {paymentGuides[activeMethod].map((step, index) => (
-                    <li key={index} className="flex items-start">
-                      <span className="text-[#3a8a6f] mr-2">•</span>
-                      <span>
-                        <strong>{step.step}:</strong> {step.description}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Payment Form */}
-              <div className="p-4 md:p-6">
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-4 md:mb-6">
-                    <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                      Phone Number
-                      <span className="text-[#ff6b6b] ml-1">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      className={`w-full bg-[#1f2525] border rounded-lg p-3 md:p-4 text-sm md:text-base text-white placeholder-[#5a6b78] focus:outline-none focus:ring-2 focus:ring-[#3a8a6f] ${
-                        formErrors.phoneNumber
-                          ? "border-[#ff6b6b]"
-                          : "border-[#2a2f2f]"
-                      }`}
-                      placeholder="Enter Number"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                    />
-                    {formErrors.phoneNumber && (
-                      <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">
-                        {formErrors.phoneNumber}
-                      </p>
-                    )}
+            {/* Loading State for Deposit Methods */}
+            {loadingMethods ? (
+              <div className="bg-[#1a1f1f] rounded-lg p-8 text-center border border-[#2a2f2f]">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-[#2a2f2f] rounded-full"></div>
+                    <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent rounded-full border-t-[#3a8a6f] animate-spin"></div>
                   </div>
-
-                  <div className="mb-4 md:mb-6">
-                    <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                      Amount (৳)
-                      <span className="text-[#ff6b6b] ml-1">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      className={`w-full bg-[#1f2525] border rounded-lg p-3 md:p-4 text-sm md:text-base text-white placeholder-[#5a6b78] focus:outline-none focus:ring-2 focus:ring-[#3a8a6f] ${
-                        formErrors.amount
-                          ? "border-[#ff6b6b]"
-                          : "border-[#2a2f2f]"
-                      }`}
-                      placeholder={`Enter amount (Min: ৳${MIN_DEPOSIT}, Max: ৳${MAX_DEPOSIT})`}
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      min={MIN_DEPOSIT}
-                      max={MAX_DEPOSIT}
-                    />
-                    {formErrors.amount && (
-                      <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">
-                        {formErrors.amount}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 mt-3 md:mt-4">
-                      {quickAmounts.map((quickAmount) => (
-                        <button
-                          key={quickAmount}
-                          type="button"
-                          className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
-                            amount === quickAmount.toString()
-                              ? "bg-[#2a5c45] text-white"
-                              : "bg-[#1f2525] text-[#8a9ba8] hover:bg-[#252b2b]"
-                          }`}
-                          onClick={() => setAmount(quickAmount.toString())}
-                        >
-                          ৳ {quickAmount.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
+                  <div>
+                    <p className="text-[#8a9ba8] font-medium">Loading Deposit methods</p>
                   </div>
-
-                  {/* Transaction ID Field */}
-                  <div className="mb-4 md:mb-6">
-                    <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                      Transaction ID
-                      <span className="text-[#ff6b6b] ml-1">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className={`w-full bg-[#1f2525] border rounded-lg p-3 md:p-4 text-sm md:text-base text-white placeholder-[#5a6b78] focus:outline-none focus:ring-2 focus:ring-[#3a8a6f] ${
-                        formErrors.transactionId
-                          ? "border-[#ff6b6b]"
-                          : "border-[#2a2f2f]"
-                      }`}
-                      placeholder="Enter transaction ID from your payment confirmation"
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value)}
-                    />
-                    {formErrors.transactionId && (
-                      <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">
-                        {formErrors.transactionId}
-                      </p>
-                    )}
-                    <p className="text-xs text-[#8a9ba8] mt-1">
-                      You can find the transaction ID in your {activeMethod} confirmation message
-                    </p>
-                  </div>
-
-                  {/* Bonus Selection */}
-                  <div className="mb-4 md:mb-6">
-                    <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                      Select Bonus
-                    </label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        className={`p-3 rounded-[5px] flex flex-col cursor-pointer items-center justify-center transition-all ${
-                          selectedBonus === "5percent"
-                            ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
-                            : "bg-[#1f2525] hover:bg-[#252b2b] border-2 border-transparent"
-                        }`}
-                        onClick={() => setSelectedBonus("5percent")}
-                      >
-                        <span className="text-sm md:text-base font-medium">
-                          5% First Deposit Bonus
-                        </span>
-                        <span className="text-xs text-[#8a9ba8]">
-                          For first-time deposits
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`p-3 rounded-[5px] cursor-pointer flex flex-col items-center justify-center transition-all ${
-                          selectedBonus === "200percent"
-                            ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
-                            : "bg-[#1f2525] hover:bg-[#252b2b] border-2 border-transparent"
-                        }`}
-                        onClick={() => setSelectedBonus("200percent")}
-                      >
-                        <span className="text-sm md:text-base font-medium">
-                          200% Special Bonus
-                        </span>
-                        <span className="text-xs text-[#8a9ba8]">
-                          Limited time offer
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`p-3 rounded-[5px] cursor-pointer flex flex-col items-center justify-center transition-all ${
-                          selectedBonus === "none"
-                            ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
-                            : "bg-[#1f2525] hover:bg-[#252b2b] border-2 border-transparent"
-                        }`}
-                        onClick={() => setSelectedBonus("none")}
-                      >
-                        <span className="text-sm md:text-base font-medium">
-                          No Bonus
-                        </span>
-                        <span className="text-xs text-[#8a9ba8]">
-                          Proceed without bonus
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    className="w-full bg-gradient-to-r from-[#2a5c45] to-[#3a6c55] hover:from-[#3a6c55] hover:to-[#4a7c65] py-3 md:py-4 rounded-lg text-sm md:text-base text-white font-medium flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                    type="submit"
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 md:h-5 md:w-5 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Processing...
-                      </>
-                    ) : (
-                      `Deposit with ${
-                        activeMethod.charAt(0).toUpperCase() +
-                        activeMethod.slice(1)
-                      }`
-                    )}
-                  </button>
-                </form>
-
-                {transactionStatus && (
-                  <div
-                    className={`mt-3 md:mt-4 p-3 md:p-4 rounded-lg text-xs md:text-sm ${
-                      transactionStatus.success
-                        ? "bg-[#1a2525] text-[#4ecdc4] border border-[#2a3535]"
-                        : "bg-[#2a1f1f] text-[#ff6b6b] border border-[#3a2f2f]"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      {transactionStatus.success ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 md:h-5 md:w-5 mr-2"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 md:h-5 md:w-5 mr-2"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                      {transactionStatus.message}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Instructions and Transaction History in Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 md:gap-8">
-              {/* Instructions */}
-              <div className="bg-[#1a1f1f] rounded-[2px] p-4 md:p-6 border border-[#2a2f2f]">
-                <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4 text-white flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 md:h-5 md:w-5 mr-2 text-[#3a8a6f]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  How to deposit with{" "}
-                  {activeMethod.charAt(0).toUpperCase() + activeMethod.slice(1)}
-                </h3>
-                <ol className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3 list-decimal list-inside">
-                  <li>
-                    Enter your mobile number registered with {activeMethod}
-                  </li>
-                  <li>
-                    Enter the amount you want to deposit (minimum ৳{MIN_DEPOSIT}
-                    )
-                  </li>
-                  <li>Complete the transaction in your {activeMethod} app</li>
-                  <li>Copy the transaction ID from confirmation message</li>
-                  <li>Paste the transaction ID in the form above</li>
-                  <li>Select your preferred bonus option</li>
-                  <li>Submit the deposit request</li>
-                  <li>
-                    Wait for confirmation (usually within a few minutes)
-                  </li>
-                </ol>
-              </div>
-
-              {/* Transaction History */}
-              <div className="bg-[#1a1f1f] rounded-[2px] overflow-hidden border border-[#2a2f2f]">
-                <div className="p-4 md:p-6 border-b border-[#2a2f2f] flex justify-between items-center">
-                  <h3 className="text-base md:text-lg font-semibold text-white">
-                    Recent Transactions
-                  </h3>
-                  <button className="text-[#3a8a6f] text-xs md:text-sm hover:text-[#4a9a7f] transition-colors">
-                    View All
-                  </button>
                 </div>
-                <div className="p-3 md:p-4">
-                  {userData &&
-                  userData.depositHistory &&
-                  userData.depositHistory.length > 0 ? (
-                    <div className="space-y-3 md:space-y-4">
-                      {userData.depositHistory.map((transaction, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center p-3 bg-[#1f2525] rounded-lg hover:bg-[#252b2b] transition-colors"
-                        >
-                          <div className="flex items-center">
-                            <div
-                              className={`p-1.5 md:p-2 rounded-full mr-2 md:mr-3 ${
-                                transaction.status === "completed"
-                                  ? "bg-[#1a2525] text-[#4ecdc4]"
-                                  : transaction.status === "pending"
-                                  ? "bg-[#2a2a1f] text-[#e6db74]"
-                                  : "bg-[#2a1f1f] text-[#ff6b6b]"
-                              }`}
-                            >
-                              {transaction.status === "completed" ? (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 md:h-5 md:w-5"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              ) : transaction.status === "pending" ? (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 md:h-5 md:w-5"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                              ) : (
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 md:h-5 md:w-5"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-xs md:text-sm font-medium text-white">
-                                {new Date(
-                                  transaction.createdAt
-                                ).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-[#8a9ba8] capitalize">
-                                {transaction.method}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs md:text-sm font-medium text-white">
-                              ৳ {transaction.amount?.toLocaleString()}
+              </div>
+            ) : depositMethods.length === 0 ? (
+              <div className="bg-[#1a1f1f] rounded-[2px] p-8 text-center border border-[#2a2f2f]">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-12 w-12 mx-auto text-[#8a9ba8] mb-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p className="text-[#8a9ba8]">No deposit methods available at the moment.</p>
+              </div>
+            ) : (
+              /* Payment Methods and Form */
+              <div className="bg-[#1a1f1f] rounded-[2px] overflow-hidden mb-6 md:mb-8 border border-[#2a2f2f]">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 md:p-4 border-b border-[#2a2f2f]">
+                  {depositMethods.map((method) => renderPaymentMethodButton(method))}
+                </div>
+
+                {activeMethod && (
+                  <>
+                    {/* Payment Form */}
+                    <div className="p-4 md:p-6">
+                      <form onSubmit={handleSubmit} noValidate>
+                        {/* Amount Field */}
+                        <div className="mb-4 md:mb-6">
+                          <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
+                            Amount (৳)
+                            <span className="text-[#ff6b6b] ml-1">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            className={`w-full bg-[#1f2525] border rounded-lg p-3 md:p-4 text-sm md:text-base text-white placeholder-[#5a6b78] focus:outline-none focus:ring-2 focus:ring-[#3a8a6f] ${
+                              formErrors.amount
+                                ? "border-[#ff6b6b]"
+                                : "border-[#2a2f2f]"
+                            }`}
+                            placeholder="Enter deposit amount (minimum ৳5)"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            required
+                            min="5"
+                          />
+                          {formErrors.amount && (
+                            <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">
+                              {formErrors.amount}
                             </p>
-                            <p
-                              className={`text-xs ${
-                                transaction.status === "completed"
-                                  ? "text-[#4ecdc4]"
-                                  : transaction.status === "pending"
-                                  ? "text-[#e6db74]"
-                                  : "text-[#ff6b6b]"
-                              }`}
-                            >
-                              {transaction.status}
-                            </p>
+                          )}
+
+                          {/* Quick Amounts */}
+                          <div className="flex flex-wrap gap-2 mt-3 md:mt-4">
+                            {quickAmounts.map((quickAmount) => (
+                              <button
+                                type="button"
+                                key={quickAmount}
+                                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors cursor-pointer ${
+                                  amount === quickAmount.toString()
+                                    ? "bg-[#2a5c45] text-white"
+                                    : "bg-[#1f2525] text-[#8a9ba8] hover:bg-[#252b2b]"
+                                }`}
+                                onClick={() => setAmount(quickAmount.toString())}
+                              >
+                                ৳ {quickAmount.toLocaleString()}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                      ))}
+
+                        {/* Dynamic Bonus Selection */}
+                        <div className="mb-4 md:mb-6">
+                          <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
+                            Select Bonus (Optional)
+                          </label>
+                          
+                          {bonusLoading ? (
+                            <div className="text-center py-4">
+                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-[#3a8a6f] border-r-transparent"></div>
+                              <p className="text-xs text-[#8a9ba8] mt-2">Loading bonuses...</p>
+                            </div>
+                          ) : availableBonuses.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {/* No Bonus Option */}
+                              <button
+                                type="button"
+                                className={`p-3 rounded-[5px] flex flex-col cursor-pointer items-center justify-center transition-all ${
+                                  !selectedBonus
+                                    ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
+                                    : "bg-[#1f2525] hover:bg-[#252b2b] border-2 border-transparent"
+                                }`}
+                                onClick={() => setSelectedBonus(null)}
+                              >
+                                <span className="text-sm md:text-base font-medium">
+                                  No Bonus
+                                </span>
+                                <span className="text-xs text-[#8a9ba8]">
+                                  Proceed without bonus
+                                </span>
+                              </button>
+
+                              {/* Available Bonuses */}
+                              {availableBonuses.map((bonus) => {
+                                const calculatedAmount = calculateBonusAmount(bonus);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={bonus.id}
+                                    className={`p-3 rounded-[5px] flex flex-col cursor-pointer items-center justify-center transition-all ${
+                                      selectedBonus?.id === bonus.id
+                                        ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
+                                        : "bg-[#1f2525] hover:bg-[#252b2b] border-2 border-transparent"
+                                    }`}
+                                    onClick={() => setSelectedBonus({
+                                      ...bonus,
+                                      calculatedAmount
+                                    })}
+                                  >
+                                    <div className="flex justify-between items-center w-full">
+                                      <span className="text-sm md:text-base font-medium text-left">
+                                        {bonus.name}
+                                      </span>
+                                      {amount && !isNaN(parseFloat(amount)) && calculatedAmount > 0 && (
+                                        <span className="text-xs bg-[#2a5c45] text-white px-2 py-1 rounded">
+                                          +৳{calculatedAmount.toFixed(2)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-[#8a9ba8] text-left w-full mt-1">
+                                      Code: {bonus.bonusCode}
+                                    </span>
+                                    <span className="text-xs text-[#3a8a6f] text-left w-full">
+                                      {bonus.description}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 border border-[#2a2f2f] rounded-lg">
+                              <p className="text-sm text-[#8a9ba8]">No bonuses available at the moment.</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Summary Section */}
+                        <div className="mb-4 md:mb-6 p-4 bg-[#1a2a2a] rounded-lg border border-[#2a3535]">
+                          <h4 className="text-sm font-medium mb-3 text-white">Transaction Summary</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-[#8a9ba8]">Deposit Amount:</span>
+                              <span className="text-white">৳{parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            
+                            {selectedBonus && amount && !isNaN(parseFloat(amount)) && (
+                              <div className="flex justify-between">
+                                <span className="text-[#8a9ba8]">Bonus ({selectedBonus.name}):</span>
+                                <span className="text-[#3a8a6f]">
+                                  +৳{calculateBonusAmount(selectedBonus).toFixed(2)}
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="pt-2 border-t border-[#2a3535]">
+                              <div className="flex justify-between font-medium">
+                                <span className="text-white">Total Credit:</span>
+                                <span className="text-[#3a8a6f]">
+                                  ৳{totalWithBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="mb-4">
+                          <button
+                            className="w-full bg-gradient-to-r from-[#2a5c45] to-[#3a6c55] hover:from-[#3a6c55] hover:to-[#4a7c65] py-3 md:py-4 rounded-lg text-sm md:text-base text-white font-medium flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg cursor-pointer"
+                            type="submit"
+                            disabled={isProcessing}
+                          >
+                            {isProcessing ? (
+                              <>
+                                <svg
+                                  className="animate-spin -ml-1 mr-2 h-4 w-4 md:h-5 md:w-5 text-white"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                                Processing...
+                              </>
+                            ) : (
+                              `Proceed to ${activeMethod.gatewayName} Payment`
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Additional form validation errors */}
+                        {formErrors.method && (
+                          <div className="mb-4 p-3 bg-[#2a1f1f] border border-[#3a2f2f] rounded-lg">
+                            <p className="text-[#ff6b6b] text-sm">
+                              {formErrors.method}
+                            </p>
+                          </div>
+                        )}
+                      </form>
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Transaction Status Message */}
+            {transactionStatus && (
+              <div
+                className={`mb-6 p-4 rounded-lg ${
+                  transactionStatus.success
+                    ? "bg-[#1a2525] border border-[#2a3535]"
+                    : "bg-[#2a1f1f] border border-[#3a2f2f]"
+                }`}
+              >
+                <div className="flex items-center">
+                  {transactionStatus.success ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-3 text-[#4ecdc4]"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
                   ) : (
-                    <div className="text-center flex justify-center items-center flex-col py-6 md:py-8 text-[#8a9ba8]">
-                      <div className="w-[40px] h-[40px] flex justify-center items-center border-[2px] border-[#2a2f2f] mb-[10px] rounded-full">
-                        <FaBangladeshiTakaSign className="text-[#5a6b78]" />
-                      </div>
-                      <p className="text-sm md:text-base">
-                        No recent transactions
-                      </p>
-                    </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-3 text-[#ff6b6b]"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
                   )}
+                  <p className={`text-sm ${transactionStatus.success ? 'text-[#4ecdc4]' : 'text-[#ff6b6b]'}`}>
+                    {transactionStatus.message}
+                  </p>
                 </div>
+              </div>
+            )}
+
+            {/* Instructions */}
+            {activeMethod && (
+              <div className="bg-[#1a1f1f] rounded-[2px] p-4 md:p-6 border border-[#2a2f2f] mb-6 md:mb-8">
+                <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4 text-white flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 md:h-5 md:w-5 mr-2 text-[#3a8a6f]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  How to deposit with OraclePay
+                </h3>
+                <ol className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3 list-decimal list-inside">
+                  <li>Select your preferred payment method</li>
+                  <li>Enter the amount you want to deposit (minimum ৳5)</li>
+                  <li>Select a bonus option if available (optional)</li>
+                  <li>Click "Proceed to [Payment Method] Payment"</li>
+                  <li>You will be redirected to OraclePay secure payment page</li>
+                  <li>Complete the payment using your chosen method</li>
+                  <li>After successful payment, you'll be redirected back</li>
+                  <li>Your balance will be updated automatically</li>
+                </ol>
+              </div>
+            )}
+
+            {/* Enhanced Transaction History */}
+            <div className="bg-[#1a1f1f] rounded-[2px] overflow-hidden border border-[#2a2f2f]">
+              <div className="p-4 md:p-6 border-b border-[#2a2f2f] flex justify-between items-center">
+                <h3 className="text-base md:text-lg font-semibold text-white">
+                  Recent Transactions
+                </h3>
+                <button 
+                  onClick={() => navigate("/transactions")}
+                  className="text-[#3a8a6f] text-xs md:text-sm hover:text-[#4a9a7f] transition-colors cursor-pointer"
+                >
+                  View All
+                </button>
+              </div>
+              <div className="p-3 md:p-4">
+                {userData &&
+                userData.depositHistory &&
+                userData.depositHistory.length > 0 ? (
+                  <div className="space-y-4">
+                    {userData.depositHistory.map((transaction, index) => (
+                      <div
+                        key={index}
+                        className="bg-[#1f2525] rounded-lg border-[1px] border-gray-500 hover:bg-[#252b2b] transition-colors overflow-hidden"
+                      >
+                        <div className="p-4 border-b border-[#2a2f2f]">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center space-x-3">
+                              <div
+                                className={`p-2 rounded-full ${
+                                  transaction.status === "completed"
+                                    ? "bg-[#1a2525] text-[#4ecdc4]"
+                                    : transaction.status === "pending"
+                                    ? "bg-[#2a2a1f] text-[#e6db74]"
+                                    : "bg-[#2a1f1f] text-[#ff6b6b]"
+                                }`}
+                              >
+                                {transaction.status === "completed" ? (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-5 w-5"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                ) : transaction.status === "pending" ? (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                  </svg>
+                                ) : (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-5 w-5"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                )}
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-medium text-white capitalize">
+                                    {transaction.method}
+                                  </span>
+                                  <span className={`text-xs px-2 py-1 rounded-full ${
+                                    transaction.status === "completed"
+                                      ? "bg-green-900/30 text-green-400"
+                                      : transaction.status === "pending"
+                                      ? "bg-yellow-900/30 text-yellow-400"
+                                      : "bg-red-900/30 text-red-400"
+                                  }`}>
+                                    {transaction.status}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-[#8a9ba8] mt-1">
+                                  {formatDate(transaction.createdAt)} • {timeAgo(transaction.createdAt)}
+                                </p>
+                                {transaction.transactionId && (
+                                  <p className="text-xs text-[#5a6b78] mt-1">
+                                    ID: {transaction.transactionId}
+                                  </p>
+                                )}
+                                {transaction.oraclePaySessionCode && (
+                                  <p className="text-xs text-[#3a8a6f] mt-1">
+                                    Session: {transaction.oraclePaySessionCode}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg md:text-xl font-bold text-white">
+                                ৳ {transaction.amount?.toLocaleString()}
+                              </div>
+                              {transaction.bonusAmount > 0 && (
+                                <div className="text-sm text-[#3a8a6f] font-medium mt-1">
+                                  +৳{transaction.bonusAmount?.toLocaleString()} Bonus
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Bonus Details Section */}
+                        {(transaction.bonusApplied || (transaction.bonusType && transaction.bonusType !== 'none')) && (
+                          <div className="p-4 bg-[#1a2a2a] border-b border-[#2a3535]">
+                            <h4 className="text-sm font-medium text-white mb-2 flex items-center">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4 mr-2 text-[#3a8a6f]"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              Bonus Details
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+                              <div className="bg-[#1f2525] p-3 rounded">
+                                <p className="text-xs text-[#8a9ba8]">Bonus Type</p>
+                                <p className="text-sm font-medium text-white capitalize">
+                                  {transaction.bonusType || 'Standard Bonus'}
+                                </p>
+                              </div>
+                              <div className="bg-[#1f2525] p-3 rounded">
+                                <p className="text-xs text-[#8a9ba8]">Bonus Amount</p>
+                                <p className="text-sm font-medium text-[#3a8a6f]">
+                                  ৳{transaction.bonusAmount?.toLocaleString() || '0'}
+                                </p>
+                              </div>
+                              {transaction.wageringRequirement > 0 && (
+                                <div className="bg-[#1f2525] p-3 rounded">
+                                  <p className="text-xs text-[#8a9ba8]">Wagering Requirement</p>
+                                  <p className="text-sm font-medium text-[#e6db74]">
+                                    {transaction.wageringRequirement}x
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            {transaction.bonusCode && (
+                              <div className="mt-2 bg-[#1f2525] p-3 rounded">
+                                <p className="text-xs text-[#8a9ba8]">Bonus Code</p>
+                                <p className="text-sm font-medium text-white">
+                                  {transaction.bonusCode}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Total Credit Section */}
+                        <div className="p-4">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm text-[#8a9ba8]">Total Credit</p>
+                              <p className="text-lg font-bold text-[#3a8a6f]">
+                                ৳{(transaction.amount + (transaction.bonusAmount || 0)).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-[#8a9ba8]">Before Balance</p>
+                              <p className="text-sm font-medium text-white">
+                                ৳{transaction.playerbalance?.toLocaleString() || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          {transaction.completedAt && (
+                            <div className="mt-3 pt-3 border-t border-[#2a2f2f]">
+                              <p className="text-xs text-[#8a9ba8]">
+                                Completed: {formatDate(transaction.completedAt)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center flex justify-center items-center flex-col py-8 md:py-12 text-[#8a9ba8]">
+                    <div className="w-16 h-16 flex justify-center items-center border-2 border-[#2a2f2f] mb-4 rounded-full">
+                      <FaBangladeshiTakaSign className="text-2xl text-[#5a6b78]" />
+                    </div>
+                    <p className="text-base md:text-lg font-medium mb-2">
+                      No Recent Transactions
+                    </p>
+                    <p className="text-sm text-[#5a6b78] max-w-md">
+                      Your deposit history will appear here once you make your first deposit.
+                    </p>
+                    <button
+                      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                      className="mt-4 bg-[#2a5c45] hover:bg-[#3a6c55] px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Make Your First Deposit
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
