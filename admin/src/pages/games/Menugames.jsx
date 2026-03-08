@@ -10,16 +10,14 @@ const Menugames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [formData, setFormData] = useState({
-    category: '',
-    categoryname: '',
+    category: 'exclusive', // Default category
+    categoryname: 'Exclusive',
     name: '',
     gameId: '',
     provider: ''
   });
-  const [categories, setCategories] = useState([]);
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [imageLoading, setImageLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
@@ -32,21 +30,10 @@ const Menugames = () => {
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   
-  // Fetch categories and games on component mount
+  // Fetch games on component mount
   useEffect(() => {
-    fetchCategories();
     fetchGames();
   }, []);
-
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${base_url}/api/admin/game-categories`);
-      setCategories(response.data);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to fetch categories');
-    }
-  };
 
   const fetchGames = async () => {
     try {
@@ -77,17 +64,6 @@ const Menugames = () => {
     setFormData({
       ...formData,
       [name]: value
-    });
-  };
-
-  const handleCategoryChange = (e) => {
-    const categoryId = e.target.value;
-    const selectedCategory = categories.find(cat => cat._id === categoryId);
-    
-    setFormData({
-      ...formData,
-      category: categoryId,
-      categoryname: selectedCategory ? selectedCategory.name : ''
     });
   };
 
@@ -136,16 +112,6 @@ const Menugames = () => {
       return;
     }
     
-    if (!formData.category) {
-      toast.error('Please select a category');
-      return;
-    }
-    
-    if (!formData.categoryname) {
-      toast.error('Category name is required');
-      return;
-    }
-    
     if (!formData.name) {
       toast.error('Game name is required');
       return;
@@ -166,8 +132,8 @@ const Menugames = () => {
       
       // Create FormData object for file upload
       const formDataObj = new FormData();
-      formDataObj.append('category', formData.category);
-      formDataObj.append('categoryname', formData.categoryname);
+      formDataObj.append('category', formData.category); // Always 'exclusive'
+      formDataObj.append('categoryname', formData.categoryname); // Always 'Exclusive'
       formDataObj.append('name', formData.name);
       formDataObj.append('gameId', formData.gameId);
       formDataObj.append('provider', formData.provider);
@@ -212,8 +178,8 @@ const Menugames = () => {
   // Reset form function
   const resetForm = () => {
     setFormData({
-      category: '',
-      categoryname: '',
+      category: 'exclusive',
+      categoryname: 'Exclusive',
       name: '',
       gameId: '',
       provider: ''
@@ -252,8 +218,8 @@ const Menugames = () => {
       const freshGameData = await fetchSingleGame(game._id);
       if (freshGameData) {
         setFormData({
-          category: freshGameData.category._id || freshGameData.category,
-          categoryname: freshGameData.categoryname || freshGameData.category?.name || '',
+          category: 'exclusive', // Always set to exclusive
+          categoryname: 'Exclusive', // Always set to Exclusive
           name: freshGameData.name,
           gameId: freshGameData.gameId,
           provider: freshGameData.provider || ''
@@ -328,13 +294,22 @@ const Menugames = () => {
           }`}
         >
           <div className="w-full mx-auto">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Menu Games</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-6">Menu Games - Exclusive Category</h1>
             
             {/* Add Game Form */}
             <div className="bg-white rounded-[5px] p-6 border border-gray-200 mb-8">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 {isEditing ? 'Edit Game' : 'Add New Game'}
               </h2>
+              
+              {/* Category Info Banner */}
+              <div className="mb-6 bg-purple-50 border border-purple-200 rounded-md p-4">
+                <div className="flex items-center">
+                  <span className="text-purple-700 font-medium">Category: Exclusive</span>
+                  <span className="ml-2 text-sm text-purple-600">(All games will be added to Exclusive category)</span>
+                </div>
+              </div>
+              
               <form onSubmit={handleSubmit}>
                 {/* Image Upload Section */}
                 <div className="mb-6">
@@ -406,45 +381,23 @@ const Menugames = () => {
                           </button>
                         )}
                       </div>
+                      <p className="text-xs text-gray-500">Supported formats: JPG, PNG, GIF (Max size: 10MB)</p>
                     </div>
                   </div>
                 </div>
-                
-                {/* Category Selection */}
+
+                {/* Category Name (Read-only) */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category <span className="text-red-500">*</span></label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleCategoryChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
-                    required
-                  >
-                    <option value="">Select a category</option>
-                    {categories
-                      .filter(category => category.status)
-                      .map((category) => (
-                        <option key={category._id} value={category._id}>
-                          {category.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                {/* Category Name Field */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
-                    name="categoryname"
-                    value={formData.categoryname}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color bg-gray-50"
-                    placeholder="Category name will auto-fill"
-                    required
+                    value="Exclusive"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] bg-gray-100 text-gray-700"
+                    disabled
+                    readOnly
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Auto-filled from selected category. You can edit if needed.
+                    All games are automatically assigned to the Exclusive category
                   </p>
                 </div>
 
@@ -524,7 +477,7 @@ const Menugames = () => {
             
             {/* Games Table */}
             <div className="">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">All Games</h2>
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Exclusive Games</h2>
               
               {loading && games.length === 0 ? (
                 <div className="flex justify-center items-center h-40">
@@ -532,7 +485,7 @@ const Menugames = () => {
                 </div>
               ) : games.length === 0 ? (
                 <div className="bg-white p-8 rounded-lg text-center">
-                  <p className="text-gray-500">No games found. Add your first game above.</p>
+                  <p className="text-gray-500">No exclusive games found. Add your first game above.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto border-[1px] border-gray-200 rounded-lg">
@@ -543,7 +496,7 @@ const Menugames = () => {
                           Image
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
-                          Category Name
+                          Category
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
                           Game Name
@@ -597,7 +550,9 @@ const Menugames = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {game.categoryname || game.category?.name || 'N/A'}
+                              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                                {game.categoryname || game.category?.name || 'Exclusive'}
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -605,7 +560,7 @@ const Menugames = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
                                 {game.provider || 'N/A'}
                               </span>
                             </div>

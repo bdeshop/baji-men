@@ -6,8 +6,7 @@ const menuGameSchema = new mongoose.Schema({
         required: true
     },
     category: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'GameCategory',
+        type:String,
         required: true
     },
     categoryname: {

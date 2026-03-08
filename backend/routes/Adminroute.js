@@ -10032,7 +10032,7 @@ Adminrouter.get("/menu-games/:id", async (req, res) => {
 Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res) => {
     try {
         const { category, categoryname, name, gameId, provider, status = true } = req.body;
-
+  console.log(req.body)
         // Validation
         if (!req.file) {
             return res.status(400).json({ error: "Image is required" });
