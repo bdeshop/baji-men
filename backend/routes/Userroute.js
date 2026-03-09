@@ -1438,8 +1438,6 @@ Userrouter.post("/getGameLink", async (req, res) => {
       // POST রিকোয়েস্ট
       const response = await axios.post('https://crazybet99.com/getgameurl/v2', 
         {
-          home_url: 'https://bajiman.com',
-          token: '665ec86d74fcb110d5a60421002b82df',
           username: username + "45",
           money: money,
           game_code: gameID,
@@ -1449,7 +1447,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
+            'x-dstgame-key': '20afffdf-98c4-4de3-a16f-7d3f29cbd90e'
           }
         }
       );
