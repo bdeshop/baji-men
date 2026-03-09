@@ -418,7 +418,7 @@ const Deposit = () => {
       className={`px-3 py-3 md:px-4 md:py-4 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
         activeMethod?._id === method._id
           ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
-          : "bg-[#1a1f1f] hover:bg-[#1f2525] border-2 border-transparent"
+          : "bg-[#1a1f1f] hover:bg-[#1f2525] border-2 hover:border-gray-700 border-transparent"
       }`}
       onClick={() => {
         setActiveMethod(method);
@@ -429,7 +429,7 @@ const Deposit = () => {
       <img
         src={`${API_BASE_URL}/images/${method.image}`}
         alt={method.gatewayName}
-        className="w-8 h-8 md:w-10 md:h-10 mb-1 md:mb-2 object-contain"
+        className="w-8 h-8 md:w-20 md:h-10 mb-1 md:mb-2 object-contain"
       />
       <span className="text-xs font-medium">{method.gatewayName}</span>
     </button>
