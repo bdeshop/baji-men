@@ -61,6 +61,8 @@ import Managecommission from './pages/managecommission/Managecommission'
 import Editbonus from './pages/bonus/Editbonus'
 import Viewbonus from './pages/bonus/Viewbonus'
 import Profile from './pages/profile/Profile'
+import EditDepositMethod from './pages/payment_methods/deposit/EditDepositMethod'
+import EditWithdrawMethod from './pages/payment_methods/withdraw/EditWithdrawMethod'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -278,6 +280,16 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+
+                   <Route 
+          exact 
+          path="/payment-method/edit-deposit-method/:id" 
+          element={
+            <ProtectedRoute>
+              <EditDepositMethod />
+            </ProtectedRoute>
+          }
+        />
                    <Route 
           exact 
           path="/payment-method/all-withdraw-method" 
@@ -287,6 +299,17 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+
+              <Route 
+          exact 
+          path="/payment-method/edit-withdraw-method/:id" 
+          element={
+            <ProtectedRoute>
+              <EditWithdrawMethod />
+            </ProtectedRoute>
+          }
+        />
+
                      <Route 
           exact 
           path="/payment-method/new-withdraw-method" 

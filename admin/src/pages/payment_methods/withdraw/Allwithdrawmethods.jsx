@@ -25,7 +25,7 @@ const Allwithdrawmethods = () => {
   const fetchWithdrawMethods = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${base_url}/api/admin/withdraw-methods/${admin_info.id}`);
+      const response = await axios.get(`${base_url}/api/admin/withdraw-methods`);
       setWithdrawGateways(response.data);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -68,7 +68,7 @@ const Allwithdrawmethods = () => {
   };
 
   const handleEdit = (id) => {
-    navigate(`/dashboard/edit-withdraw-method/${id}`);
+    navigate(`/payment-method/edit-withdraw-method/${id}`);
   };
 
   const handleDelete = async (id) => {
@@ -305,12 +305,12 @@ const Allwithdrawmethods = () => {
                                 )}
                               </button>
                             
-                              {/* <button
-                                onClick={() => handleEdit(gateway._id)}
-                                className="inline-flex items-center px-3 py-2 bg-blue-700 cursor-pointer text-white hover:bg-blue-800 rounded-[5px] transition-colors"
-                              >
-                               Edit
-                              </button> */}
+                      <button
+  onClick={() => handleEdit(gateway._id)}
+  className="inline-flex items-center px-3 py-2 bg-blue-700 cursor-pointer text-white hover:bg-blue-800 rounded-[5px] transition-colors"
+>
+  Edit
+</button>
 
                               <button
                                 onClick={() => handleDelete(gateway._id)}

@@ -9072,6 +9072,15 @@ Adminrouter.get("/deposit-methods/:id", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch manual deposit methods." });
   }
 });
+Adminrouter.get("/deposit-methods-data/:id", async (req, res) => {
+  try {
+    const methods = await Depositmethod.findOne({_id:req.params.id});
+    res.json(methods);
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    res.status(500).json({ message: "Failed to fetch manual deposit methods." });
+  }
+});
 // -------------enabled deposit method------------------
 Adminrouter.get("/enabled-deposit-methods", async (req, res) => {
   try {
@@ -9291,7 +9300,19 @@ Adminrouter.put("/withdraw-methods/:id", upload.single("image"), async (req, res
     res.status(500).json({ message: "Failed to update manual withdraw method." });
   }
 });
-
+// Get single withdraw method by ID
+Adminrouter.get("/withdraw-methods/single/:id", async (req, res) => {
+  try {
+    const method = await Withdrawmethod.findById(req.params.id);
+    if (!method) {
+      return res.status(404).json({ message: "Withdraw method not found" });
+    }
+    res.json(method);
+  } catch (error) {
+    console.error("Error fetching withdraw method:", error);
+    res.status(500).json({ message: "Failed to fetch withdraw method" });
+  }
+});
 // --- Delete Withdraw Method ---
 Adminrouter.delete("/withdraw-methods/:id", async (req, res) => {
   try {

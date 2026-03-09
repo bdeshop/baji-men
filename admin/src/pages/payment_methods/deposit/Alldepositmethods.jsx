@@ -67,7 +67,7 @@ const Alldepositmethods = () => {
   };
 
   const handleEdit = (id) => {
-    navigate(`/dashboard/edit-payment-method/${id}`);
+    navigate(`/payment-method/edit-deposit-method/${id}`);
   };
 
   const handleDelete = async (id) => {
@@ -283,13 +283,12 @@ const Alldepositmethods = () => {
                                   </>
                                 )}
                               </button>
-                            
-                              {/* <button
-                                onClick={() => handleEdit(gateway._id)}
-                                className="inline-flex items-center px-3 py-2 bg-blue-700 text-white cursor-pointer hover:bg-blue-800 rounded-md transition-colors"
-                              >
-                                 Edit
-                              </button> */}
+                 <button
+  onClick={() => handleEdit(gateway._id)}
+  className="inline-flex items-center px-3 py-2 bg-blue-700 text-white cursor-pointer hover:bg-blue-800 rounded-md transition-colors"
+>
+  Edit
+</button>
 
                               <button
                                 onClick={() => handleDelete(gateway._id)}
