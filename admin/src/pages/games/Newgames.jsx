@@ -765,13 +765,13 @@ const Newgames = () => {
     } else {
       setSavingGameId(gameId);
     }
-
+ console.log("gameToSave.provider?.providerName",gameToSave.provider)
     try {
       const formData = new FormData();
       // Basic game info
       formData.append("gameApiID", gameToSave.game_code);
       formData.append("name", gameToSave.gameName || gameToSave.name);
-      formData.append("provider", gameToSave.provider?.providerName || gameToSave.provider?.name || "");
+      formData.append("provider", gameToSave.provider?.provider_code);
       
       const selectedCat = categories.find(cat => 
         cat._id === gameToSave.localCategory || cat.name === gameToSave.localCategory
@@ -952,7 +952,7 @@ const Newgames = () => {
       // Prepare the data for bulk add
       const gamesData = bulkGames.map(game => ({
         name: game.gameName || game.name,
-        provider: game.provider?.providerName || game.provider?.name || "",
+        provider: game.provider?.provider_code,
         gameApiID: game.game_code,
         category: categories.find(c => c._id === bulkCategory)?.name || bulkCategory,
         featured: bulkFeatured,
