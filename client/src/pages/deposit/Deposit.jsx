@@ -34,7 +34,8 @@ const Deposit = () => {
     const fetchDepositMethods = async () => {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/deposit-methods`);
-        if (response.data.success && response.data.method) {
+        console.log("response.data",response.data)
+        if (response.data.success) {
           setDepositMethods(response.data.method);
           if (response.data.method.length > 0) {
             setActiveMethod(response.data.method[0]);

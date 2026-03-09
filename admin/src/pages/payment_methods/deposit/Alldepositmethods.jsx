@@ -24,7 +24,7 @@ const Alldepositmethods = () => {
   const fetchDepositMethods = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${base_url}/api/admin/deposit-methods/${admin_info.id}`);
+      const response = await axios.get(`${base_url}/api/admin/deposit-methods`);
       setDepositGateways(response.data);
     } catch (error) {
       console.error("Error fetching data:", error);
