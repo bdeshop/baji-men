@@ -521,7 +521,7 @@ const CategoryContent = () => {
 
     // Render providers grid for non-exclusive categories
     return (
-      <div className="px-2 md:p-4">
+      <div className="py-[10px]">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
           {providers.map((provider) => (
             <div
@@ -534,7 +534,9 @@ const CategoryContent = () => {
                 alt={provider.name}
                 className="w-[30px]"
               />
-              <span className="text-sm text-gray-400">{provider.name}</span>
+               <span className="text-sm text-gray-400 truncate max-w-[80px]">
+            {provider.name}
+          </span>
             </div>
           ))}
         </div>

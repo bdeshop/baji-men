@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaSearch, FaFilter, FaEye, FaPlus, FaSort, FaSortUp, FaSortDown, FaSpinner, FaImage, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FaEdit, FaTrash, FaSearch, FaFilter, FaEye, FaPlus, FaSort, FaSortUp, FaSortDown, FaSpinner, FaImage } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { NavLink } from 'react-router-dom';
@@ -51,16 +51,32 @@ const Allgames = () => {
   const fetchGames = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${base_url}/api/admin/games`, {
-        params: {
-          page: currentPage,
-          limit: itemsPerPage,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          category: categoryFilter !== 'all' ? categoryFilter : undefined,
-          provider: providerFilter !== 'all' ? providerFilter : undefined,
-          search: searchTerm || undefined
-        }
-      });
+      
+      // Build params object - only include filters that are not 'all'
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+      
+      if (categoryFilter !== 'all') {
+        params.category = categoryFilter;
+      }
+      
+      if (providerFilter !== 'all') {
+        params.provider = providerFilter;
+      }
+      
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      
+      console.log("Fetching games with params:", params); // Debug log
+      
+      const response = await axios.get(`${base_url}/api/admin/games`, { params });
       
       // Handle both response formats
       if (response.data.games) {
@@ -98,7 +114,7 @@ const Allgames = () => {
   const fetchProviders = async () => {
     try {
       const response = await axios.get(`${base_url}/api/admin/game-providers`);
-      console.log("response",response)
+      console.log("Providers response:", response.data); // Debug log to check structure
       setProviders(response.data);
     } catch (error) {
       console.error('Error fetching providers:', error);
@@ -116,14 +132,25 @@ const Allgames = () => {
   };
 
   // Sort games based on sortConfig
-  const sortedGames = React.useMemo(() => {
+  const sortedGames = useMemo(() => {
     if (!sortConfig.key) return games;
     
     return [...games].sort((a, b) => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
-      if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0;
-      if (typeof bVal === 'boolean') bVal = bVal ? 1 : 0;
+      
+      // Handle boolean values
+      if (typeof aVal === 'boolean') {
+        aVal = aVal ? 1 : 0;
+        bVal = bVal ? 1 : 0;
+      }
+      
+      // Handle date strings
+      if (sortConfig.key === 'createdAt' || sortConfig.key === 'updatedAt') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+      
       if (aVal < bVal) {
         return sortConfig.direction === 'ascending' ? -1 : 1;
       }
@@ -332,6 +359,34 @@ const Allgames = () => {
     setCurrentPage(1);
   };
 
+  // Generate pagination items with ellipsis
+  const getPaginationItems = () => {
+    const delta = 2; // Number of pages to show on each side of current page
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+        range.push(i);
+      }
+    }
+
+    range.forEach((i) => {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    });
+
+    return rangeWithDots;
+  };
+
   return (
     <section className="font-nunito h-screen ">
       <Header toggleSidebar={toggleSidebar} />
@@ -421,7 +476,7 @@ const Allgames = () => {
                   </select>
                 </div>
                 
-                {/* Provider Filter */}
+                {/* Provider Filter - FIXED */}
                 <div>
                   <select
                     value={providerFilter}
@@ -429,9 +484,15 @@ const Allgames = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="all">All Providers</option>
-                    {providers.map((provider) => (
-                      <option key={provider._id} value={provider.providerc}>{provider.name}</option>
-                    ))}
+                    {providers.map((provider) => {
+                      // Determine the correct value to use based on provider data structure
+                      const providerValue = provider.providercode;
+                      return (
+                        <option key={provider._id || providerValue} value={providerValue}>
+                          {provider.name || providerValue}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 
@@ -652,7 +713,7 @@ const Allgames = () => {
               </div>
             )}
             
-            {/* Pagination */}
+            {/* Pagination with Ellipsis */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 px-4 py-3">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
@@ -672,25 +733,34 @@ const Allgames = () => {
                         disabled={currentPage === 1}
                         className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
                           currentPage === 1 
-                            ? 'bg-gray-50 text-gray-800 cursor-not-allowed' 
+                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
                             : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
                         Previous
                       </button>
                       
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 border-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
+                      {getPaginationItems().map((page, index) => (
+                        page === '...' ? (
+                          <span
+                            key={`dots-${index}`}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-orange-500 border-orange-500 text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
                       ))}
                       
                       <button
@@ -698,7 +768,7 @@ const Allgames = () => {
                         disabled={currentPage === totalPages}
                         className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
                           currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
                             : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
@@ -871,7 +941,9 @@ const Allgames = () => {
                   >
                     <option value="">Select Provider</option>
                     {providers.map((provider) => (
-                      <option key={provider._id} value={provider.name}>{provider.name}</option>
+                      <option key={provider._id} value={provider.name || provider}>
+                        {provider.name || provider}
+                      </option>
                     ))}
                   </select>
                 </div>
