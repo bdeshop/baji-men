@@ -48,6 +48,7 @@ const Newgames = () => {
   const [bulkImagePreview, setBulkImagePreview] = useState(null);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [currentAddingGame, setCurrentAddingGame] = useState("");
 
   const [loadingProviders, setLoadingProviders] = useState(false);
   const [loadingGames, setLoadingGames] = useState(false);
@@ -696,7 +697,7 @@ const Newgames = () => {
     setBulkImage(null);
     setBulkImagePreview(null);
     setBulkUseDefaultImage(true);
-    setBulkActionMode(false);
+    setBulkActionMode(true);
   };
 
   const handleGameDataChange = (gameId, field, value) => {
@@ -993,6 +994,7 @@ console.log("gameToSave",gameToSave)
 
     setBulkSaving(true);
     setBulkProgress({ current: 0, total: bulkGames.length });
+    setCurrentAddingGame("");
 
     const results = {
       successful: [],
@@ -1000,100 +1002,127 @@ console.log("gameToSave",gameToSave)
     };
 
     try {
-      const gamesData = bulkGames.map(game => ({
-        name: game.gameName || game.name,
-        provider: game.provider?.provider_code,
-        gameApiID: game.game_code,
-        category: categories.find(c => c._id === bulkCategory)?.name || bulkCategory,
-        featured: bulkFeatured,
-        status: bulkStatus,
-        fullScreen: bulkFullScreen,
-        defaultImage: bulkUseDefaultImage ? (game.image || game.coverImage) : null
-      }));
-
-      const validGamesData = bulkUseDefaultImage 
-        ? gamesData.filter(game => game.defaultImage)
-        : gamesData;
-
-      if (validGamesData.length === 0) {
-        toast.error("No valid games to add. Some games may be missing default images.");
-        setBulkSaving(false);
-        return;
+      // Filter valid games if using default images
+      let validGames = bulkGames;
+      if (bulkUseDefaultImage) {
+        validGames = bulkGames.filter(game => game.image || game.coverImage);
+        if (validGames.length === 0) {
+          toast.error("No valid games to add. Selected games are missing default images.");
+          setBulkSaving(false);
+          return;
+        }
+        // Update total to reflect only valid games
+        setBulkProgress({ current: 0, total: validGames.length });
       }
 
-      const formData = new FormData();
-      
-      formData.append('games', JSON.stringify(validGamesData));
-
-      if (!bulkUseDefaultImage && bulkImage) {
-        for (let i = 0; i < validGamesData.length; i++) {
-          formData.append('portraitImage', bulkImage);
-          formData.append('landscapeImage', bulkImage);
-        }
-      }
-
-      const response = await api.post('/api/admin/games/bulk', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          const gamesProcessed = Math.floor((percentCompleted / 100) * validGamesData.length);
-          setBulkProgress({ current: Math.min(gamesProcessed, validGamesData.length), total: validGamesData.length });
-        }
-      });
-
-      if (response.status === 200 || response.status === 201 || response.status === 207) {
-        const successfulCount = response.data.results?.successful?.length || validGamesData.length;
-        const failedCount = response.data.results?.failed?.length || 0;
-
-        if (failedCount > 0) {
-          toast.warning(`Added ${successfulCount} games, ${failedCount} failed. Check console for details.`);
-          console.log('Failed games:', response.data.results?.failed);
-        } else {
-          toast.success(`Successfully added ${successfulCount} games!`);
-        }
-
-        const updatedLocalGames = await fetchAllLocalGames();
-        setLocalGames(updatedLocalGames);
-
-        const addedGameIds = response.data.results?.successful?.map(g => g.game?.game_code || g.game?.gameApiID) || 
-                            validGamesData.map(g => g.gameApiID);
+      // Process games one by one
+      for (let i = 0; i < validGames.length; i++) {
+        const game = validGames[i];
+        setCurrentAddingGame(game.gameName || game.name || `Game ${i + 1}`);
         
-        setGames(prevGames => 
-          prevGames.map(game => ({
-            ...game,
-            isSaved: addedGameIds.includes(game.game_code) ? true : game.isSaved
-          }))
-        );
+        try {
+          const formData = new FormData();
+          
+          // Add game data
+          formData.append("gameApiID", game.game_code);
+          formData.append("name", game.gameName || game.name);
+          formData.append("provider", game.provider?.provider_code);
+          
+          const selectedCat = categories.find(cat => cat._id === bulkCategory);
+          if (selectedCat) {
+            formData.append("category", selectedCat.name);
+          } else {
+            formData.append("category", bulkCategory);
+          }
+          
+          formData.append("featured", bulkFeatured);
+          formData.append("status", bulkStatus);
+          formData.append("fullScreen", bulkFullScreen);
+          
+          // Add image
+          if (bulkUseDefaultImage) {
+            const defaultImageUrl = game.image || game.coverImage;
+            if (defaultImageUrl) {
+              formData.append("defaultImage", defaultImageUrl);
+              formData.append("portraitImage", defaultImageUrl);
+              formData.append("landscapeImage", defaultImageUrl);
+            }
+          } else {
+            if (bulkImage) {
+              formData.append("portraitImage", bulkImage);
+              formData.append("landscapeImage", bulkImage);
+            }
+          }
 
-        setFilteredGames(prevGames => 
-          prevGames.map(game => ({
-            ...game,
-            isSaved: addedGameIds.includes(game.game_code) ? true : game.isSaved
-          }))
-        );
+          // Make individual API call for each game
+          const response = await api.post('/api/admin/games', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
 
-        clearSelections();
+          if (response.status === 200 || response.status === 201) {
+            results.successful.push(game);
+          } else {
+            results.failed.push({ game, error: "Failed to add game" });
+          }
+        } catch (error) {
+          console.error(`Error adding game ${game.gameName || game.name}:`, error);
+          results.failed.push({ 
+            game, 
+            error: error.response?.data?.message || error.message || "Unknown error" 
+          });
+        }
 
-        setTimeout(() => {
-          setShowBulkModal(false);
-          resetBulkState();
-        }, 2000);
-      } else {
-        toast.error("Failed to add games in bulk");
+        // Update progress after each game
+        setBulkProgress({ current: i + 1, total: validGames.length });
+        
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
+
+      // Final results
+      if (results.failed.length > 0) {
+        toast.warning(`Added ${results.successful.length} games, ${results.failed.length} failed.`);
+        console.log('Failed games:', results.failed);
+      } else {
+        toast.success(`Successfully added all ${results.successful.length} games!`);
+      }
+
+      // Refresh local games data
+      const updatedLocalGames = await fetchAllLocalGames();
+      setLocalGames(updatedLocalGames);
+
+      // Update game status in UI
+      const successfulGameIds = results.successful.map(g => g.game_code);
+      setGames(prevGames => 
+        prevGames.map(game => ({
+          ...game,
+          isSaved: successfulGameIds.includes(game.game_code) ? true : game.isSaved
+        }))
+      );
+
+      setFilteredGames(prevGames => 
+        prevGames.map(game => ({
+          ...game,
+          isSaved: successfulGameIds.includes(game.game_code) ? true : game.isSaved
+        }))
+      );
+
+      clearSelections();
+
+      // Close modal after a delay
+      setTimeout(() => {
+        setShowBulkModal(false);
+        resetBulkState();
+      }, 300);
+
     } catch (error) {
       console.error("Error in bulk add:", error);
-      if (error.response) {
-        toast.error(`❌ ${error.response.data.error || error.response.data.message || "Failed to add games in bulk"}`);
-      } else if (error.request) {
-        toast.error("❌ No response from server while adding games");
-      } else {
-        toast.error(`❌ ${error.message}`);
-      }
+      toast.error(`❌ ${error.message || "Failed to add games in bulk"}`);
     } finally {
       setBulkSaving(false);
+      setCurrentAddingGame("");
     }
   };
 
@@ -1107,6 +1136,7 @@ console.log("gameToSave",gameToSave)
     setBulkImage(null);
     setBulkImagePreview(null);
     setBulkProgress({ current: 0, total: 0 });
+    setCurrentAddingGame("");
   };
 
   const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
@@ -1845,22 +1875,6 @@ console.log("gameToSave",gameToSave)
                     </div>
                   )}
 
-                  {/* Default Image Info */}
-                  {bulkUseDefaultImage && (
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-700 flex items-start">
-                        <FaImage className="mr-2 mt-0.5 flex-shrink-0" />
-                        <span>
-                          Using default images from provider. Games without default images will be skipped.
-                          <br />
-                          <span className="font-medium mt-1 block">
-                            Games with default images: {bulkGames.filter(g => g.image || g.coverImage).length} / {bulkGames.length}
-                          </span>
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
                   {/* Bulk Settings */}
                   <div className="bg-gray-50 rounded-xl p-4">
                     <h4 className="font-medium text-gray-900 mb-3">Game Settings</h4>
@@ -1887,19 +1901,35 @@ console.log("gameToSave",gameToSave)
                     />
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Progress Bar with Game Name */}
                   {bulkSaving && (
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Adding games...</span>
-                        <span>{bulkProgress.current} / {bulkProgress.total}</span>
+                    <div className="mt-4 space-y-3">
+                      <div className="flex justify-between text-sm text-gray-600 mb-1">
+                        <span className="font-medium">Adding games...</span>
+                        <span className="text-orange-600 font-semibold">{bulkProgress.current} / {bulkProgress.total}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      
+                      {currentAddingGame && (
+                        <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                          <p className="text-sm text-orange-700 flex items-center">
+                            <FaSpinner className="animate-spin mr-2 text-orange-500" />
+                            Currently adding: <span className="font-semibold ml-1 truncate">{currentAddingGame}</span>
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                         <div 
-                          className="bg-orange-500 h-2.5 rounded-full transition-all duration-300"
+                          className="bg-gradient-to-r from-orange-400 to-orange-600 h-3 rounded-full transition-all duration-300 relative"
                           style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
-                        ></div>
+                        >
+                          <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                        </div>
                       </div>
+                      
+                      <p className="text-xs text-gray-500 text-center">
+                        {Math.round((bulkProgress.current / bulkProgress.total) * 100)}% complete
+                      </p>
                     </div>
                   )}
                 </div>
