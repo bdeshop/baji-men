@@ -533,6 +533,7 @@ const HomeContent = () => {
               <Category />
 
               {/* Providers Section */}
+              
               <ProviderSlider />
 
               {/* Events Section */}

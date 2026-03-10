@@ -24,19 +24,11 @@ import { FaBangladeshiTakaSign } from "react-icons/fa6";
 import { FiRefreshCw, FiTrendingUp, FiTrendingDown, FiChevronDown } from "react-icons/fi";
 import { MdAccountBalanceWallet, MdTrendingUp } from "react-icons/md";
 import axios from "axios";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 
 const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(), // Today by default
-    endDate: new Date()    // Today by default
-  });
-  const [filterType, setFilterType] = useState('today'); // Changed to 'today' as default
-  const [showFilters, setShowFilters] = useState(false);
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -63,27 +55,14 @@ const Dashboard = () => {
     });
   };
 
-  // Format date for API (YYYY-MM-DD) in Bangladesh time
-  const formatDateForAPI = (date) => {
-    const bangladeshDate = new Date(date.getTime() + (6 * 60 * 60 * 1000));
-    return bangladeshDate.toISOString().split('T')[0];
-  };
-
   useEffect(() => {
     fetchDashboardData();
-  }, [dateRange]);
+  }, []);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const params = {
-        startDate: formatDateForAPI(dateRange.startDate),
-        endDate: formatDateForAPI(dateRange.endDate)
-      };
-      
-      console.log('Fetching data with params:', params); // Debug log
-      
-      const response = await axios.get(`${base_url}/api/admin/dashboard`, { params });
+      const response = await axios.get(`${base_url}/api/admin/dashboard`);
       console.log('Dashboard API Response:', response.data);
       setDashboardData(response.data || {});
     } catch (err) {
@@ -92,51 +71,6 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFilterChange = (type) => {
-    setFilterType(type);
-    const today = new Date();
-    let startDate = new Date(today);
-    
-    switch(type) {
-      case 'today':
-        // Set both start and end date to today
-        startDate = new Date(today);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case '7days':
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 7);
-        break;
-      case '30days':
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 30);
-        break;
-      case '90days':
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 90);
-        break;
-      case 'custom':
-        setShowFilters(true);
-        return;
-      default:
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 30);
-    }
-    
-    console.log('Setting date range:', { startDate, endDate: today }); // Debug log
-    
-    setDateRange({
-      startDate,
-      endDate: new Date()
-    });
-    setShowFilters(false);
-  };
-
-  const handleCustomDateApply = () => {
-    setFilterType('custom');
-    fetchDashboardData();
   };
 
   // Helper function to safely extract data with defaults
@@ -165,7 +99,7 @@ const Dashboard = () => {
     }).format(amount || 0);
   };
 
-  // Prepare dashboard statistics
+  // Prepare dashboard statistics (always return values, even if loading)
   const stats = {
     // User Statistics
     totalUsers: getData('data.users.totalUsers', 0),
@@ -178,7 +112,7 @@ const Dashboard = () => {
     totalWithdrawals: getData('data.financial.totalWithdrawals', 0),
     userTotalDeposit: getData('data.financial.userTotalDeposit', 0),
     userTotalWithdraw: getData('data.financial.userTotalWithdraw', 0),
-    userTotalBet: getData('data.financial.userTotalBet', 0), // Fixed: Added total bet
+    userTotalBet: getData('data.financial.userTotalBet', 0),
     userTotalWins: getData('data.financial.userTotalWins', 0),
     userTotalLoss: getData('data.financial.userTotalLoss', 0),
     userNetProfit: getData('data.financial.userNetProfit', 0),
@@ -210,7 +144,7 @@ const Dashboard = () => {
     // Today's Statistics
     todayDeposits: getData('data.today.deposits', 0),
     todayWithdrawals: getData('data.today.withdrawals', 0),
-    todayTotalBet: getData('data.today.betting.totalBet', 0), // Fixed: Added today's total bet
+    todayTotalBet: getData('data.today.betting.totalBet', 0),
     todayTotalWin: getData('data.today.betting.totalWin', 0),
     
     // Monthly Statistics
@@ -367,11 +301,14 @@ const Dashboard = () => {
     return null;
   };
 
-  // Financial summary items - INCLUDING TOTAL BET NOW
+  // Financial summary items
   const financialSummaryItems = [
     { label: 'Total User Deposits', value: stats.userTotalDeposit },
     { label: 'Total User Withdrawals', value: stats.userTotalWithdraw },
-    { label: 'Total User Bets', value: stats.userTotalBet }, // Added: Total bets
+    { label: 'Total User Bets', value: stats.userTotalBet },
+    { label: 'Total User Wins', value: stats.userTotalWins },
+    { label: 'Total User Loss', value: stats.userTotalLoss },
+    { label: 'Net Profit/Loss', value: stats.userNetProfit }
   ];
 
   return (
@@ -390,9 +327,6 @@ const Dashboard = () => {
                 <p className="text-gray-600 mt-2">
                   Bangladesh Time: {formatBangladeshDate(getBangladeshTime())}
                 </p>
-                <p className="text-gray-600">
-                  Data from {dateRange.startDate.toLocaleDateString()} to {dateRange.endDate.toLocaleDateString()}
-                </p>
               </div>
               <div className="flex items-center space-x-4">
                 <button 
@@ -401,301 +335,198 @@ const Dashboard = () => {
                   className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-                  {loading ? 'Loading...' : 'Refresh'}
+                  Refresh
                 </button>
               </div>
             </div>
-
-            {/* Date Filters - Today is selected by default */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {['today', '7days', '30days', '90days', 'custom'].map((type) => (
-                <button
-                  key={type}
-                  onClick={() => handleFilterChange(type)}
-                  disabled={loading}
-                  className={`px-4 py-2 rounded-lg transition-all ${
-                    filterType === type
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {type === 'today' && 'Today'}
-                  {type === '7days' && 'Last 7 Days'}
-                  {type === '30days' && 'Last 30 Days'}
-                  {type === '90days' && 'Last 90 Days'}
-                  {type === 'custom' && 'Custom Range'}
-                </button>
-              ))}
-            </div>
-
-            {showFilters && (
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mb-4">
-                <div className="flex flex-wrap gap-4 items-end">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <DatePicker
-                      selected={dateRange.startDate}
-                      onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
-                      className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      dateFormat="yyyy-MM-dd"
-                      maxDate={dateRange.endDate}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <DatePicker
-                      selected={dateRange.endDate}
-                      onChange={(date) => setDateRange(prev => ({ ...prev, endDate: date }))}
-                      className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      dateFormat="yyyy-MM-dd"
-                      minDate={dateRange.startDate}
-                      maxDate={new Date()}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCustomDateApply}
-                      disabled={loading}
-                      className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-                    >
-                      Apply
-                    </button>
-                    <button
-                      onClick={() => setShowFilters(false)}
-                      className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all border border-gray-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 mt-3">
-                  Selected range: {dateRange.startDate.toLocaleDateString()} - {dateRange.endDate.toLocaleDateString()}
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Loading State */}
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                {/* 3-part circular loader */}
-                <div className="relative w-16 h-16 mx-auto">
-                  {/* Part 1 */}
-                  <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
-                  
-                  {/* Part 2 - Top-right segment */}
-                  <div className="absolute inset-0 border-4 border-transparent rounded-full border-t-blue-500 animate-spin"></div>
-                  
-                  {/* Part 3 - Bottom-left segment */}
-                  <div className="absolute inset-0 border-4 border-transparent rounded-full border-b-blue-500 animate-pulse"></div>
-                  
-                  {/* Part 4 - Right segment (optional 3rd part) */}
-                  <div className="absolute inset-0 border-4 border-transparent rounded-full border-r-blue-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+          {/* Stats Cards - Always visible */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-10">
+            {statusCards.map((card, index) => (
+              <div
+                key={index}
+                className={`relative bg-gradient-to-r ${card.gradient} rounded-lg p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 min-h-[140px] flex flex-col`}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold uppercase tracking-wide opacity-90">{card.title}</p>
+                    <h2 className="text-2xl font-bold mt-1 truncate">{card.value}</h2>
+                  </div>
+                  <div className="p-3 border-[1px] border-gray-200 text-white bg-opacity-20 rounded-full flex-shrink-0">
+                    {card.icon}
+                  </div>
                 </div>
-                <p className="mt-4 text-gray-600">Loading data...</p>
+                <div className="flex items-center mt-auto text-sm opacity-90">
+                  {card.trend === 'up' ? (
+                    <FiTrendingUp className="mr-1 text-green-300" />
+                  ) : card.trend === 'down' ? (
+                    <FiTrendingDown className="mr-1 text-red-300" />
+                  ) : null}
+                  <span className="truncate">{card.description}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Financial Overview Chart */}
+          <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Financial Overview</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart 
+                    data={financialChartData} 
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  >
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#6B7280"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="#6B7280"
+                      fontSize={12}
+                      tickFormatter={(value) => `৳${formatCurrency(value)}`}
+                    />
+                    <Tooltip 
+                      content={<CustomTooltip />}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="amount" 
+                      name="Amount (৳)" 
+                      radius={[6, 6, 0, 0]}
+                    >
+                      {financialChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-6 border-[1px] border-gray-200">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  {financialSummaryItems.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                      <span className="text-sm text-gray-600 truncate">{item.label}</span>
+                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap ml-2">
+                        ৳{formatCurrency(item.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-10">
-                {statusCards.map((card, index) => (
-                  <div
-                    key={index}
-                    className={`relative bg-gradient-to-r ${card.gradient} rounded-lg p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 min-h-[140px] flex flex-col`}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold uppercase tracking-wide opacity-90">{card.title}</p>
-                        <h2 className="text-2xl font-bold mt-1 truncate">{card.value}</h2>
+          </div>
+
+          {/* Daily Performance */}
+          <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Performance (Last 7 Days - BD Time)</h3>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart 
+                data={dailyPerformanceData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
+                <XAxis dataKey="day" stroke="#6B7280" fontSize={12} />
+                <YAxis 
+                  stroke="#6B7280"
+                  fontSize={12}
+                  tickFormatter={(value) => `৳${formatCurrency(value)}`}
+                />
+                <Tooltip 
+                  content={<CustomTooltip />}
+                />
+                <Legend />
+                <Bar 
+                  dataKey="deposits" 
+                  name="Deposits" 
+                  fill="#3B82F6" 
+                  radius={[6, 6, 0, 0]} 
+                />
+                <Bar 
+                  dataKey="withdrawals" 
+                  name="Withdrawals" 
+                  fill="#10B981" 
+                  radius={[6, 6, 0, 0]} 
+                />
+                <Bar 
+                  dataKey="bets" 
+                  name="Bets" 
+                  fill="#F59E0B" 
+                  radius={[6, 6, 0, 0]} 
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Recent Activities */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Recent Users */}
+            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Users</h3>
+              <div className="space-y-4">
+                {stats.recentUsers.length > 0 ? (
+                  stats.recentUsers.slice(0, 5).map((user, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                          <FaUsers className="text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{user.username || 'Unknown'}</p>
+                          <p className="text-sm text-gray-600">{user.player_id || 'N/A'}</p>
+                        </div>
                       </div>
-                      <div className="p-3 border-[1px] border-gray-200 text-gray-700 bg-opacity-20 rounded-full flex-shrink-0">
-                        {card.icon}
+                      <span className="text-sm text-gray-500">
+                        {user.createdAt ? formatBangladeshDate(new Date(user.createdAt)) : 'N/A'}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No recent user data available
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Deposits */}
+            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Deposits</h3>
+              <div className="space-y-4">
+                {stats.recentDeposits.length > 0 ? (
+                  stats.recentDeposits.slice(0, 5).map((deposit, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {deposit.userId?.username || 'Unknown User'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {deposit.method || 'N/A'} • {deposit.status || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600">৳{formatCurrency(deposit.amount || 0)}</p>
+                        <p className="text-sm text-gray-500">
+                          {deposit.createdAt ? formatBangladeshDate(new Date(deposit.createdAt)) : 'N/A'}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center mt-auto text-sm opacity-90">
-                      {card.trend === 'up' ? (
-                        <FiTrendingUp className="mr-1 text-green-300" />
-                      ) : card.trend === 'down' ? (
-                        <FiTrendingDown className="mr-1 text-red-300" />
-                      ) : null}
-                      <span className="truncate">{card.description}</span>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No recent deposit data available
                   </div>
-                ))}
+                )}
               </div>
-
-              {/* Financial Overview Chart */}
-              <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">Financial Overview</h3>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm text-gray-600">Period:</span>
-                    <span className="text-sm font-medium text-gray-800">
-                      {dateRange.startDate.toLocaleDateString()} - {dateRange.endDate.toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2">
-                    <ResponsiveContainer width="100%" height={350}>
-                      <BarChart 
-                        data={financialChartData} 
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
-                        <XAxis 
-                          dataKey="name" 
-                          stroke="#6B7280"
-                          fontSize={12}
-                        />
-                        <YAxis 
-                          stroke="#6B7280"
-                          fontSize={12}
-                          tickFormatter={(value) => `৳${formatCurrency(value)}`}
-                        />
-                        <Tooltip 
-                          content={<CustomTooltip />}
-                        />
-                        <Legend />
-                        <Bar 
-                          dataKey="amount" 
-                          name="Amount (৳)" 
-                          radius={[6, 6, 0, 0]}
-                        >
-                          {financialChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="bg-gray-50 rounded-lg p-6 border-[1px] border-gray-200">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
-                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                      {financialSummaryItems.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                          <span className="text-sm text-gray-600 truncate">{item.label}</span>
-                          <span className="text-sm font-semibold text-gray-900 whitespace-nowrap ml-2">
-                            ৳{formatCurrency(item.value)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Daily Performance & Gaming Stats */}
-              <div className="grid grid-cols-1 gap-8 mb-10">
-                {/* Daily Performance */}
-                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Performance (Last 7 Days - BD Time)</h3>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart 
-                      data={dailyPerformanceData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    >
-                      <XAxis dataKey="day" stroke="#6B7280" fontSize={12} />
-                      <YAxis 
-                        stroke="#6B7280"
-                        fontSize={12}
-                        tickFormatter={(value) => `৳${formatCurrency(value)}`}
-                      />
-                      <Tooltip 
-                        content={<CustomTooltip />}
-                      />
-                      <Legend />
-                      <Bar 
-                        dataKey="deposits" 
-                        name="Deposits" 
-                        fill="#3B82F6" 
-                        radius={[6, 6, 0, 0]} 
-                      />
-                      <Bar 
-                        dataKey="withdrawals" 
-                        name="Withdrawals" 
-                        fill="#10B981" 
-                        radius={[6, 6, 0, 0]} 
-                      />
-                      <Bar 
-                        dataKey="bets" 
-                        name="Bets" 
-                        fill="#F59E0B" 
-                        radius={[6, 6, 0, 0]} 
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-              </div>
-
-              {/* Recent Activities */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Recent Users */}
-                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Users</h3>
-                  <div className="space-y-4">
-                    {stats.recentUsers.length > 0 ? (
-                      stats.recentUsers.slice(0, 5).map((user, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                              <FaUsers className="text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{user.username || 'Unknown'}</p>
-                              <p className="text-sm text-gray-600">{user.player_id || 'N/A'}</p>
-                            </div>
-                          </div>
-                          <span className="text-sm text-gray-500">
-                            {user.createdAt ? formatBangladeshDate(new Date(user.createdAt)) : 'N/A'}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        No recent user data available
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Recent Deposits */}
-                <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Deposits</h3>
-                  <div className="space-y-4">
-                    {stats.recentDeposits.length > 0 ? (
-                      stats.recentDeposits.slice(0, 5).map((deposit, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {deposit.userId?.username || 'Unknown User'}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {deposit.method || 'N/A'} • {deposit.status || 'N/A'}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-green-600">৳{formatCurrency(deposit.amount || 0)}</p>
-                            <p className="text-sm text-gray-500">
-                              {deposit.createdAt ? formatBangladeshDate(new Date(deposit.createdAt)) : 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        No recent deposit data available
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+            </div>
+          </div>
         </main>
       </div>
     </section>

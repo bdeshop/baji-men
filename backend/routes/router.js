@@ -287,7 +287,6 @@ router.get("/games/featured/featured", async (req, res) => {
       status: true 
     })
     .sort({ order: 1, createdAt: -1 })
-    .limit(parseInt(limit))
 
     res.json({
       success: true,

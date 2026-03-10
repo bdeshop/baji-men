@@ -430,7 +430,7 @@ const Allgames = () => {
                   >
                     <option value="all">All Providers</option>
                     {providers.map((provider) => (
-                      <option key={provider._id} value={provider.name}>{provider.name}</option>
+                      <option key={provider._id} value={provider.providerc}>{provider.name}</option>
                     ))}
                   </select>
                 </div>

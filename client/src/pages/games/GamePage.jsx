@@ -138,15 +138,8 @@ const GamePage = () => {
       <div className="relative flex flex-col items-center justify-center">
     
         {/* Loading text */}
-        <div className="text-center mt-8 space-y-2">
+        <div className="flex justify-center items-center text-center mt-8 space-y-2">
           <img className="w-[150px]" src={logo} alt="" />
-          {/* Optional: Show provider and category info during loading */}
-          {(provider || category) && (
-            <div className="text-xs text-gray-400 mt-2">
-              {provider && <span className="mr-2">Provider: {provider}</span>}
-              {category && <span>Category: {category}</span>}
-            </div>
-          )}
         </div>
 
         {/* Progress bar */}

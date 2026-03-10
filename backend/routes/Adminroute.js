@@ -2637,7 +2637,11 @@ Adminrouter.get("/game-providers", async (req, res) => {
     }
 
     if (search) {
-      filter.name = { $regex: search, $options: "i" };
+      // Search in both name and providercode
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { providercode: { $regex: search, $options: "i" } }
+      ];
     }
 
     const providers = await GameProvider.find(filter).sort({
@@ -2675,9 +2679,10 @@ Adminrouter.post(
           .json({ error: "Please upload a provider image" });
       }
 
-      if (!req.body.name || !req.body.website || !req.body.providerOracleID) {
+      // Validate required fields including providercode
+      if (!req.body.name || !req.body.website || !req.body.providerOracleID || !req.body.providercode) {
         return res.status(400).json({
-          error: "Provider name, website and providerOracleID are required",
+          error: "Provider name, website, providerOracleID and providercode are required",
         });
       }
 
@@ -2685,9 +2690,11 @@ Adminrouter.post(
         name: req.body.name,
         website: req.body.website,
         providerOracleID: req.body.providerOracleID,
+        providercode: req.body.providercode, // Added providercode
         image: `/uploads/game-providers/${req.file.filename}`,
         status: req.body.status === "true" || req.body.status === true,
         category: req.body.category,
+        order: req.body.order || 0, // Added order field support
       };
 
       const newProvider = new GameProvider(providerData);
@@ -2699,6 +2706,10 @@ Adminrouter.post(
       });
     } catch (error) {
       if (error.code === 11000) {
+        // Check which field caused the duplicate error
+        if (error.keyPattern?.providercode) {
+          return res.status(400).json({ error: "Provider code already exists" });
+        }
         return res.status(400).json({ error: "Provider name already exists" });
       }
       res.status(500).json({ error: "Failed to create game provider" });
@@ -2717,13 +2728,14 @@ Adminrouter.put(
         return res.status(404).json({ error: "Game provider not found" });
       }
 
-      // Update fields
+      // Update fields including providercode
       if (req.body.name) provider.name = req.body.name;
       if (req.body.website) provider.website = req.body.website;
-      if (req.body.status !== undefined) provider.status = req.body.status;
-      if (req.body.providerOracleID)
-        provider.providerOracleID = req.body.providerOracleID;
+      if (req.body.status !== undefined) provider.status = req.body.status === "true" || req.body.status === true;
+      if (req.body.providerOracleID) provider.providerOracleID = req.body.providerOracleID;
+      if (req.body.providercode) provider.providercode = req.body.providercode; // Added providercode update
       if (req.body.category) provider.category = req.body.category;
+      if (req.body.order !== undefined) provider.order = parseInt(req.body.order) || 0; // Added order update
 
       if (req.file) {
         // Delete old image file
@@ -2744,13 +2756,16 @@ Adminrouter.put(
       });
     } catch (error) {
       if (error.code === 11000) {
+        // Check which field caused the duplicate error
+        if (error.keyPattern?.providercode) {
+          return res.status(400).json({ error: "Provider code already exists" });
+        }
         return res.status(400).json({ error: "Provider name already exists" });
       }
       res.status(500).json({ error: "Failed to update game provider" });
     }
   }
 );
-
 // PUT update game provider status
 Adminrouter.put("/game-providers/:id/status", async (req, res) => {
   try {

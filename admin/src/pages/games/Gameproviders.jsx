@@ -12,13 +12,14 @@ const Gameproviders = () => {
   const [formData, setFormData] = useState({
     name: "",
     providerOracleID: "",
+    providercode: "", // Added providercode field
     website: "",
     category: "",
     image: null,
   });
   const [imagePreview, setImagePreview] = useState(null);
-  const [localProviders, setLocalProviders] = useState([]); // Renamed for clarity
-  const [premiumProviders, setPremiumProviders] = useState([]); // New state for premium API providers
+  const [localProviders, setLocalProviders] = useState([]);
+  const [premiumProviders, setPremiumProviders] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,8 +31,8 @@ const Gameproviders = () => {
 
   // Fetch providers and categories on component mount
   useEffect(() => {
-    fetchLocalProviders(); // Fetch providers from local DB for the table
-    fetchPremiumProviders(); // Fetch providers from premium API for the dropdown
+    fetchLocalProviders();
+    fetchPremiumProviders();
     fetchCategories();
   }, []);
 
@@ -58,7 +59,7 @@ const Gameproviders = () => {
           },
         }
       );
-      console.log("response",response)
+      console.log("response", response);
       setPremiumProviders(response.data.data); // Access the 'data' array from the response
     } catch (error) {
       console.error("Error fetching premium providers:", error);
@@ -86,6 +87,7 @@ const Gameproviders = () => {
         ...formData,
         name: selectedProvider ? selectedProvider.providerName : "",
         providerOracleID: value,
+        providercode: selectedProvider ? selectedProvider.providerCode : "", // Auto-fill providercode
       });
     } else {
       setFormData({
@@ -120,6 +122,7 @@ const Gameproviders = () => {
       const formDataToSend = new FormData();
       formDataToSend.append("name", formData.name);
       formDataToSend.append("providerOracleID", formData.providerOracleID);
+      formDataToSend.append("providercode", formData.providercode); // Added providercode
       formDataToSend.append("website", formData.website);
       formDataToSend.append("category", formData.category);
       if (formData.image) {
@@ -159,6 +162,7 @@ const Gameproviders = () => {
       setFormData({
         name: "",
         providerOracleID: "",
+        providercode: "", // Reset providercode
         website: "",
         category: "",
         image: null,
@@ -178,6 +182,7 @@ const Gameproviders = () => {
     setFormData({
       name: provider.name,
       providerOracleID: provider.providerOracleID || "",
+      providercode: provider.providercode || "", // Added providercode
       website: provider.website,
       category: provider.category || "",
       image: null,
@@ -190,6 +195,7 @@ const Gameproviders = () => {
     setFormData({
       name: "",
       providerOracleID: "",
+      providercode: "", // Reset providercode
       website: "",
       category: "",
       image: null,
@@ -315,10 +321,10 @@ const Gameproviders = () => {
                 {editingId ? "Edit Provider" : "Add New Provider"}
               </h2>
               <form onSubmit={handleSubmit}>
-                {/* Provider Name Field */}
+                {/* Provider Selection Field */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Provider Name
+                    Select Provider
                   </label>
                   <select
                     name="providerSelection"
@@ -326,15 +332,33 @@ const Gameproviders = () => {
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
                     required
-                    disabled={isLoading}
+                    disabled={isLoading || editingId} // Disable when editing
                   >
                     <option value="">Select a provider</option>
                     {premiumProviders.map((provider) => (
                       <option key={provider._id} value={provider._id}>
-                        {provider.providerName}
+                        {provider.providerName} ({provider.providerCode})
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Provider Code Field (Read-only) */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Provider Code
+                  </label>
+                  <input
+                    type="text"
+                    name="providercode"
+                    value={formData.providercode}
+                    readOnly
+                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] bg-gray-100 cursor-not-allowed"
+                    placeholder="Auto-filled from selection"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Provider code is automatically filled when you select a provider
+                  </p>
                 </div>
 
                 {/* Website Field */}
@@ -374,7 +398,7 @@ const Gameproviders = () => {
                   >
                     <option value="">Select a category</option>
                     {categories
-                      .filter((category) => category.status) // Only show active categories
+                      .filter((category) => category.status)
                       .map((category) => (
                         <option key={category._id} value={category.name}>
                           {category.name}
@@ -490,6 +514,12 @@ const Gameproviders = () => {
                           scope="col"
                           className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider"
                         >
+                          Code
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider"
+                        >
                           Website
                         </th>
                         <th
@@ -514,9 +544,6 @@ const Gameproviders = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {localProviders.map((provider) => {
-                        // Find category name for this provider
-                        // const category = categories.find(cat => cat._id === provider.category);
-                        // const categoryName = category ? category.name : 'Uncategorized';
                         const categoryName = provider.category;
 
                         return (
@@ -533,6 +560,11 @@ const Gameproviders = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">
                                 {provider.name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-mono text-gray-900">
+                                {provider.providercode || 'N/A'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

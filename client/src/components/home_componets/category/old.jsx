@@ -12,23 +12,6 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import logo from "../../../assets/logo.png";
 
-// --- PROFESSIONAL SKELETON COMPONENT ---
-const SkeletonItem = ({ type }) => {
-  if (type === "category") {
-    return (
-      <div className="flex flex-col relative items-center justify-center p-3 rounded-[5px] bg-[#222424] animate-pulse h-[80px] w-full">
-        <div className="w-[45px] h-[45px] absolute top-[-30%] rounded-full bg-[#333] border-2 border-[#1a1a1a]"></div>
-        <div className="h-3 w-16 bg-[#333] mt-4 rounded"></div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col items-center rounded-[8px] overflow-hidden animate-pulse w-full">
-      <div className="w-full aspect-[3/4] bg-[#222424] rounded-[6px]"></div>
-    </div>
-  );
-};
-
 // Create Auth Context
 const AuthContext = createContext();
 
@@ -98,6 +81,81 @@ const AuthProvider = ({ children }) => {
 let categoriesCache = null;
 let brandingCache = null;
 
+// Skeleton Loading Components
+const CategorySkeleton = ({ isMobile }) => {
+  if (isMobile) {
+    return (
+      <div className="block lg:hidden px-2 py-4 md:p-4 pt-[40px] relative">
+        <div className="flex gap-3 ">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div
+              key={index}
+              className="flex-shrink-0 w-[calc(25.333%-0.5rem)] min-w-0 flex flex-col relative items-center justify-center p-3 rounded-[5px] bg-box_bg"
+            >
+              <div className="w-[45px] h-[45px] absolute top-[-30%] rounded-full bg-gray-700 animate-pulse"></div>
+              <div className="w-16 h-4 mt-4 bg-gray-700 rounded animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hidden lg:grid grid-cols-5 lg:grid-cols-7 xl:grid-cols-9 gap-4 p-4 pt-[40px]">
+      {Array.from({ length: 9 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex flex-col relative items-center justify-center p-3 rounded-[5px] bg-box_bg"
+        >
+          <div className="w-[45px] h-[45px] absolute top-[-30%] rounded-full bg-gray-700 animate-pulse"></div>
+          <div className="w-16 h-4 mt-4 bg-gray-700 rounded animate-pulse"></div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ContentSkeleton = ({ isExclusiveCategory }) => {
+  if (isExclusiveCategory) {
+    return (
+      <div className=" md:py-4">
+        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
+          {Array.from({ length: 18 }).map((_, index) => (
+            <div
+              key={index}
+              className="flex flex-col items-center bg-[#2A3254] rounded-[8px] p-[10px]"
+            >
+              <div className="game-image-container mb-2">
+                <div className="game-image bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div className="pt-2 w-full">
+                <div className="h-4 bg-gray-700 rounded animate-pulse"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-2 md:p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-3">
+        {Array.from({ length: 14 }).map((_, index) => (
+          <div
+            key={index}
+            className="flex justify-start items-center gap-[10px] px-4 py-2 rounded-[3px] bg-[#222424]"
+          >
+            <div className="w-[30px] h-[30px] bg-gray-700 rounded-full animate-pulse"></div>
+            <div className="w-16 h-4 bg-gray-700 rounded animate-pulse"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const CategoryContent = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const navigate = useNavigate();
@@ -109,7 +167,6 @@ const CategoryContent = () => {
   const [displayedGames, setDisplayedGames] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [contentLoading, setContentLoading] = useState(false); // Added for grid skeletons
   const [gamesPage, setGamesPage] = useState(1);
   const [hasMoreGames, setHasMoreGames] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
@@ -117,6 +174,7 @@ const CategoryContent = () => {
   const [gameLoading, setGameLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [dynamicLogo, setDynamicLogo] = useState(logo);
+  const [contentLoading, setContentLoading] = useState(true);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
@@ -189,8 +247,10 @@ const CategoryContent = () => {
 
     if (exclusiveCategory) {
       setActiveCategory(exclusiveCategory);
+      setContentLoading(true);
       // Always fetch exclusive games for the Exclusive tab
       await fetchExclusiveGames();
+      setContentLoading(false);
     }
   };
 
@@ -260,8 +320,8 @@ const CategoryContent = () => {
   };
 
   const fetchProviders = async (categoryName) => {
-    setContentLoading(true); // Start grid skeleton
     try {
+      setContentLoading(true);
       const response = await axios.get(
         `${base_url}/api/providers/${categoryName}`
       );
@@ -272,12 +332,11 @@ const CategoryContent = () => {
     } catch (error) {
       console.error("Error fetching providers:", error);
     } finally {
-      setContentLoading(false); // Stop grid skeleton
+      setContentLoading(false);
     }
   };
 
   const fetchExclusiveGames = async () => {
-    setContentLoading(true); // Start grid skeleton
     try {
       const response = await axios.get(`${base_url}/api/menu-games`);
       
@@ -308,8 +367,6 @@ const CategoryContent = () => {
     } catch (error) {
       console.error("Error fetching exclusive games:", error);
       setExclusiveGames([]);
-    } finally {
-      setContentLoading(false); // Stop grid skeleton
     }
   };
 
@@ -318,6 +375,7 @@ const CategoryContent = () => {
     if (activeCategory?._id === category._id) return;
     
     setActiveCategory(category);
+    setContentLoading(true);
     
     // Check if this is the Exclusive category (case insensitive)
     if (category.name.toLowerCase() === "exclusive") {
@@ -325,6 +383,7 @@ const CategoryContent = () => {
     } else {
       await fetchProviders(category.name);
     }
+    setContentLoading(false);
   };
 
   const handleProviderClick = (provider) => {
@@ -447,17 +506,13 @@ const CategoryContent = () => {
 
   // Render provider grid based on the number of providers
   const renderProviderGrid = () => {
-    // Added: Skeleton loading for the grid content
+    // Show skeleton loading for content
     if (contentLoading) {
-        return (
-          <div className="py-4">
-            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
-              {[...Array(calculateGamesPerPage())].map((_, i) => (
-                <SkeletonItem key={i} type="game" />
-              ))}
-            </div>
-          </div>
-        );
+      return (
+        <ContentSkeleton 
+          isExclusiveCategory={activeCategory?.name.toLowerCase() === "exclusive"}
+        />
+      );
     }
 
     if (providers.length === 0 && exclusiveGames.length === 0) {
@@ -510,7 +565,7 @@ const CategoryContent = () => {
           )}
 
           {/* Show message if no games found */}
-          {displayedGames.length === 0 && exclusiveGames.length === 0 && (
+          {displayedGames.length === 0 && exclusiveGames.length === 0 && !contentLoading && (
             <div className="text-center py-8 text-gray-400">
               No exclusive games found.
             </div>
@@ -565,6 +620,20 @@ const CategoryContent = () => {
             object-fit: cover;
           }
 
+          /* Smooth skeleton animation */
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+          }
+
+          .animate-pulse {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          }
+
           /* Custom scrollbar hide for mobile */
           .hidescrollbar::-webkit-scrollbar {
             display: none;
@@ -573,29 +642,16 @@ const CategoryContent = () => {
             -ms-overflow-style: none;
             scrollbar-width: none;
           }
-
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-          }
-          .animate-pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          }
         `}
       </style>
 
-      {/* Categories section */}
+      {/* Show skeleton loading while fetching categories */}
       {loading ? (
-        // SHOW SKELETONS DURING INITIAL LOAD
-        <div className="grid grid-cols-4 lg:grid-cols-9 gap-4 pt-[40px] px-2 md:px-0">
-          {[...Array(isMobile ? 4 : 9)].map((_, i) => (
-            <SkeletonItem key={i} type="category" />
-          ))}
-        </div>
+        <CategorySkeleton isMobile={isMobile} />
       ) : (
         <>
           {/* Mobile slider for categories using Embla Carousel */}
-          <div className="block lg:hidden py-4 md:p-4 pt-[30px] md:pt-[40px] relative hidescrollbar">
+          <div className="block lg:hidden  py-4 md:p-4 pt-[30px]  md:pt-[40px] relative hidescrollbar">
             <div className="embla" ref={emblaRef}>
               <div className="embla__container flex gap-3">
                 {categories.map((category) => (
