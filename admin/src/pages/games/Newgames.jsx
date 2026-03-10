@@ -11,7 +11,9 @@ const Newgames = () => {
   const premium_api_key = import.meta.env.VITE_PREMIUM_API_KEY;
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [providers, setProviders] = useState([]);
+  const [localProviders, setLocalProviders] = useState([]); // Store local providers separately
+  const [providers, setProviders] = useState([]); // Merged providers for display
+  const [filteredProviders, setFilteredProviders] = useState([]);
   const [selectedProvider, setSelectedProvider] = useState("");
   const [games, setGames] = useState([]);
   const [filteredGames, setFilteredGames] = useState([]);
@@ -59,7 +61,7 @@ const Newgames = () => {
   const api = axios.create({
     baseURL: base_url,
     timeout: 30000,
-        headers: { 'Content-Type': 'multipart/form-data',"Authorization":localStorage.getItem("adminToken") }
+    headers: { 'Content-Type': 'multipart/form-data', "Authorization": localStorage.getItem("adminToken") }
   });
 
   const oracleApi = axios.create({
@@ -83,7 +85,8 @@ const Newgames = () => {
     icon: Icon, 
     dropdownOpen, 
     setDropdownOpen,
-    label 
+    label,
+    disabled = false
   }) => {
     const selectedOption = options.find(opt => opt._id === value || opt.value === value);
     
@@ -101,15 +104,18 @@ const Newgames = () => {
         <div className="relative">
           <button
             type="button"
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            disabled={loading}
-            className="w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 flex items-center justify-between transition-all duration-200 hover:border-orange-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
+            disabled={loading || disabled}
+            className={`w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 flex items-center justify-between transition-all duration-200 hover:border-orange-400 ${
+              disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+            }`}
           >
             <div className="flex items-center space-x-3">
               {Icon && <Icon className="text-gray-400 text-lg" />}
               <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
                 {loading ? `Loading ${placeholder}...` : 
                  selectedOption ? getDisplayName(selectedOption) : 
+                 disabled ? 'Select a category first' : 
                  `Select ${placeholder}`}
               </span>
             </div>
@@ -123,11 +129,11 @@ const Newgames = () => {
             </svg>
           </button>
           
-          {dropdownOpen && (
+          {dropdownOpen && !disabled && (
             <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
               {options.length === 0 ? (
                 <div className="px-4 py-3 text-gray-500 text-sm">
-                  {loading ? 'Loading...' : 'No options available'}
+                  {loading ? 'Loading...' : 'No providers available for this category'}
                 </div>
               ) : (
                 options.map((option) => (
@@ -206,7 +212,7 @@ const Newgames = () => {
         value={searchTerm}
         onChange={(e) => {
           setSearchTerm(e.target.value);
-          setCurrentPage(1); // Reset to first page on search
+          setCurrentPage(1);
         }}
         placeholder="Search games by name..."
         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
@@ -327,7 +333,6 @@ const Newgames = () => {
 
   // Reset select all when page changes
   useEffect(() => {
-    // Check if all items on current page are selected
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
     const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game._id)).length;
     
@@ -362,26 +367,93 @@ const Newgames = () => {
     fetchCategories();
   }, []);
 
-  // Fetch and merge providers
+  // Fetch local providers
   useEffect(() => {
-    const fetchAndMergeProviders = async () => {
+    const fetchLocalProviders = async () => {
       setLoadingProviders(true);
       try {
-        const [localRes, externalRes] = await Promise.all([
-          api.get('/api/admin/game-providers'),
-          oracleApi.get('/providers')
-        ]);
-      console.log("externalRes",externalRes)
-        const localProviders = localRes.data;
-        const externalProviders = externalRes.data;
-        const localProviderCodes = new Set(
-          localProviders.map((p) => p.providerCode || p.providerName)
-        );
+        const response = await api.get('/api/admin/game-providers');
+        console.log("Local providers:", response.data);
+        setLocalProviders(response.data);
+      } catch (error) {
+        console.error("Error fetching local providers:", error);
+        toast.error("Failed to fetch local providers");
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
 
-        const mergedProviders = externalProviders.data.filter((p) => {
-          return localProviderCodes.has(p.providerCode) || 
-                 localProviderCodes.has(p.providerName) ||
-                 localProviderCodes.has(p.code);
+    fetchLocalProviders();
+  }, []);
+
+  // Filter local providers based on selected category
+  useEffect(() => {
+    if (selectedCategory && localProviders.length > 0 && categories.length > 0) {
+      // Find the selected category object to get its name
+      const selectedCategoryObj = categories.find(c => c._id === selectedCategory);
+      
+      if (selectedCategoryObj) {
+        const categoryName = selectedCategoryObj.name?.toLowerCase();
+        console.log("Selected category name:", categoryName);
+        
+        // Filter providers whose category matches the selected category name (case insensitive)
+        const filtered = localProviders.filter(provider => {
+          const providerCategory = provider.category?.toLowerCase();
+          return providerCategory === categoryName;
+        });
+        
+        console.log("Filtered local providers:", filtered);
+        setFilteredProviders(filtered);
+        
+        // Clear selected provider if it's not in the filtered list
+        if (selectedProvider) {
+          const selectedProviderObj = filtered.find(p => p._id === selectedProvider);
+          if (!selectedProviderObj) {
+            setSelectedProvider("");
+          }
+        }
+      }
+    } else {
+      setFilteredProviders([]);
+      setSelectedProvider("");
+    }
+  }, [selectedCategory, localProviders, categories]);
+
+  // Fetch and merge providers from Oracle API based on filtered local providers
+  useEffect(() => {
+    const fetchAndMergeProviders = async () => {
+      if (filteredProviders.length === 0) {
+        setProviders([]);
+        return;
+      }
+      
+      setLoadingProviders(true);
+      try {
+        const externalRes = await oracleApi.get('/providers');
+        const externalProviders = externalRes.data.data || [];
+        
+        console.log("External providers:", externalProviders);
+        
+        // Create a map of filtered local providers by their codes/names for quick lookup
+        const localProviderMap = new Map();
+        filteredProviders.forEach(p => {
+          // Store by multiple identifiers
+          if (p.providercode) localProviderMap.set(p.providercode.toLowerCase(), p);
+          if (p.name) localProviderMap.set(p.name.toLowerCase(), p);
+          if (p.providerOracleID) localProviderMap.set(p.providerOracleID, p);
+        });
+
+        // Filter external providers that match our filtered local providers
+        const mergedProviders = externalProviders.filter((p) => {
+          const providerCode = p.providerCode?.toLowerCase();
+          const providerName = p.providerName?.toLowerCase();
+          const code = p.code?.toLowerCase();
+          const id = p._id;
+          
+          return localProviderMap.has(providerCode) || 
+                 localProviderMap.has(providerName) ||
+                 localProviderMap.has(code) ||
+                 localProviderMap.has(id);
         });
 
         console.log("Merged Providers:", mergedProviders);
@@ -401,7 +473,7 @@ const Newgames = () => {
     };
 
     fetchAndMergeProviders();
-  }, []);
+  }, [filteredProviders]);
 
   // Function to fetch all games from local database
   const fetchAllLocalGames = async () => {
@@ -447,7 +519,7 @@ const Newgames = () => {
       setEditingGame(null);
       setSelectedGames(new Set());
       setSelectAll(false);
-      setCurrentPage(1); // Reset to first page when provider changes
+      setCurrentPage(1);
       
       try {
         const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
@@ -460,6 +532,7 @@ const Newgames = () => {
 
         const oracleGamesRes = await oracleApi.get('/games?page=1&limit=5000');
         const oracleGamesData = oracleGamesRes.data;
+        
         // Fetch latest local games
         const localGamesList = await fetchAllLocalGames();
         setLocalGames(localGamesList);
@@ -483,15 +556,12 @@ const Newgames = () => {
 
         // Transform the games for our UI
         const transformedGames = providerGames.map((externalGame) => {
-          // Use game_code as the primary identifier
           const gameCode = externalGame.game_code || externalGame.code;
           
-          // Find if this game exists by game_code
           const existingGame = localGamesList.find(g => 
             g.game_code === gameCode || g.gameApiID === gameCode
           );
           
-          // Create a stable React key
           const uniqueId = gameCode;
           return {
             ...externalGame,
@@ -518,7 +588,6 @@ const Newgames = () => {
         setGames(transformedGames);
         setFilteredGames(transformedGames);
         
-        // Initialize useDefaultImage state for all games
         const defaultImageState = {};
         transformedGames.forEach(game => {
           defaultImageState[game._id] = true;
@@ -542,16 +611,15 @@ const Newgames = () => {
     if (selectedProvider) {
       fetchAndFilterGames();
     }
-  }, [selectedProvider, providers]);
+  }, [selectedProvider, providers, selectedCategory]);
 
   // Apply search filter whenever games or search term changes
   useEffect(() => {
     const searchFiltered = filterGamesBySearch(games, searchTerm);
     setFilteredGames(searchFiltered);
-    // Clear selections when search changes
     setSelectedGames(new Set());
     setSelectAll(false);
-    setCurrentPage(1); // Reset to first page when search changes
+    setCurrentPage(1);
   }, [games, searchTerm]);
 
   // Update category for all games when selected category changes
@@ -576,7 +644,6 @@ const Newgames = () => {
     }
     setSelectedGames(newSelected);
     
-    // Check if all unsaved games on current page are selected
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
     const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game._id)).length;
     setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
@@ -584,7 +651,6 @@ const Newgames = () => {
 
   const toggleSelectAll = () => {
     if (selectAll) {
-      // Deselect all games on current page
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
         if (!game.isSaved) {
@@ -594,7 +660,6 @@ const Newgames = () => {
       setSelectedGames(newSelected);
       setSelectAll(false);
     } else {
-      // Select all unsaved games on current page
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
         if (!game.isSaved) {
@@ -671,7 +736,6 @@ const Newgames = () => {
         })
       );
       
-      // When user uploads an image, disable default image mode for this game
       setUseDefaultImage(prev => ({
         ...prev,
         [gameId]: false
@@ -696,7 +760,6 @@ const Newgames = () => {
       })
     );
     
-    // When image is removed, revert to default image mode
     setUseDefaultImage(prev => ({
       ...prev,
       [gameId]: true
@@ -709,7 +772,6 @@ const Newgames = () => {
       [gameId]: !prev[gameId]
     }));
     
-    // If switching to default image, clear any uploaded image
     if (!useDefaultImage[gameId]) {
       setGames((prevGames) =>
         prevGames.map((game) => {
@@ -730,7 +792,6 @@ const Newgames = () => {
 
   const handleEditGame = (game) => {
     setEditingGame(game._id);
-    // Scroll to the game
     setTimeout(() => {
       document.getElementById(`game-${game._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
@@ -743,13 +804,11 @@ const Newgames = () => {
   const handleSaveOrUpdateGame = async (gameId) => {
     const gameToSave = games.find((g) => g._id === gameId);
     
-    // Validation
     if (!gameToSave.localCategory) {
       toast.error("Please select a category for the game.");
       return;
     }
-
-    // Check if using default image or uploaded image
+console.log("gameToSave",gameToSave)
     const isUsingDefaultImage = useDefaultImage[gameId];
     
     if (!isUsingDefaultImage && !gameToSave.localPortraitImage) {
@@ -757,7 +816,6 @@ const Newgames = () => {
       return;
     }
 
-    // Determine if this is an update or new game
     const isUpdate = gameToSave.isSaved;
     
     if (isUpdate) {
@@ -765,10 +823,9 @@ const Newgames = () => {
     } else {
       setSavingGameId(gameId);
     }
- console.log("gameToSave.provider?.providerName",gameToSave.provider)
+
     try {
       const formData = new FormData();
-      // Basic game info
       formData.append("gameApiID", gameToSave.game_code);
       formData.append("name", gameToSave.gameName || gameToSave.name);
       formData.append("provider", gameToSave.provider?.provider_code);
@@ -787,9 +844,7 @@ const Newgames = () => {
       formData.append("status", gameToSave.localStatus);
       formData.append("fullScreen", gameToSave.localFullScreen);
       
-      // Handle image based on selection
       if (isUsingDefaultImage) {
-        // Use default image URL from API
         const defaultImageUrl = gameToSave.image || gameToSave.coverImage;
         if (defaultImageUrl) {
           formData.append("defaultImage", defaultImageUrl);
@@ -805,7 +860,6 @@ const Newgames = () => {
           return;
         }
       } else {
-        // Use uploaded image
         if (gameToSave.localPortraitImage) {
           formData.append("portraitImage", gameToSave.localPortraitImage);
           formData.append("landscapeImage", gameToSave.localPortraitImage);
@@ -836,7 +890,6 @@ const Newgames = () => {
       if (response.status === 200 || response.status === 201) {
         toast.success(`Game "${gameToSave.gameName || gameToSave.name}" ${isUpdate ? 'updated' : 'added'} successfully!`);
         
-        // Update the game in the list
         setGames(prevGames => 
           prevGames.map(game => {
             if (game._id === gameId) {
@@ -852,7 +905,6 @@ const Newgames = () => {
           })
         );
         
-        // Refresh local games list
         const updatedLocalGames = await fetchAllLocalGames();
         setLocalGames(updatedLocalGames);
         
@@ -887,7 +939,6 @@ const Newgames = () => {
       return;
     }
 
-    // Get unsaved games from current filtered list
     const unsavedGames = filteredGames.filter(game => !game.isSaved);
     
     if (unsavedGames.length === 0) {
@@ -949,7 +1000,6 @@ const Newgames = () => {
     };
 
     try {
-      // Prepare the data for bulk add
       const gamesData = bulkGames.map(game => ({
         name: game.gameName || game.name,
         provider: game.provider?.provider_code,
@@ -961,7 +1011,6 @@ const Newgames = () => {
         defaultImage: bulkUseDefaultImage ? (game.image || game.coverImage) : null
       }));
 
-      // Filter out games without default image if using default image
       const validGamesData = bulkUseDefaultImage 
         ? gamesData.filter(game => game.defaultImage)
         : gamesData;
@@ -974,13 +1023,9 @@ const Newgames = () => {
 
       const formData = new FormData();
       
-      // Add games data as JSON string
       formData.append('games', JSON.stringify(validGamesData));
 
-      // Add bulk image if not using default images
       if (!bulkUseDefaultImage && bulkImage) {
-        // For bulk upload with a single image, we need to append the same image for all games
-        // Note: This approach uses the same image for all games in the bulk
         for (let i = 0; i < validGamesData.length; i++) {
           formData.append('portraitImage', bulkImage);
           formData.append('landscapeImage', bulkImage);
@@ -993,14 +1038,12 @@ const Newgames = () => {
         },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          // Update progress based on number of games processed
           const gamesProcessed = Math.floor((percentCompleted / 100) * validGamesData.length);
           setBulkProgress({ current: Math.min(gamesProcessed, validGamesData.length), total: validGamesData.length });
         }
       });
 
       if (response.status === 200 || response.status === 201 || response.status === 207) {
-        // Handle partial success
         const successfulCount = response.data.results?.successful?.length || validGamesData.length;
         const failedCount = response.data.results?.failed?.length || 0;
 
@@ -1011,11 +1054,9 @@ const Newgames = () => {
           toast.success(`Successfully added ${successfulCount} games!`);
         }
 
-        // Refresh local games list
         const updatedLocalGames = await fetchAllLocalGames();
         setLocalGames(updatedLocalGames);
 
-        // Update the games list to mark added games as saved
         const addedGameIds = response.data.results?.successful?.map(g => g.game?.game_code || g.game?.gameApiID) || 
                             validGamesData.map(g => g.gameApiID);
         
@@ -1033,10 +1074,8 @@ const Newgames = () => {
           }))
         );
 
-        // Clear selections after successful bulk add
         clearSelections();
 
-        // Close modal
         setTimeout(() => {
           setShowBulkModal(false);
           resetBulkState();
@@ -1073,21 +1112,17 @@ const Newgames = () => {
   const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
   const selectedProviderName = selectedProviderObj?.providerName || selectedProviderObj?.name || "";
 
-  // Get unsaved games count
   const unsavedGamesCount = filteredGames.filter(g => !g.isSaved).length;
   const selectedUnsavedCount = Array.from(selectedGames).filter(id => {
     const game = filteredGames.find(g => g._id === id);
     return game && !game.isSaved;
   }).length;
 
-  // Get current page unsaved games count
   const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
   const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game._id)).length;
 
-  // Page change handler
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
-    // Scroll to top of games grid
     setTimeout(() => {
       document.getElementById('games-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -1131,6 +1166,17 @@ const Newgames = () => {
               
               <div className="flex mt-[20px] justify-center w-full gap-[20px]">
                 <CustomSelect
+                  options={categories.filter(cat => cat.status)}
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  placeholder="category"
+                  loading={loadingCategories}
+                  icon={MdCategory}
+                  dropdownOpen={showCategoriesDropdown}
+                  setDropdownOpen={setShowCategoriesDropdown}
+                  label="Select Game Category"
+                />
+                <CustomSelect
                   options={providers}
                   value={selectedProvider}
                   onChange={setSelectedProvider}
@@ -1140,19 +1186,20 @@ const Newgames = () => {
                   dropdownOpen={showProvidersDropdown}
                   setDropdownOpen={setShowProvidersDropdown}
                   label="Select Game Provider"
-                />
-                <CustomSelect
-                  options={categories.filter(cat => cat.status)}
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  placeholder="category"
-                  loading={loadingCategories}
-                  icon={MdCategory}
-                  dropdownOpen={showCategoriesDropdown}
-                  setDropdownOpen={setShowCategoriesDropdown}
-                  label="Default Category for New Games"
+                  disabled={!selectedCategory}
                 />
               </div>
+
+              {selectedCategory && providers.length === 0 && (
+                <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    No providers found for the selected category. Please select a different category or add providers to this category.
+                  </p>
+                </div>
+              )}
 
               {selectedCategory && (
                 <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
@@ -1226,7 +1273,6 @@ const Newgames = () => {
                   </div>
                 </div>
                 
-                {/* Selection Summary */}
                 {selectedGames.size > 0 && (
                   <div className="px-4 py-2 bg-blue-50 text-sm text-blue-700 flex items-center">
                     <FaCheckCircle className="mr-2 text-blue-500" />
@@ -1287,7 +1333,6 @@ const Newgames = () => {
                       </button>
                     )}
                     
-                    {/* Page Info */}
                     {!searchTerm && (
                       <div className="text-sm text-gray-600">
                         Page {currentPage} of {totalPages}
@@ -1384,7 +1429,6 @@ const Newgames = () => {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                           
-                          {/* Default Image Badge */}
                           {useDefaultImage[game._id] && (
                             <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
                               <FaImage className="mr-1" /> Default
@@ -1392,7 +1436,6 @@ const Newgames = () => {
                           )}
                         </div>
 
-                        {/* Edit Button for Saved Games */}
                         {game.isSaved && editingGame !== game._id && (
                           <div className="mt-3">
                             <button
@@ -1404,10 +1447,8 @@ const Newgames = () => {
                           </div>
                         )}
 
-                        {/* Edit Mode for Saved Games */}
                         {editingGame === game._id && (
                           <>
-                            {/* Image Source Toggle */}
                             <div className="mt-3 flex items-center justify-between">
                               <span className="text-sm text-gray-600">Use Default Image:</span>
                               <button
@@ -1424,7 +1465,6 @@ const Newgames = () => {
                               </button>
                             </div>
 
-                            {/* Custom Category Selector */}
                             <div className="mt-4">
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Assign Category
@@ -1450,7 +1490,6 @@ const Newgames = () => {
                               </div>
                             </div>
 
-                            {/* Game Settings */}
                             <div className="mt-4">
                               <CustomCheckbox
                                 id={`featured-${game._id}`}
@@ -1475,7 +1514,6 @@ const Newgames = () => {
                               />
                             </div>
 
-                            {/* Image Upload Section - Only show if not using default image */}
                             {!useDefaultImage[game._id] && (
                               <div className="mt-6">
                                 <div>
@@ -1521,7 +1559,6 @@ const Newgames = () => {
                               </div>
                             )}
 
-                            {/* Default Image Info */}
                             {useDefaultImage[game._id] && (
                               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                                 <p className="text-xs text-blue-700 flex items-center">
@@ -1531,7 +1568,6 @@ const Newgames = () => {
                               </div>
                             )}
 
-                            {/* Update and Cancel Buttons */}
                             <div className="mt-6 pt-4 border-t border-gray-200 flex gap-2">
                               <button
                                 type="button"
@@ -1573,12 +1609,10 @@ const Newgames = () => {
                           </>
                         )}
 
-                        {/* Quick Add Button for New Games */}
                         {!game.isSaved && editingGame !== game._id && (
                           <div className="mt-3">
                             <button
                               onClick={() => {
-                                // Pre-select this game and open bulk modal
                                 setSelectedGames(new Set([game._id]));
                                 handleBulkAction();
                               }}
@@ -1593,7 +1627,6 @@ const Newgames = () => {
                   ))}
                 </div>
 
-                {/* Pagination */}
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -1640,19 +1673,38 @@ const Newgames = () => {
               </div>
             )}
 
-            {/* Initial State - No provider selected */}
-            {!loadingGames && !selectedProvider && (
+            {/* Initial State - No category or provider selected */}
+            {!loadingGames && !selectedCategory && (
               <div className="text-center py-20">
                 <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-orange-100 to-orange-50 rounded-full flex items-center justify-center">
                   <FaFilter className="text-orange-400 text-4xl" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">Select a Provider</h3>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">Select a Category</h3>
                 <p className="text-gray-600 max-w-md mx-auto mb-8">
-                  Choose a game provider from the filter above to see games available for import or update.
+                  First select a category to see available providers for that category.
                 </p>
                 <div className="inline-flex items-center px-4 py-2 bg-orange-100 text-orange-800 rounded-full font-medium">
-                  ⚡ Shows both new and existing games
+                  ⚡ Category must be selected before choosing a provider
                 </div>
+              </div>
+            )}
+
+            {/* Category selected but no providers */}
+            {!loadingGames && selectedCategory && providers.length === 0 && (
+              <div className="text-center py-20">
+                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-full flex items-center justify-center">
+                  <FaGamepad className="text-yellow-400 text-4xl" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">No Providers Found</h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-8">
+                  No providers available for the selected category. Please select a different category or add providers to this category.
+                </p>
+                <button
+                  onClick={() => setSelectedCategory("")}
+                  className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors duration-200"
+                >
+                  Select Different Category
+                </button>
               </div>
             )}
           </div>
