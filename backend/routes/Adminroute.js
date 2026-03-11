@@ -2861,11 +2861,10 @@ const gameStorage = multer.diskStorage({
 const uploadGameImages = multer({
   storage: gameStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    fileSize: Infinity, // Unlimited file size
   },
   fileFilter: fileFilter,
 });
-
 // ==================== GAME ROUTES ====================
 // GET all games with filtering and pagination
 Adminrouter.get("/games", async (req, res) => {
@@ -3221,6 +3220,94 @@ Adminrouter.delete("/games/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete game" });
   }
 });
+
+// DELETE all games - Use with caution!
+Adminrouter.delete("/games/all", async (req, res) => {
+  try {
+    // Optional: Add a confirmation parameter for safety
+    const { confirm } = req.query;
+    
+    if (confirm !== "true") {
+      return res.status(400).json({ 
+        error: "Please confirm deletion by adding ?confirm=true to the URL. This action cannot be undone!" 
+      });
+    }
+
+    // Get all games to delete their images
+    const games = await Game.find({});
+    
+    if (games.length === 0) {
+      return res.status(404).json({ message: "No games found to delete" });
+    }
+
+    // Delete associated image files for each game
+    const imageDeletionResults = {
+      deleted: [],
+      failed: []
+    };
+
+    for (const game of games) {
+      // Delete portrait image if it's a local file (not a URL)
+      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
+        try {
+          const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
+          if (fs.existsSync(portraitPath)) {
+            fs.unlinkSync(portraitPath);
+            imageDeletionResults.deleted.push(game.portraitImage);
+          }
+        } catch (imageError) {
+          console.error(`Error deleting portrait image for game ${game._id}:`, imageError);
+          imageDeletionResults.failed.push({
+            gameId: game._id,
+            image: game.portraitImage,
+            error: imageError.message
+          });
+        }
+      }
+
+      // Delete landscape image if it's a local file (not a URL)
+      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
+        try {
+          const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
+          if (fs.existsSync(landscapePath)) {
+            fs.unlinkSync(landscapePath);
+            imageDeletionResults.deleted.push(game.landscapeImage);
+          }
+        } catch (imageError) {
+          console.error(`Error deleting landscape image for game ${game._id}:`, imageError);
+          imageDeletionResults.failed.push({
+            gameId: game._id,
+            image: game.landscapeImage,
+            error: imageError.message
+          });
+        }
+      }
+    }
+
+    // Delete all games from database
+    const result = await Game.deleteMany({});
+
+    res.json({
+      message: `Successfully deleted ${result.deletedCount} game(s)`,
+      details: {
+        gamesDeleted: result.deletedCount,
+        images: {
+          successfullyDeleted: imageDeletionResults.deleted.length,
+          failedDeletions: imageDeletionResults.failed.length
+        }
+      },
+      imageDeletionErrors: imageDeletionResults.failed.length > 0 ? imageDeletionResults.failed : undefined
+    });
+
+  } catch (error) {
+    console.error("Error deleting all games:", error);
+    res.status(500).json({ 
+      error: "Failed to delete all games",
+      details: error.message 
+    });
+  }
+});
+
 // POST create multiple games at once
 Adminrouter.post(
   "/games/bulk",

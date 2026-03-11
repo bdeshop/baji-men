@@ -755,4 +755,31 @@ router.get("/banners/computer", async (req, res) => {
     });
   }
 });
+
+
+
+// SIMPLIFIED: GET all active games by provider (no pagination)
+router.get("/games/by-provider/:provider", async (req, res) => {
+  try {
+    const { provider } = req.params;
+    
+    const games = await Game.find({ 
+      provider: provider,
+      status: true 
+    })
+    .sort({ order: 1, name: 1 })
+
+    res.json({
+      success: true,
+      data: games,
+      count: games.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching games by provider",
+      error: error.message
+    });
+  }
+});
 module.exports = router;

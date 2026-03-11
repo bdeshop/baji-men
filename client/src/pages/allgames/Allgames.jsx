@@ -123,6 +123,8 @@ const AllGamesContent = () => {
   const [showThemeDropdown, setShowThemeDropdown] = useState(true);
   const [showSpecialFeatureDropdown, setShowSpecialFeatureDropdown] = useState(true);
   const [dynamicLogo, setDynamicLogo] = useState(logo);
+  const [providerGames, setProviderGames] = useState([]);
+  const [isLoadingProviderGames, setIsLoadingProviderGames] = useState(false);
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -159,12 +161,82 @@ const AllGamesContent = () => {
     return `${base_url}/${imageField}`;
   };
 
+  // Fetch games by provider
+  const fetchGamesByProvider = async (providerName) => {
+    try {
+      setIsLoadingProviderGames(true);
+      setIsLoading(true);
+      
+      // Decode the provider name from URL
+      const decodedProvider = decodeURIComponent(providerName);
+      console.log("Fetching games for provider:", decodedProvider);
+      
+      // Use the new by-provider route
+      const response = await axios.get(`${base_url}/api/games/by-provider/${encodeURIComponent(decodedProvider)}`);
+      console.log("Provider games response:", response);
+      
+      if (response.data.success) {
+        setProviderGames(response.data.data);
+        setAllGames(response.data.data);
+        setGames(response.data.data);
+        setFilteredGames(response.data.data);
+        
+        // Extract providers from these games
+        setProviders(extractUniqueProviders(response.data.data));
+        
+        // Set the provider in selected providers
+        setSelectedProviders([decodedProvider.toLowerCase()]);
+        
+        toast.success(`Showing ${response.data.count} games from ${decodedProvider}`);
+      } else {
+        // Fallback to filtering from all games if the provider-specific endpoint fails
+        await fetchAllGamesWithProviderFilter(decodedProvider);
+      }
+    } catch (error) {
+      console.error('Error fetching games by provider:', error);
+      toast.error('Error loading provider games');
+      
+      // Fallback to filtering from all games
+      await fetchAllGamesWithProviderFilter(decodeURIComponent(providerName));
+    } finally {
+      setIsLoading(false);
+      setIsLoadingProviderGames(false);
+    }
+  };
+
+  // Fallback method: fetch all games and filter by provider
+  const fetchAllGamesWithProviderFilter = async (providerName) => {
+    try {
+      const response = await axios.get(`${base_url}/api/all-games`);
+      if (response.data.success) {
+        const allGamesData = response.data.data;
+        const filteredByProvider = allGamesData.filter(game => 
+          game.provider?.toLowerCase() === providerName.toLowerCase()
+        );
+        
+        setProviderGames(filteredByProvider);
+        setAllGames(filteredByProvider);
+        setGames(filteredByProvider);
+        setFilteredGames(filteredByProvider);
+        setProviders(extractUniqueProviders(filteredByProvider));
+        setSelectedProviders([providerName.toLowerCase()]);
+        
+        toast.success(`Found ${filteredByProvider.length} games from ${providerName}`);
+      }
+    } catch (error) {
+      console.error('Error in fallback provider fetch:', error);
+    }
+  };
+
   // Check for provider query parameter
   useEffect(() => {
     const providerFromQuery = searchParams.get('provider');
     if (providerFromQuery) {
-      // Set the provider filter when component mounts
-      setSelectedProviders([providerFromQuery.toLowerCase()]);
+      fetchGamesByProvider(providerFromQuery);
+    } else {
+      // If no provider in query, fetch all games normally
+      fetchCategories();
+      fetchAllGames();
     }
   }, [searchParams]);
 
@@ -194,13 +266,13 @@ const AllGamesContent = () => {
   }, []);
 
   useEffect(() => {
-    fetchCategories();
-    fetchAllGames();
-    fetchBrandingData();
+    if (!searchParams.get('provider')) {
+      fetchBrandingData();
+    }
   }, []);
 
   useEffect(() => {
-    if (allGames.length > 0 && categories.length > 0) {
+    if (allGames.length > 0 && categories.length > 0 && !searchParams.get('provider')) {
       handleCategoryFilter();
     }
   }, [selectedCategory, allGames, categories]);
@@ -258,6 +330,7 @@ const AllGamesContent = () => {
       if (response.data.success) {
         setAllGames(response.data.data);
         setGames(response.data.data);
+        setFilteredGames(response.data.data);
         // Extract providers from all games
         setProviders(extractUniqueProviders(response.data.data));
       }
@@ -276,6 +349,7 @@ const AllGamesContent = () => {
       );
     }
     setGames(filtered);
+    setFilteredGames(filtered);
     setProviders(extractUniqueProviders(filtered));
     setVisibleGamesCount(16);
   };
@@ -501,46 +575,44 @@ const AllGamesContent = () => {
   };
 
   // Handle opening the game
-// Handle opening the game
-// Handle opening the game
-const handleOpenGame = async (game) => {
-  console.log("Attempting to open game:", game);
+  const handleOpenGame = async (game) => {
+    console.log("Attempting to open game:", game);
 
-  // Check if user is logged in
-  if (!user) {
-    toast.error("Please login to play games");
-    setShowLoginPopup(true);
-    return;
-  }
-
-  try {
-    setGameLoading(true);
-
-    const gameId = game.gameId || game.gameApiID;
-
-    console.log("Game ID:", gameId);
-
-    const response = await fetch(`${base_url}/api/games/${gameId}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch game with ID ${gameId}`);
+    // Check if user is logged in
+    if (!user) {
+      toast.error("Please login to play games");
+      setShowLoginPopup(true);
+      return;
     }
 
-    const gameData = await response.json();
-    if (!gameData.success) {
-      throw new Error(`Failed to fetch game with ID ${gameId}`);
+    try {
+      setGameLoading(true);
+
+      const gameId = game.gameId || game.gameApiID;
+
+      console.log("Game ID:", gameId);
+
+      const response = await fetch(`${base_url}/api/games/${gameId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch game with ID ${gameId}`);
+      }
+
+      const gameData = await response.json();
+      if (!gameData.success) {
+        throw new Error(`Failed to fetch game with ID ${gameId}`);
+      }
+
+      console.log("Game data:", gameData?.data?.gameApiID);
+
+      // Navigate with provider and category as query parameters
+      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("Error connecting to game server");
+    } finally {
+      setGameLoading(false);
     }
-
-    console.log("Game data:", gameData?.data?.gameApiID);
-
-    // Navigate with provider and category as query parameters
-    navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
-  } catch (err) {
-    console.error("Error:", err);
-    toast.error("Error connecting to game server");
-  } finally {
-    setGameLoading(false);
-  }
-};
+  };
 
   const handleLoginFromPopup = () => {
     setShowLoginPopup(false);
@@ -552,6 +624,14 @@ const handleOpenGame = async (game) => {
     navigate('/register');
   };
 
+  // Get provider name from URL for display
+  const getProviderDisplayName = () => {
+    const provider = searchParams.get('provider');
+    return provider ? decodeURIComponent(provider) : null;
+  };
+
+  const providerDisplayName = getProviderDisplayName();
+
   return (
     <div className="h-screen overflow-hidden font-poppins bg-[#141515] text-white">
       <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -562,6 +642,18 @@ const handleOpenGame = async (game) => {
 
         <div className={`flex-1 overflow-auto transition-all duration-300 ${isLoading ? 'opacity-50' : ''}`}>
           <div className='mx-auto pb-[100px] w-full max-w-screen-xl py-4 px-4 sm:px-6 md:px-8 lg:px-12'>
+
+            {/* Provider Header */}
+            {providerDisplayName && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-theme_color/20 to-transparent rounded-lg border-l-4 border-theme_color">
+                <h1 className="text-xl md:text-2xl font-bold text-white">
+                  Games from <span className="text-theme_color">{providerDisplayName}</span>
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">
+                  Showing {filteredGames.length} games from this provider
+                </p>
+              </div>
+            )}
 
             <div className='flex justify-center md:justify-between items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
               <div className="w-full sm:w-auto relative" ref={categoryRef}>
@@ -699,7 +791,7 @@ const handleOpenGame = async (game) => {
               </div>
             </div>
 
-            {isLoading ? (
+            {isLoading || isLoadingProviderGames ? (
               <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                 {Array.from({ length: 12 }).map((_, index) => (
                   <SkeletonGameCard key={index} />
@@ -803,7 +895,9 @@ const handleOpenGame = async (game) => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <i className="fas fa-search text-4xl text-gray-500 mb-4"></i>
-                  <h3 className="text-sm sm:text-lg font-semibold text-gray-300 mb-2">No games found</h3>
+                  <h3 className="text-sm sm:text-lg font-semibold text-gray-300 mb-2">
+                    {providerDisplayName ? `No games found for ${providerDisplayName}` : "No games found"}
+                  </h3>
                   <p className="text-xs sm:text-sm text-gray-500">Try adjusting your search or filter criteria</p>
                 </div>
               )
