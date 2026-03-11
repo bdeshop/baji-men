@@ -328,9 +328,10 @@ const CategoryContent = () => {
   };
 
   const handleProviderClick = (provider) => {
+    console.log("provider",provider)
     if (activeCategory) {
       navigate(
-        `/games?category=${activeCategory.name.toLowerCase()}&provider=${provider.name.toLowerCase()}`
+        `/games?category=${activeCategory.name.toLowerCase()}&provider=${provider.providercode}`
       );
     }
   };
@@ -488,9 +489,6 @@ const CategoryContent = () => {
                     src={getGameImageUrl(game)}
                     alt={game.name || game.gameName}
                     className="game-image rounded-[6px] transition-transform duration-300 group-hover:scale-105"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/100x133?text=Game";
-                    }}
                   />
                 </div>
               </div>
