@@ -9,6 +9,7 @@ import logo from "../../assets/logo.png";
 import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose } from "react-icons/io5";
 import { MdFilterList, MdSort } from 'react-icons/md';
 import { RiArrowLeftRightLine } from "react-icons/ri";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 // Create Auth Context
 const AuthContext = createContext();
@@ -92,6 +93,16 @@ const SkeletonGameCard = () => {
   );
 };
 
+// Skeleton Provider Card Component
+const SkeletonProviderCard = () => {
+  return (
+    <div className="provider-card flex-shrink-0 md:w-40 bg-box_bg flex rounded-[3px] items-center justify-start gap-4 p-2 py-2.5 snap-center animate-pulse">
+      <div className="w-[30px] h-[30px] bg-[#333] rounded"></div>
+      <div className="h-4 w-20 bg-[#333] rounded"></div>
+    </div>
+  );
+};
+
 // Main All Games Component
 const AllGamesContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -109,6 +120,7 @@ const AllGamesContent = () => {
   const [visibleGamesCount, setVisibleGamesCount] = useState(16);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProviders, setIsLoadingProviders] = useState(false);
   const [allGames, setAllGames] = useState([]);
   const [games, setGames] = useState([]);
   const [providers, setProviders] = useState([]);
@@ -125,6 +137,12 @@ const AllGamesContent = () => {
   const [dynamicLogo, setDynamicLogo] = useState(logo);
   const [providerGames, setProviderGames] = useState([]);
   const [isLoadingProviderGames, setIsLoadingProviderGames] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const autoScrollRef = useRef(null);
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -135,6 +153,7 @@ const AllGamesContent = () => {
   const popupRef = useRef(null);
   const filterSidebarRef = useRef(null);
   const sortRef = useRef(null);
+  const sliderRef = useRef(null);
 
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
@@ -161,81 +180,134 @@ const AllGamesContent = () => {
     return `${base_url}/${imageField}`;
   };
 
-  // Fetch games by provider
-  const fetchGamesByProvider = async (providerName) => {
-    try {
-      setIsLoadingProviderGames(true);
-      setIsLoading(true);
-      
-      // Decode the provider name from URL
-      const decodedProvider = decodeURIComponent(providerName);
-      console.log("Fetching games for provider:", decodedProvider);
-      
-      // Use the new by-provider route
-      const response = await axios.get(`${base_url}/api/games/by-provider/${encodeURIComponent(decodedProvider)}`);
-      
-      if (response.data.success) {
-        setProviderGames(response.data.data);
-        setAllGames(response.data.data);
-        setGames(response.data.data);
-        setFilteredGames(response.data.data);
-        
-        // Extract providers from these games
-        setProviders(extractUniqueProviders(response.data.data));
-        
-        // Set the provider in selected providers
-        setSelectedProviders([decodedProvider.toLowerCase()]);
-        
-      } else {
-        // Fallback to filtering from all games if the provider-specific endpoint fails
-        await fetchAllGamesWithProviderFilter(decodedProvider);
-      }
-    } catch (error) {
-      console.error('Error fetching games by provider:', error);
-      toast.error('Error loading provider games');
-      
-      // Fallback to filtering from all games
-      await fetchAllGamesWithProviderFilter(decodeURIComponent(providerName));
-    } finally {
-      setIsLoading(false);
-      setIsLoadingProviderGames(false);
-    }
+  // Function to truncate provider name
+  const truncateName = (name, maxLength = 15) => {
+    if (!name) return '';
+    return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name;
   };
 
-  // Fallback method: fetch all games and filter by provider
-  const fetchAllGamesWithProviderFilter = async (providerName) => {
-    try {
-      const response = await axios.get(`${base_url}/api/all-games`);
-      if (response.data.success) {
-        const allGamesData = response.data.data;
-        const filteredByProvider = allGamesData.filter(game => 
-          game.provider?.toLowerCase() === providerName.toLowerCase()
-        );
-        
-        setProviderGames(filteredByProvider);
-        setAllGames(filteredByProvider);
-        setGames(filteredByProvider);
-        setFilteredGames(filteredByProvider);
-        setProviders(extractUniqueProviders(filteredByProvider));
-        setSelectedProviders([providerName.toLowerCase()]);
-        
-      }
-    } catch (error) {
-      console.error('Error in fallback provider fetch:', error);
-    }
+  // Mouse drag handlers for slider
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setStartX(e.pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+    setIsPaused(true);
   };
 
-  // Check for provider query parameter
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+    setIsPaused(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsPaused(false);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  // Auto-scroll functionality
   useEffect(() => {
-    const providerFromQuery = searchParams.get('provider');
-    if (providerFromQuery) {
-      fetchGamesByProvider(providerFromQuery);
+    const startAutoScroll = () => {
+      if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+      
+      autoScrollRef.current = setInterval(() => {
+        if (!isPaused && !isDragging && sliderRef.current && providers.length > 0) {
+          const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
+          const maxScroll = scrollWidth - clientWidth;
+          
+          if (scrollLeft >= maxScroll - 10) {
+            // Reached the end, scroll back to start smoothly
+            sliderRef.current.scrollTo({
+              left: 0,
+              behavior: 'smooth'
+            });
+          } else {
+            // Scroll right by one card width
+            sliderRef.current.scrollBy({
+              left: 160, // Approximate card width
+              behavior: 'smooth'
+            });
+          }
+        }
+      }, 3000);
+    };
+
+    startAutoScroll();
+
+    return () => {
+      if (autoScrollRef.current) {
+        clearInterval(autoScrollRef.current);
+      }
+    };
+  }, [isPaused, isDragging, providers.length]);
+
+  // Get category from query parameter and fetch providers
+  useEffect(() => {
+    const categoryFromQuery = searchParams.get('category');
+    if (categoryFromQuery) {
+      const decodedCategory = decodeURIComponent(categoryFromQuery);
+      setSelectedCategory(decodedCategory);
+      setCategoryName(decodedCategory);
+      fetchProvidersByCategory(decodedCategory);
+      fetchGamesByCategory(decodedCategory);
     } else {
-      // If no provider in query, fetch all games normally
+      // If no category in query, show all games
       fetchCategories();
       fetchAllGames();
     }
   }, [searchParams]);
+
+  // Handle provider click
+  const handleProviderClick = (provider) => {
+    // Navigate to provider games page with category and provider
+    navigate(`/games?category=${encodeURIComponent(categoryName)}&provider=${encodeURIComponent(provider.name)}`);
+  };
+
+  // Fetch providers by category
+  const fetchProvidersByCategory = async (category) => {
+    try {
+      setIsLoadingProviders(true);
+      const response = await axios.get(`${base_url}/api/providers/${encodeURIComponent(category)}`);
+      if (response.data.success) {
+        setProviders(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching providers by category:', error);
+      toast.error('Error loading providers');
+    } finally {
+      setIsLoadingProviders(false);
+    }
+  };
+
+  // Fetch games by category
+  const fetchGamesByCategory = async (category) => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${base_url}/api/all-games`);
+      if (response.data.success) {
+        // Filter games by category
+        const filteredByCategory = response.data.data.filter(game => 
+          game.category?.toLowerCase() === category.toLowerCase()
+        );
+        
+        setAllGames(filteredByCategory);
+        setGames(filteredByCategory);
+        setFilteredGames(filteredByCategory);
+      }
+    } catch (error) {
+      console.error('Error fetching games by category:', error);
+      toast.error('Error loading games');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Fetch branding data for dynamic logo
   const fetchBrandingData = async () => {
@@ -263,13 +335,13 @@ const AllGamesContent = () => {
   }, []);
 
   useEffect(() => {
-    if (!searchParams.get('provider')) {
+    if (!searchParams.get('category')) {
       fetchBrandingData();
     }
   }, []);
 
   useEffect(() => {
-    if (allGames.length > 0 && categories.length > 0 && !searchParams.get('provider')) {
+    if (allGames.length > 0 && categories.length > 0 && !searchParams.get('category')) {
       handleCategoryFilter();
     }
   }, [selectedCategory, allGames, categories]);
@@ -323,13 +395,10 @@ const AllGamesContent = () => {
     try {
       setIsLoading(true);
       const response = await axios.get(`${base_url}/api/all-games`);
-      console.log(response);
       if (response.data.success) {
         setAllGames(response.data.data);
         setGames(response.data.data);
         setFilteredGames(response.data.data);
-        // Extract providers from all games
-        setProviders(extractUniqueProviders(response.data.data));
       }
     } catch (error) {
       console.error('Error fetching all games:', error);
@@ -347,20 +416,7 @@ const AllGamesContent = () => {
     }
     setGames(filtered);
     setFilteredGames(filtered);
-    setProviders(extractUniqueProviders(filtered));
     setVisibleGamesCount(16);
-  };
-
-  const extractUniqueProviders = (gamesList) => {
-    const uniqueProviders = [...new Set(gamesList.map(game => game.provider).filter(Boolean))];
-    return [
-      { name: "All Providers", value: "all", icon: "fas fa-grid" },
-      ...uniqueProviders.map(provider => ({
-        name: provider,
-        value: provider.toLowerCase(),
-        icon: getProviderIcon(provider)
-      }))
-    ];
   };
 
   const getCategoryIcon = (categoryName) => {
@@ -377,23 +433,6 @@ const AllGamesContent = () => {
         return 'fas fa-chart-line';
       default:
         return 'fas fa-list';
-    }
-  };
-
-  const getProviderIcon = (providerName) => {
-    switch (providerName?.toLowerCase()) {
-      case 'evolution':
-        return 'fas fa-play-circle';
-      case 'pragmatic play':
-        return 'fas fa-dice';
-      case 'playtech':
-        return 'fas fa-gamepad';
-      case 'netent':
-        return 'fas fa-star';
-      case 'microgaming':
-        return 'fas fa-crown';
-      default:
-        return 'fas fa-puzzle-piece';
     }
   };
 
@@ -560,7 +599,6 @@ const AllGamesContent = () => {
   // Handle game click
   const handleGameClick = (game) => {
     setSelectedGame(game);
-    console.log("Game clicked:", game);
     
     // Check if user is logged in
     if (!user) {
@@ -573,8 +611,6 @@ const AllGamesContent = () => {
 
   // Handle opening the game
   const handleOpenGame = async (game) => {
-    console.log("Attempting to open game:", game);
-
     // Check if user is logged in
     if (!user) {
       toast.error("Please login to play games");
@@ -587,8 +623,6 @@ const AllGamesContent = () => {
 
       const gameId = game.gameId || game.gameApiID;
 
-      console.log("Game ID:", gameId);
-
       const response = await fetch(`${base_url}/api/games/${gameId}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch game with ID ${gameId}`);
@@ -598,8 +632,6 @@ const AllGamesContent = () => {
       if (!gameData.success) {
         throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
-
-      console.log("Game data:", gameData?.data?.gameApiID);
 
       // Navigate with provider and category as query parameters
       navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
@@ -621,13 +653,13 @@ const AllGamesContent = () => {
     navigate('/register');
   };
 
-  // Get provider name from URL for display
-  const getProviderDisplayName = () => {
-    const provider = searchParams.get('provider');
-    return provider ? decodeURIComponent(provider) : null;
+  // Get category name from URL for display
+  const getCategoryDisplayName = () => {
+    const category = searchParams.get('category');
+    return category ? decodeURIComponent(category) : null;
   };
 
-  const providerDisplayName = getProviderDisplayName();
+  const categoryDisplayName = getCategoryDisplayName();
 
   return (
     <div className="h-screen overflow-hidden font-poppins bg-[#141515] text-white">
@@ -640,8 +672,73 @@ const AllGamesContent = () => {
         <div className={`flex-1 overflow-auto transition-all duration-300 ${isLoading ? 'opacity-50' : ''}`}>
           <div className='mx-auto pb-[100px] w-full max-w-screen-xl py-4 px-4 sm:px-6 md:px-8 lg:px-12'>
 
-            <div className='flex justify-center md:justify-between  items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
+            {/* Providers Slider Section */}
+            {categoryDisplayName && (
+              <div className="pt-7 font-inter text-gray-200 mb-2">
+                {/* No title/heading for providers section */}
+                <div
+                  ref={sliderRef}
+                  className="flex overflow-x-auto gap-3 md:gap-4 py-2 scrollbar-hide snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+                  onMouseDown={handleMouseDown}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseUp={handleMouseUp}
+                  onMouseMove={handleMouseMove}
+                  onTouchStart={(e) => {
+                    setIsDragging(true);
+                    setStartX(e.touches[0].pageX - sliderRef.current.offsetLeft);
+                    setScrollLeft(sliderRef.current.scrollLeft);
+                    setIsPaused(true);
+                  }}
+                  onTouchEnd={() => {
+                    setIsDragging(false);
+                    setIsPaused(false);
+                  }}
+                  onTouchMove={(e) => {
+                    if (!isDragging) return;
+                    const x = e.touches[0].pageX - sliderRef.current.offsetLeft;
+                    const walk = (x - startX) * 2;
+                    sliderRef.current.scrollLeft = scrollLeft - walk;
+                  }}
+                >
+                  {isLoadingProviders ? (
+                    // Show skeleton loaders while loading providers
+                    Array.from({ length: 6 }).map((_, index) => (
+                      <SkeletonProviderCard key={index} />
+                    ))
+                  ) : providers.length > 0 ? (
+                    providers.map((provider, index) => (
+                      <div
+                        key={index}
+                        className="provider-card flex-shrink-0 md:w-40 bg-box_bg flex rounded-[3px] items-center justify-start gap-4 p-2 py-2.5 snap-center transform transition-transform duration-200 hover:scale-105 cursor-pointer"
+                        onClick={() => handleProviderClick(provider)}
+                        title={`View ${provider.name} games`}
+                      >
+                        <img
+                          src={provider.image?.startsWith('http') ? provider.image : `${base_url}/${provider.image}`}
+                          alt={provider.name}
+                          className="w-[30px] h-[30px] object-contain"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = logo;
+                          }}
+                        />
+                        <span className="pr-2 text-sm text-center text-gray-400 font-[600] truncate-text">
+                          {truncateName(provider.name)}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="w-full flex justify-center items-center py-4">
+                      <p className="text-gray-400">No providers available for {categoryDisplayName}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className='flex justify-center md:justify-between items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
               <div className="w-full sm:w-auto relative" ref={categoryRef}>
+                {/* Category dropdown content - if needed */}
               </div>
               
               <div className="flex gap-2 w-full sm:w-auto justify-end">
@@ -731,7 +828,7 @@ const AllGamesContent = () => {
               </div>
             </div>
 
-            {isLoading || isLoadingProviderGames ? (
+            {isLoading ? (
               <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                 {Array.from({ length: 12 }).map((_, index) => (
                   <SkeletonGameCard key={index} />
@@ -836,7 +933,7 @@ const AllGamesContent = () => {
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <i className="fas fa-search text-4xl text-gray-500 mb-4"></i>
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-300 mb-2">
-                    {providerDisplayName ? `No games found for ${providerDisplayName}` : "No games found"}
+                    {categoryDisplayName ? `No games found for ${categoryDisplayName}` : "No games found"}
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500">Try adjusting your search or filter criteria</p>
                 </div>
@@ -875,20 +972,8 @@ const AllGamesContent = () => {
               </label>
               {showProvidersDropdown && (
                 <div className="mt-2 pl-4 max-h-48 overflow-y-auto space-y-3">
-                  {providers.map(provider => (
-                    <label key={provider.value} className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedProviders.includes(provider.value)} 
-                        onChange={() => toggleProvider(provider.value)} 
-                        className="w-6 h-6 text-theme_color bg-[#222] border-2 border-gray-600 rounded focus:ring-theme_color cursor-pointer"
-                      />
-                      <div className="flex items-center ml-3">
-                        <i className={`${provider.icon} mr-2 text-yellow-500 flex-shrink-0`}></i>
-                        <span className="select-none text-gray-300">{provider.name}</span>
-                      </div>
-                    </label>
-                  ))}
+                  {/* Provider filter options would go here */}
+                  {/* This would need to be populated with actual provider data */}
                 </div>
               )}
             </div>
@@ -1152,6 +1237,19 @@ const AllGamesContent = () => {
         }
         .animate-shimmer {
           animation: shimmer 1.5s infinite;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .cursor-grab {
+          cursor: grab;
+        }
+        .cursor-grabbing {
+          cursor: grabbing;
         }
       `}</style>
     </div>
