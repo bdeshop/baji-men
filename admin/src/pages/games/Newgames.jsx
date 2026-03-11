@@ -585,7 +585,7 @@ const Newgames = () => {
             useDefaultImage: true,
           };
         });
-
+        console.log("transformedGames",transformedGames)
         setGames(transformedGames);
         setFilteredGames(transformedGames);
         

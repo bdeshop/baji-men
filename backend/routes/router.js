@@ -25,12 +25,10 @@ router.get("/banners", async (req, res) => {
     });
   }
 });
-
-// GET all categories with status true, sorted by order
 router.get("/categories", async (req, res) => {
   try {
     const categories = await GameCategory.find({ status: true })
-      .sort({ order: 1, createdAt: -1 })
+      .sort({ order: 1 })
       .select("name image order");
     
     res.json({
@@ -50,12 +48,12 @@ router.get("/categories", async (req, res) => {
 router.get("/providers/:category", async (req, res) => {
   try {
     const { category } = req.params;
-    console.log(category)
     const providers = await GameProvider.find({ 
       category: category,
       status: true 
     })
-    .sort({ order: 1, createdAt: -1 })
+    .sort({ order: 1 })
+    .select("name providercode image order");
     
     res.json({
       success: true,
@@ -70,98 +68,36 @@ router.get("/providers/:category", async (req, res) => {
   }
 });
 
-// GET all providers (optional)
-router.get("/providers", async (req, res) => {
-  try {
-    const providers = await GameProvider.find({ status: true })
-      .sort({ order: 1, createdAt: -1 })
-    
-    res.json({
-      success: true,
-      data: providers
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching all providers",
-      error: error.message
-    });
-  }
-});
-
-// GET games with filtering and pagination
-router.get("/games", async (req, res) => {
-  try {
-    const {
-      category,
-      provider,
-      featured,
-      search,
-      page = 1,
-      limit = 20,
-      sortBy = "order",
-      sortOrder = "asc"
-    } = req.query;
-
-    // Build filter object
-    const filter = { status: true };
-    
-    if (category) filter.category = category;
-    if (provider) filter.provider = provider;
-    if (featured !== undefined) filter.featured = featured === 'true';
-    
-    // Search functionality (case-insensitive)
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { gameId: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Sort configuration
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Execute query with pagination
-    const games = await Game.find(filter)
-      .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .select("name gameId provider category portraitImage landscapeImage featured order");
-
-    // Get total count for pagination info
-    const total = await Game.countDocuments(filter);
-
-    res.json({
-      success: true,
-      data: games,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalGames: total,
-        hasNext: page * limit < total,
-        hasPrev: page > 1
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching games",
-      error: error.message
-    });
-  }
-});
+// GET all games with filtering
 router.get("/all-games", async (req, res) => {
   try {
-    // Execute query with pagination
-    const games = await Game.find({})
-      .sort({createdAt:-1})
+    const { category, provider, search } = req.query;
+    
+    let filter = { status: true };
+    
+    if (category && category !== 'all') {
+      filter.category = category;
+    }
+    
+    if (provider) {
+      filter.provider = provider;
+    }
+    
+    if (search) {
+      filter.name = { $regex: search, $options: 'i' };
+    }
+    
+    const games = await Game.find(filter)
+      .sort({ order: 1, createdAt: -1 })
+      .select("name gameId gameApiID provider category portraitImage landscapeImage defaultImage featured order");
+    
     res.json({
       success: true,
       data: games,
+      count: games.length
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({
       success: false,
       message: "Error fetching games",
@@ -169,13 +105,14 @@ router.get("/all-games", async (req, res) => {
     });
   }
 });
-// GET single game by gameId
-router.get("/games/:gameId", async (req, res) => {
+
+// GET single game by gameApiID
+router.get("/games/:gameApiID", async (req, res) => {
   try {
-    const { gameId } = req.params;
+    const { gameApiID } = req.params;
     
     const game = await Game.findOne({ 
-      gameId: gameId,
+      gameApiID: gameApiID,
       status: true 
     });
 
@@ -199,72 +136,22 @@ router.get("/games/:gameId", async (req, res) => {
   }
 });
 
-// GET games by provider
-router.get("/games/provider/:provider", async (req, res) => {
-  try {
-    const { provider } = req.params;
-    const { page = 1, limit = 20 } = req.query;
-
-    const games = await Game.find({ 
-      provider: provider,
-      status: true 
-    })
-    .sort({ order: 1, name: 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit)
-    .select("name gameId portraitImage landscapeImage featured order");
-
-    const total = await Game.countDocuments({ 
-      provider: provider,
-      status: true 
-    });
-
-    res.json({
-      success: true,
-      data: games,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalGames: total
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching games by provider",
-      error: error.message
-    });
-  }
-});
-
 // GET games by category
 router.get("/games/category/:category", async (req, res) => {
   try {
     const { category } = req.params;
-    const { page = 1, limit = 20 } = req.query;
-
+    
     const games = await Game.find({ 
       category: category,
       status: true 
     })
     .sort({ order: 1, name: 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit)
-    .select("name gameId provider portraitImage landscapeImage featured order");
-
-    const total = await Game.countDocuments({ 
-      category: category,
-      status: true 
-    });
-
+    .select("name gameId gameApiID provider portraitImage landscapeImage defaultImage featured order");
+    
     res.json({
       success: true,
       data: games,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalGames: total
-      }
+      count: games.length
     });
   } catch (error) {
     res.status(500).json({
@@ -275,20 +162,46 @@ router.get("/games/category/:category", async (req, res) => {
   }
 });
 
-// GET featured games
-router.get("/games/featured/featured", async (req, res) => {
+// GET games by provider
+router.get("/games/provider/:provider", async (req, res) => {
   try {
-    const { limit = 10 } = req.query;
+    const { provider } = req.params;
+    
+    const games = await Game.find({ 
+      provider: provider,
+      status: true 
+    })
+    .sort({ order: 1, name: 1 })
+    .select("name gameId gameApiID category portraitImage landscapeImage defaultImage featured order");
+    
+    res.json({
+      success: true,
+      data: games,
+      count: games.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching games by provider",
+      error: error.message
+    });
+  }
+});
 
+// GET featured games
+router.get("/games/featured/all", async (req, res) => {
+  try {
     const games = await Game.find({ 
       featured: true,
       status: true 
     })
-    .sort({ order: 1, createdAt: -1 })
-
+    .sort({ order: 1 })
+    .select("name gameId gameApiID provider category portraitImage landscapeImage defaultImage order");
+    
     res.json({
       success: true,
-      data: games
+      data: games,
+      count: games.length
     });
   } catch (error) {
     res.status(500).json({

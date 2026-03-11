@@ -112,6 +112,7 @@ const AllGamesContent = () => {
   const [selectedThemes, setSelectedThemes] = useState(['all']);
   const [selectedSpecialFeatures, setSelectedSpecialFeatures] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedProvider, setSelectedProvider] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showFilterSidebar, setShowFilterSidebar] = useState(false);
@@ -142,6 +143,8 @@ const AllGamesContent = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
   const autoScrollRef = useRef(null);
   
   const { user } = useAuth();
@@ -208,7 +211,7 @@ const AllGamesContent = () => {
     if (!isDragging) return;
     e.preventDefault();
     const x = e.pageX - sliderRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // Scroll speed multiplier
+    const walk = (x - startX) * 2;
     sliderRef.current.scrollLeft = scrollLeft - walk;
   };
 
@@ -223,15 +226,13 @@ const AllGamesContent = () => {
           const maxScroll = scrollWidth - clientWidth;
           
           if (scrollLeft >= maxScroll - 10) {
-            // Reached the end, scroll back to start smoothly
             sliderRef.current.scrollTo({
               left: 0,
               behavior: 'smooth'
             });
           } else {
-            // Scroll right by one card width
             sliderRef.current.scrollBy({
-              left: 160, // Approximate card width
+              left: 160,
               behavior: 'smooth'
             });
           }
@@ -250,24 +251,70 @@ const AllGamesContent = () => {
 
   // Get category from query parameter and fetch providers
   useEffect(() => {
-    const categoryFromQuery = searchParams.get('category');
-    if (categoryFromQuery) {
-      const decodedCategory = decodeURIComponent(categoryFromQuery);
-      setSelectedCategory(decodedCategory);
-      setCategoryName(decodedCategory);
-      fetchProvidersByCategory(decodedCategory);
-      fetchGamesByCategory(decodedCategory);
-    } else {
-      // If no category in query, show all games
-      fetchCategories();
-      fetchAllGames();
-    }
+    const fetchData = async () => {
+      const categoryFromQuery = searchParams.get('category');
+      const providerFromQuery = searchParams.get('provider');
+      
+      if (categoryFromQuery) {
+        const decodedCategory = decodeURIComponent(categoryFromQuery);
+        setSelectedCategory(decodedCategory);
+        setCategoryName(decodedCategory);
+        await fetchProvidersByCategory(decodedCategory);
+        
+        if (providerFromQuery) {
+          const decodedProvider = decodeURIComponent(providerFromQuery);
+          setSelectedProvider(decodedProvider);
+          await fetchGamesByCategoryAndProvider(decodedCategory, decodedProvider);
+        } else {
+          setSelectedProvider(null);
+          await fetchGamesByCategory(decodedCategory);
+        }
+      } else {
+        await fetchCategories();
+        await fetchAllGames();
+      }
+      setInitialLoadComplete(true);
+    };
+
+    fetchData();
   }, [searchParams]);
 
-  // Handle provider click
-  const handleProviderClick = (provider) => {
-    // Navigate to provider games page with category and provider
-    navigate(`/games?category=${encodeURIComponent(categoryName)}&provider=${encodeURIComponent(provider.name)}`);
+  // Handle provider click - WITHOUT navigation to prevent page reload
+  const handleProviderClick = async (provider) => {
+    // Set loading state
+    setIsLoading(true);
+    
+    // Update selected provider
+    setSelectedProvider(provider.providercode);
+    
+    // Update URL without causing navigation/reload
+    const newUrl = `/games?category=${encodeURIComponent(categoryName)}&provider=${encodeURIComponent(provider.providercode)}`;
+    window.history.pushState({}, '', newUrl);
+    
+    // Fetch games for this provider
+    await fetchGamesByCategoryAndProvider(categoryName, provider.providercode);
+    
+    // End loading
+    setIsLoading(false);
+  };
+
+  // Handle "All Games" click
+  const handleAllGamesClick = async () => {
+    // Set loading state
+    setIsLoading(true);
+    
+    // Clear selected provider
+    setSelectedProvider(null);
+    
+    // Update URL without causing navigation/reload
+    const newUrl = `/games?category=${encodeURIComponent(categoryName)}`;
+    window.history.pushState({}, '', newUrl);
+    
+    // Fetch all games for this category
+    await fetchGamesByCategory(categoryName);
+    
+    // End loading
+    setIsLoading(false);
   };
 
   // Fetch providers by category
@@ -289,10 +336,8 @@ const AllGamesContent = () => {
   // Fetch games by category
   const fetchGamesByCategory = async (category) => {
     try {
-      setIsLoading(true);
       const response = await axios.get(`${base_url}/api/all-games`);
       if (response.data.success) {
-        // Filter games by category
         const filteredByCategory = response.data.data.filter(game => 
           game.category?.toLowerCase() === category.toLowerCase()
         );
@@ -304,8 +349,26 @@ const AllGamesContent = () => {
     } catch (error) {
       console.error('Error fetching games by category:', error);
       toast.error('Error loading games');
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  // Fetch games by category and provider
+  const fetchGamesByCategoryAndProvider = async (category, provider) => {
+    try {
+      const response = await axios.get(`${base_url}/api/all-games`);
+      if (response.data.success) {
+        const filteredByCategoryAndProvider = response.data.data.filter(game => 
+          game.category?.toLowerCase() === category.toLowerCase() &&
+          game.provider?.toLowerCase() === provider.toLowerCase()
+        );
+        
+        setAllGames(filteredByCategoryAndProvider);
+        setGames(filteredByCategoryAndProvider);
+        setFilteredGames(filteredByCategoryAndProvider);
+      }
+    } catch (error) {
+      console.error('Error fetching games by category and provider:', error);
+      toast.error('Error loading games');
     }
   };
 
@@ -341,10 +404,10 @@ const AllGamesContent = () => {
   }, []);
 
   useEffect(() => {
-    if (allGames.length > 0 && categories.length > 0 && !searchParams.get('category')) {
+    if (allGames.length > 0 && categories.length > 0 && !searchParams.get('category') && initialLoadComplete) {
       handleCategoryFilter();
     }
-  }, [selectedCategory, allGames, categories]);
+  }, [selectedCategory, allGames, categories, initialLoadComplete]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -479,6 +542,8 @@ const AllGamesContent = () => {
   };
 
   useEffect(() => {
+    if (!initialLoadComplete) return;
+    
     let filtered = [...allGames];
     
     // Apply category filter
@@ -488,17 +553,17 @@ const AllGamesContent = () => {
       );
     }
     
+    // Apply provider filter (if selected from sidebar)
+    if (selectedProviders.length > 0 && !selectedProviders.includes('all')) {
+      filtered = filtered.filter(game => 
+        selectedProviders.includes(game.provider?.toLowerCase())
+      );
+    }
+    
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(game => 
         game.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Apply provider filter
-    if (selectedProviders.length > 0 && !selectedProviders.includes('all')) {
-      filtered = filtered.filter(game => 
-        selectedProviders.includes(game.provider?.toLowerCase())
       );
     }
     
@@ -551,7 +616,8 @@ const AllGamesContent = () => {
     selectedSpecialFeatures, 
     sortOption, 
     allGames,
-    selectedCategory
+    selectedCategory,
+    initialLoadComplete
   ]);
 
   const visibleGames = filteredGames.slice(0, visibleGamesCount);
@@ -659,7 +725,13 @@ const AllGamesContent = () => {
     return category ? decodeURIComponent(category) : null;
   };
 
+  const getProviderDisplayName = () => {
+    const provider = searchParams.get('provider');
+    return provider ? decodeURIComponent(provider) : null;
+  };
+
   const categoryDisplayName = getCategoryDisplayName();
+  const providerDisplayName = getProviderDisplayName();
 
   return (
     <div className="h-screen overflow-hidden font-poppins bg-[#141515] text-white">
@@ -674,8 +746,10 @@ const AllGamesContent = () => {
 
             {/* Providers Slider Section */}
             {categoryDisplayName && (
-              <div className="pt-7 font-inter text-gray-200 mb-2">
-                {/* No title/heading for providers section */}
+              <div className="pt-2 font-inter text-gray-200 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-medium text-gray-400">FILTER BY PROVIDER</h3>
+                </div>
                 <div
                   ref={sliderRef}
                   className="flex overflow-x-auto gap-3 md:gap-4 py-2 scrollbar-hide snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
@@ -700,6 +774,21 @@ const AllGamesContent = () => {
                     sliderRef.current.scrollLeft = scrollLeft - walk;
                   }}
                 >
+                  {/* All Games Box - Always visible first and active by default when no provider selected */}
+                  <div
+                    className={`provider-card flex-shrink-0 md:w-40 bg-box_bg flex rounded-[3px] items-center justify-center gap-4 p-2 py-2.5 snap-center transform transition-all duration-200 hover:scale-105 cursor-pointer ${
+                      !selectedProvider 
+                        ? 'ring-2 ring-theme_color bg-theme_color bg-opacity-10' 
+                        : ''
+                    }`}
+                    onClick={handleAllGamesClick}
+                    title="View all games"
+                  >
+                    <span className="px-2 text-sm text-center font-[600] truncate-text text-white">
+                      All Games
+                    </span>
+                  </div>
+
                   {isLoadingProviders ? (
                     // Show skeleton loaders while loading providers
                     Array.from({ length: 6 }).map((_, index) => (
@@ -709,7 +798,11 @@ const AllGamesContent = () => {
                     providers.map((provider, index) => (
                       <div
                         key={index}
-                        className="provider-card flex-shrink-0 md:w-40 bg-box_bg flex rounded-[3px] items-center justify-start gap-4 p-2 py-2.5 snap-center transform transition-transform duration-200 hover:scale-105 cursor-pointer"
+                        className={`provider-card flex-shrink-0 md:w-40 bg-box_bg flex rounded-[3px] items-center justify-start gap-4 p-2 py-2.5 snap-center transform transition-all duration-200 hover:scale-105 cursor-pointer ${
+                          selectedProvider === provider.providercode
+                            ? 'ring-2 ring-theme_color bg-theme_color bg-opacity-10' 
+                            : ''
+                        }`}
                         onClick={() => handleProviderClick(provider)}
                         title={`View ${provider.name} games`}
                       >
@@ -934,6 +1027,7 @@ const AllGamesContent = () => {
                   <i className="fas fa-search text-4xl text-gray-500 mb-4"></i>
                   <h3 className="text-sm sm:text-lg font-semibold text-gray-300 mb-2">
                     {categoryDisplayName ? `No games found for ${categoryDisplayName}` : "No games found"}
+                    {providerDisplayName && ` - ${providerDisplayName}`}
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-500">Try adjusting your search or filter criteria</p>
                 </div>
