@@ -173,7 +173,6 @@ const AllGamesContent = () => {
       
       // Use the new by-provider route
       const response = await axios.get(`${base_url}/api/games/by-provider/${encodeURIComponent(decodedProvider)}`);
-      console.log("Provider games response:", response);
       
       if (response.data.success) {
         setProviderGames(response.data.data);
@@ -187,7 +186,6 @@ const AllGamesContent = () => {
         // Set the provider in selected providers
         setSelectedProviders([decodedProvider.toLowerCase()]);
         
-        toast.success(`Showing ${response.data.count} games from ${decodedProvider}`);
       } else {
         // Fallback to filtering from all games if the provider-specific endpoint fails
         await fetchAllGamesWithProviderFilter(decodedProvider);
@@ -221,7 +219,6 @@ const AllGamesContent = () => {
         setProviders(extractUniqueProviders(filteredByProvider));
         setSelectedProviders([providerName.toLowerCase()]);
         
-        toast.success(`Found ${filteredByProvider.length} games from ${providerName}`);
       }
     } catch (error) {
       console.error('Error in fallback provider fetch:', error);
@@ -643,65 +640,8 @@ const AllGamesContent = () => {
         <div className={`flex-1 overflow-auto transition-all duration-300 ${isLoading ? 'opacity-50' : ''}`}>
           <div className='mx-auto pb-[100px] w-full max-w-screen-xl py-4 px-4 sm:px-6 md:px-8 lg:px-12'>
 
-            {/* Provider Header */}
-            {providerDisplayName && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-theme_color/20 to-transparent rounded-lg border-l-4 border-theme_color">
-                <h1 className="text-xl md:text-2xl font-bold text-white">
-                  Games from <span className="text-theme_color">{providerDisplayName}</span>
-                </h1>
-                <p className="text-sm text-gray-400 mt-1">
-                  Showing {filteredGames.length} games from this provider
-                </p>
-              </div>
-            )}
-
-            <div className='flex justify-center md:justify-between items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
+            <div className='flex justify-center md:justify-between  items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
               <div className="w-full sm:w-auto relative" ref={categoryRef}>
-                <button 
-                  className="flex w-full sm:w-auto items-center justify-start cursor-pointer text-white pr-4 py-2 sm:py-3 rounded-lg min-w-[180px] text-xs sm:text-sm transition-colors"
-                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                >
-                  <div className="flex items-center">
-                    {categories.find(c => c.value === selectedCategory)?.image && (
-                      <img 
-                        src={getImageUrl({ portraitImage: categories.find(c => c.value === selectedCategory).image })}
-                        alt="" 
-                        className="w-6 h-6 md:w-7 md:h-7 object-cover rounded mr-2"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
-                    )}
-                    <i className={`${categories.find(c => c.value === selectedCategory)?.icon || "fas fa-list"} mr-2 text-yellow-500`}></i>
-                    <span className='text-[12px] md:text-[15px]'>{getSelectedCategoryName()}</span>
-                  </div>
-                  {showCategoryDropdown ? <IoChevronUp className="text-sm ml-2" /> : <IoChevronDown className="text-sm ml-2" />}
-                </button>
-                
-                {showCategoryDropdown && (
-                  <div className="absolute top-full left-0 text-xs sm:text-sm right-0 bg-[#222] border border-[#333] rounded-lg shadow-lg z-20 mt-1 overflow-hidden">
-                    {categories.map(category => (
-                      <div 
-                        key={category.value}
-                        className={`px-4 py-3 cursor-pointer flex items-center transition-colors ${selectedCategory === category.value ? ' bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`}
-                        onClick={() => handleCategoryChange(category.value)}
-                      >
-                        {category.image && (
-                          <img 
-                            src={getImageUrl({ portraitImage: category.image })} 
-                            alt="" 
-                            className="mr-2 w-4 h-4 object-cover rounded" 
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        )}
-                        <i className={`${category.icon} mr-2 ${selectedCategory === category.value ? 'text-theme_color' : 'text-gray-400'}`}></i>
-                        {category.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
               
               <div className="flex gap-2 w-full sm:w-auto justify-end">

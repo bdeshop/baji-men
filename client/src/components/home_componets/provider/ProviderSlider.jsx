@@ -128,7 +128,7 @@ const ProviderSlider = () => {
   // Handle provider click - navigate to all-games with provider query
   const handleProviderClick = (provider) => {
     // Encode the provider name for URL
-    const encodedProviderName = encodeURIComponent(provider.providercode.toLowerCase());
+    const encodedProviderName = encodeURIComponent(provider.providercode);
     
     // Navigate to all-games page with provider query parameter
     navigate(`/all-games?provider=${encodedProviderName}`);
