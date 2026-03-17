@@ -250,35 +250,30 @@ const AllGamesContent = () => {
   }, [isPaused, isDragging, providers.length]);
 
   // Get category from query parameter and fetch providers
-  useEffect(() => {
-    const fetchData = async () => {
-      const categoryFromQuery = searchParams.get('category');
-      const providerFromQuery = searchParams.get('provider');
+useEffect(() => {
+  const fetchData = async () => {
+    const categoryFromQuery = searchParams.get('category');
+    
+    if (categoryFromQuery) {
+      const decodedCategory = decodeURIComponent(categoryFromQuery);
+      setSelectedCategory(decodedCategory);
+      setCategoryName(decodedCategory);
       
-      if (categoryFromQuery) {
-        const decodedCategory = decodeURIComponent(categoryFromQuery);
-        setSelectedCategory(decodedCategory);
-        setCategoryName(decodedCategory);
-        await fetchProvidersByCategory(decodedCategory);
-        
-        if (providerFromQuery) {
-          const decodedProvider = decodeURIComponent(providerFromQuery);
-          setSelectedProvider(decodedProvider);
-          await fetchGamesByCategoryAndProvider(decodedCategory, decodedProvider);
-        } else {
-          setSelectedProvider(null);
-          await fetchGamesByCategory(decodedCategory);
-        }
-      } else {
-        await fetchCategories();
-        await fetchAllGames();
-      }
-      setInitialLoadComplete(true);
-    };
+      // Always reset provider - All Games active by default
+      window.history.replaceState({}, '', `/games?category=${encodeURIComponent(decodedCategory)}`);
+      setSelectedProvider(null);
+      
+      await fetchProvidersByCategory(decodedCategory);
+      await fetchGamesByCategory(decodedCategory);
+    } else {
+      await fetchCategories();
+      await fetchAllGames();
+    }
+    setInitialLoadComplete(true);
+  };
 
-    fetchData();
-  }, [searchParams]);
-
+  fetchData();
+}, [searchParams]);
   // Handle provider click - WITHOUT navigation to prevent page reload
   const handleProviderClick = async (provider) => {
     // Set loading state
@@ -334,43 +329,47 @@ const AllGamesContent = () => {
   };
 
   // Fetch games by category
-  const fetchGamesByCategory = async (category) => {
-    try {
-      const response = await axios.get(`${base_url}/api/all-games`);
-      if (response.data.success) {
-        const filteredByCategory = response.data.data.filter(game => 
-          game.category?.toLowerCase() === category.toLowerCase()
-        );
-        
-        setAllGames(filteredByCategory);
-        setGames(filteredByCategory);
-        setFilteredGames(filteredByCategory);
-      }
-    } catch (error) {
-      console.error('Error fetching games by category:', error);
-      toast.error('Error loading games');
+const fetchGamesByCategory = async (category) => {
+  try {
+    setIsLoading(true); // add this
+    const response = await axios.get(`${base_url}/api/all-games`);
+    if (response.data.success) {
+      const filteredByCategory = response.data.data.filter(game => 
+        game.category?.toLowerCase() === category.toLowerCase()
+      );
+      setAllGames(filteredByCategory);
+      setGames(filteredByCategory);
+      setFilteredGames(filteredByCategory);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching games by category:', error);
+    toast.error('Error loading games');
+  } finally {
+    setIsLoading(false); // add this
+  }
+};
 
   // Fetch games by category and provider
-  const fetchGamesByCategoryAndProvider = async (category, provider) => {
-    try {
-      const response = await axios.get(`${base_url}/api/all-games`);
-      if (response.data.success) {
-        const filteredByCategoryAndProvider = response.data.data.filter(game => 
-          game.category?.toLowerCase() === category.toLowerCase() &&
-          game.provider?.toLowerCase() === provider.toLowerCase()
-        );
-        
-        setAllGames(filteredByCategoryAndProvider);
-        setGames(filteredByCategoryAndProvider);
-        setFilteredGames(filteredByCategoryAndProvider);
-      }
-    } catch (error) {
-      console.error('Error fetching games by category and provider:', error);
-      toast.error('Error loading games');
+const fetchGamesByCategoryAndProvider = async (category, provider) => {
+  try {
+    setIsLoading(true); // add this
+    const response = await axios.get(`${base_url}/api/all-games`);
+    if (response.data.success) {
+      const filteredByCategoryAndProvider = response.data.data.filter(game => 
+        game.category?.toLowerCase() === category.toLowerCase() &&
+        game.provider?.toLowerCase() === provider.toLowerCase()
+      );
+      setAllGames(filteredByCategoryAndProvider);
+      setGames(filteredByCategoryAndProvider);
+      setFilteredGames(filteredByCategoryAndProvider);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching games by category and provider:', error);
+    toast.error('Error loading games');
+  } finally {
+    setIsLoading(false); // add this
+  }
+};
 
   // Fetch branding data for dynamic logo
   const fetchBrandingData = async () => {
