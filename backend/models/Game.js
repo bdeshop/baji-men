@@ -15,7 +15,6 @@ const gameSchema = new mongoose.Schema(
     gameApiID: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     provider: {

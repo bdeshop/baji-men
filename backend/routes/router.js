@@ -67,7 +67,25 @@ router.get("/providers/:category", async (req, res) => {
     });
   }
 });
-
+router.get("/providers", async (req, res) => {
+  try {
+    const providers = await GameProvider.find({ 
+      status: true 
+    })
+    .sort({ order: 1 })
+    
+    res.json({
+      success: true,
+      data: providers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching providers",
+      error: error.message
+    });
+  }
+});
 // GET all games with filtering
 router.get("/all-games", async (req, res) => {
   try {
