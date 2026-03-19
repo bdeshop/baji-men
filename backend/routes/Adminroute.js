@@ -2984,12 +2984,17 @@ Adminrouter.post(
       } = req.body;
       
       // Check if gameApiID already exists
-      const existingGame = await Game.findOne({ gameApiID: gameApiID });
+    const existingGame = await Game.findOne({ 
+        gameApiID: gameApiID,
+        provider: provider 
+      });
+      
       if (existingGame) {
         return res.status(400).json({ 
-          error: `Game API ID "${gameApiID}" is already in use!` 
+          error: `Game with API ID "${gameApiID}" and provider "${provider}" already exists!` 
         });
       }
+      
       // Enhanced validation
       const requiredFields = { name, provider, category, gameApiID };
       const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field]);

@@ -84,6 +84,18 @@ const Newgames = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
+  // Helper function to generate unique game ID
+  const generateUniqueGameId = (game) => {
+    // Use game_uuid if available (most unique)
+    if (game.game_uuid) {
+      return game.game_uuid;
+    }
+    // Fallback to combination of game_code and provider_code
+    const gameCode = game.game_code || game.code || game._id;
+    const providerCode = game.provider?.provider_code || game.provider?.code || 'unknown';
+    return `${gameCode}-${providerCode}`;
+  };
+
   // Custom Select Component
   const CustomSelect = ({ 
     options, 
@@ -343,7 +355,7 @@ const Newgames = () => {
   // Reset select all when page changes
   useEffect(() => {
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game._id)).length;
+    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
     
     if (currentPageUnsavedGames.length > 0) {
       setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length);
@@ -541,11 +553,18 @@ const Newgames = () => {
         const localGamesList = await fetchAllLocalGames();
         setLocalGames(localGamesList);
         
+        // Create a map using combination of gameApiID AND provider
         const existingGamesMap = new Map();
         localGamesList.forEach(game => {
-          const gameCode = game.game_code || game.gameCode || game.gameApiID;
-          if (gameCode) {
-            existingGamesMap.set(gameCode, game);
+          const gameApiID = game.gameApiID;
+          const provider = game.provider;
+          // Create composite key
+          const compositeKey = `${gameApiID}-${provider}`;
+          existingGamesMap.set(compositeKey, game);
+          
+          // Also store by unique ID for direct lookup
+          if (game._id) {
+            existingGamesMap.set(`id-${game._id}`, game);
           }
         });
 
@@ -557,19 +576,39 @@ const Newgames = () => {
         );
 
         const transformedGames = providerGames.map((externalGame) => {
-          const gameCode = externalGame.game_code || externalGame.code;
+          const gameApiID = externalGame.game_code || externalGame.code;
+          const provider = externalGame.provider?.provider_code || externalGame.provider?.code;
+          const gameUuid = externalGame._id || externalGame.game_uuid;
           
-          const existingGame = localGamesList.find(g => 
-            g.game_code === gameCode || g.gameApiID === gameCode
-          );
+          // Create composite key for lookup
+          const compositeKey = `${gameApiID}-${provider}`;
           
-          const uniqueId = gameCode;
+          // Try to find existing game by multiple methods:
+          // 1. By composite key (gameApiID + provider)
+          // 2. By game_uuid
+          // 3. By gameApiID alone (fallback for backward compatibility)
+          let existingGame = existingGamesMap.get(compositeKey);
+          
+          if (!existingGame && gameUuid) {
+            existingGame = existingGamesMap.get(`id-${gameUuid}`);
+          }
+          
+          if (!existingGame) {
+            existingGame = localGamesList.find(g => 
+              g.gameApiID === gameApiID && g.provider === provider
+            );
+          }
+          
+          // Generate truly unique ID for this game in the frontend
+          const uniqueId = gameUuid || compositeKey;
+          
           return {
             ...externalGame,
             _id: uniqueId,
-            game_uuid: externalGame._id,
+            uniqueId: uniqueId, // Store unique identifier
+            game_uuid: gameUuid,
             name: externalGame.gameName || externalGame.name,
-            gameCode: gameCode,
+            gameCode: gameApiID,
             provider: externalGame.provider,
             coverImage: externalGame.image,
             isSaved: !!existingGame,
@@ -585,13 +624,14 @@ const Newgames = () => {
             useDefaultImage: true,
           };
         });
-        console.log("transformedGames",transformedGames)
+        
+        console.log("transformedGames", transformedGames);
         setGames(transformedGames);
         setFilteredGames(transformedGames);
         
         const defaultImageState = {};
         transformedGames.forEach(game => {
-          defaultImageState[game._id] = true;
+          defaultImageState[game.uniqueId] = true;
         });
         setUseDefaultImage(defaultImageState);
         
@@ -648,7 +688,7 @@ const Newgames = () => {
     setSelectedGames(newSelected);
     
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game._id)).length;
+    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game.uniqueId)).length;
     setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
   };
 
@@ -657,7 +697,7 @@ const Newgames = () => {
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
         if (!game.isSaved) {
-          newSelected.delete(game._id);
+          newSelected.delete(game.uniqueId);
         }
       });
       setSelectedGames(newSelected);
@@ -666,7 +706,7 @@ const Newgames = () => {
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
         if (!game.isSaved) {
-          newSelected.add(game._id);
+          newSelected.add(game.uniqueId);
         }
       });
       setSelectedGames(newSelected);
@@ -685,7 +725,7 @@ const Newgames = () => {
       return;
     }
 
-    const selectedGamesList = filteredGames.filter(game => selectedGames.has(game._id) && !game.isSaved);
+    const selectedGamesList = filteredGames.filter(game => selectedGames.has(game.uniqueId) && !game.isSaved);
     
     if (selectedGamesList.length === 0) {
       toast.error("Selected games are already saved");
@@ -717,7 +757,7 @@ const Newgames = () => {
   const handleGameDataChange = (gameId, field, value) => {
     setGames((prevGames) =>
       prevGames.map((game) =>
-        game._id === gameId ? { ...game, [field]: value } : game
+        game.uniqueId === gameId ? { ...game, [field]: value } : game
       )
     );
   };
@@ -738,7 +778,7 @@ const Newgames = () => {
     reader.onloadend = () => {
       setGames((prevGames) =>
         prevGames.map((game) => {
-          if (game._id === gameId) {
+          if (game.uniqueId === gameId) {
             return {
               ...game,
               localPortraitImage: file,
@@ -762,7 +802,7 @@ const Newgames = () => {
   const removeImage = (gameId) => {
     setGames((prevGames) =>
       prevGames.map((game) => {
-        if (game._id === gameId) {
+        if (game.uniqueId === gameId) {
           return {
             ...game,
             localPortraitImage: null,
@@ -790,7 +830,7 @@ const Newgames = () => {
     if (!useDefaultImage[gameId]) {
       setGames((prevGames) =>
         prevGames.map((game) => {
-          if (game._id === gameId) {
+          if (game.uniqueId === gameId) {
             return {
               ...game,
               localPortraitImage: null,
@@ -806,9 +846,9 @@ const Newgames = () => {
   };
 
   const handleEditGame = (game) => {
-    setEditingGame(game._id);
+    setEditingGame(game.uniqueId);
     setTimeout(() => {
-      document.getElementById(`game-${game._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById(`game-${game.uniqueId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
   };
 
@@ -817,7 +857,7 @@ const Newgames = () => {
   };
 
   const handleSaveOrUpdateGame = async (gameId) => {
-    const gameToSave = games.find((g) => g._id === gameId);
+    const gameToSave = games.find((g) => g.uniqueId === gameId);
     
     if (!gameToSave.localCategory) {
       toast.error("Please select a category for the game.");
@@ -913,7 +953,7 @@ const Newgames = () => {
         // Update the game in the current view with the new image URLs from the server
         setGames(prevGames => 
           prevGames.map(game => {
-            if (game._id === gameId) {
+            if (game.uniqueId === gameId) {
               // Create updated game object with new data
               const updatedGame = {
                 ...game,
@@ -948,7 +988,7 @@ const Newgames = () => {
         // Update filtered games as well
         setFilteredGames(prevGames => 
           prevGames.map(game => {
-            if (game._id === gameId) {
+            if (game.uniqueId === gameId) {
               const updatedGame = {
                 ...game,
                 isSaved: true,
@@ -1230,7 +1270,7 @@ const Newgames = () => {
 
   // Delete Single Game Function
   const handleDeleteGame = async (gameId) => {
-    const gameToDelete = games.find(g => g._id === gameId);
+    const gameToDelete = games.find(g => g.uniqueId === gameId);
     
     if (!gameToDelete?.existingGameData?._id) {
       toast.error("Cannot delete game: Game not found in database");
@@ -1266,7 +1306,7 @@ const Newgames = () => {
         // Update the game in the current view
         setGames(prevGames => 
           prevGames.map(game => {
-            if (game._id === gameId) {
+            if (game.uniqueId === gameId) {
               return {
                 ...game,
                 isSaved: false,
@@ -1282,7 +1322,7 @@ const Newgames = () => {
         
         setFilteredGames(prevGames => 
           prevGames.map(game => {
-            if (game._id === gameId) {
+            if (game.uniqueId === gameId) {
               return {
                 ...game,
                 isSaved: false,
@@ -1322,7 +1362,7 @@ const Newgames = () => {
   // Delete Selected Games Function
   const handleDeleteSelectedGames = async () => {
     const selectedSavedGames = Array.from(selectedGames)
-      .map(id => games.find(g => g._id === id))
+      .map(id => games.find(g => g.uniqueId === id))
       .filter(game => game?.isSaved && game?.existingGameData?._id);
 
     if (selectedSavedGames.length === 0) {
@@ -1348,7 +1388,7 @@ const Newgames = () => {
           // Update the game in state
           setGames(prevGames => 
             prevGames.map(g => {
-              if (g._id === game._id) {
+              if (g.uniqueId === game.uniqueId) {
                 return {
                   ...g,
                   isSaved: false,
@@ -1380,7 +1420,7 @@ const Newgames = () => {
     // Update filtered games
     setFilteredGames(prevGames => 
       prevGames.map(game => {
-        const deletedGame = results.successful.find(g => g._id === game._id);
+        const deletedGame = results.successful.find(g => g.uniqueId === game.uniqueId);
         if (deletedGame) {
           return {
             ...game,
@@ -1519,18 +1559,18 @@ const Newgames = () => {
   const unsavedGamesCount = filteredGames.filter(g => !g.isSaved).length;
   const savedGamesCount = filteredGames.filter(g => g.isSaved).length;
   const selectedSavedCount = Array.from(selectedGames).filter(id => {
-    const game = filteredGames.find(g => g._id === id);
+    const game = filteredGames.find(g => g.uniqueId === id);
     return game && game.isSaved;
   }).length;
   const selectedUnsavedCount = Array.from(selectedGames).filter(id => {
-    const game = filteredGames.find(g => g._id === id);
+    const game = filteredGames.find(g => g.uniqueId === id);
     return game && !game.isSaved;
   }).length;
 
   const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
   const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
-  const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game._id)).length;
-  const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => selectedGames.has(game._id)).length;
+  const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
+  const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -1782,7 +1822,7 @@ const Newgames = () => {
                     // Determine which image to show
                     let imageSource;
                     
-                    if (useDefaultImage[game._id]) {
+                    if (useDefaultImage[game.uniqueId]) {
                       // Use default image from provider or existing saved image
                       imageSource = game.image || game.coverImage;
                       
@@ -1823,29 +1863,29 @@ const Newgames = () => {
                     
                     return (
                       <div
-                        id={`game-${game._id}`}
-                        key={game._id}
+                        id={`game-${game.uniqueId}`}
+                        key={game.uniqueId}
                         className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${
                           game.isSaved 
                             ? 'border-green-300 hover:border-green-400' 
                             : 'border-orange-300 hover:border-orange-400'
-                        } ${editingGame === game._id ? 'ring-4 ring-orange-300' : ''} ${
-                          selectedGames.has(game._id) && !game.isSaved ? 'ring-2 ring-blue-400' : ''
-                        } ${selectedGames.has(game._id) && game.isSaved ? 'ring-2 ring-red-400' : ''}`}
+                        } ${editingGame === game.uniqueId ? 'ring-4 ring-orange-300' : ''} ${
+                          selectedGames.has(game.uniqueId) && !game.isSaved ? 'ring-2 ring-blue-400' : ''
+                        } ${selectedGames.has(game.uniqueId) && game.isSaved ? 'ring-2 ring-red-400' : ''}`}
                       >
                         {/* Selection Checkbox */}
                         <div className="absolute top-2 left-2 z-10">
                           <button
-                            onClick={() => toggleGameSelection(game._id)}
+                            onClick={() => toggleGameSelection(game.uniqueId)}
                             className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 ${
-                              selectedGames.has(game._id)
+                              selectedGames.has(game.uniqueId)
                                 ? game.isSaved
                                   ? 'bg-red-500 text-white shadow-lg'
                                   : 'bg-blue-500 text-white shadow-lg'
                                 : 'bg-white text-gray-400 border-2 border-gray-300 hover:border-blue-400'
                             }`}
                           >
-                            {selectedGames.has(game._id) ? (
+                            {selectedGames.has(game.uniqueId) ? (
                               <FaCheck className="w-4 h-4" />
                             ) : (
                               <FaCheck className="w-4 h-4 opacity-0" />
@@ -1854,16 +1894,16 @@ const Newgames = () => {
                         </div>
 
                         {/* Delete Button for Saved Games */}
-                        {game.isSaved && editingGame !== game._id && (
+                        {game.isSaved && editingGame !== game.uniqueId && (
                           <div className="absolute top-2 right-2 z-10">
                             <button
-                              onClick={() => handleDeleteGame(game._id)}
-                              disabled={deletingGameId === game._id}
+                              onClick={() => handleDeleteGame(game.uniqueId)}
+                              disabled={deletingGameId === game.uniqueId}
                               className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 bg-red-500 text-white hover:bg-red-600 shadow-lg ${
-                                deletingGameId === game._id ? 'opacity-50 cursor-wait' : ''
+                                deletingGameId === game.uniqueId ? 'opacity-50 cursor-wait' : ''
                               }`}
                             >
-                              {deletingGameId === game._id ? (
+                              {deletingGameId === game.uniqueId ? (
                                 <FaSpinner className="animate-spin w-4 h-4" />
                               ) : (
                                 <FaTrash className="w-4 h-4" />
@@ -1903,6 +1943,12 @@ const Newgames = () => {
                                 {game.game_code || game.code}
                               </span>
                             </p>
+                            <p className="flex items-center text-xs text-gray-500">
+                              <span className="font-medium mr-2">Unique ID:</span>
+                              <span className="text-xs bg-gray-100 px-2 py-1 rounded truncate max-w-[150px]">
+                                {game.uniqueId}
+                              </span>
+                            </p>
                             {game.isSaved && game.existingGameData && (
                               <p className="flex items-center text-xs text-green-600 mt-1">
                                 <span className="font-medium mr-2">Status:</span>
@@ -1925,20 +1971,20 @@ const Newgames = () => {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             
-                            {useDefaultImage[game._id] && (
+                            {useDefaultImage[game.uniqueId] && (
                               <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
                                 <FaImage className="mr-1" /> Default
                               </div>
                             )}
                             
-                            {!useDefaultImage[game._id] && game.localPortraitPreview && (
+                            {!useDefaultImage[game.uniqueId] && game.localPortraitPreview && (
                               <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
                                 <FaImage className="mr-1" /> New Image
                               </div>
                             )}
                           </div>
 
-                          {game.isSaved && editingGame !== game._id && (
+                          {game.isSaved && editingGame !== game.uniqueId && (
                             <div className="mt-3">
                               <button
                                 onClick={() => handleEditGame(game)}
@@ -1949,19 +1995,19 @@ const Newgames = () => {
                             </div>
                           )}
 
-                          {editingGame === game._id && (
+                          {editingGame === game.uniqueId && (
                             <>
                               <div className="mt-3 flex items-center justify-between">
                                 <span className="text-sm text-gray-600">Use Default Image:</span>
                                 <button
-                                  onClick={() => toggleUseDefaultImage(game._id)}
+                                  onClick={() => toggleUseDefaultImage(game.uniqueId)}
                                   className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
-                                    useDefaultImage[game._id] ? 'bg-orange-500' : 'bg-gray-300'
+                                    useDefaultImage[game.uniqueId] ? 'bg-orange-500' : 'bg-gray-300'
                                   }`}
                                 >
                                   <span
                                     className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${
-                                      useDefaultImage[game._id] ? 'translate-x-6' : 'translate-x-1'
+                                      useDefaultImage[game.uniqueId] ? 'translate-x-6' : 'translate-x-1'
                                     }`}
                                   />
                                 </button>
@@ -1978,7 +2024,7 @@ const Newgames = () => {
                                       .map((category) => (
                                         <button
                                           key={category._id}
-                                          onClick={() => handleGameDataChange(game._id, 'localCategory', category._id)}
+                                          onClick={() => handleGameDataChange(game.uniqueId, 'localCategory', category._id)}
                                           className={`px-3 py-1.5 text-sm rounded-lg border transition-all duration-200 ${
                                             game.localCategory === category._id
                                               ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
@@ -1994,29 +2040,29 @@ const Newgames = () => {
 
                               <div className="mt-4">
                                 <CustomCheckbox
-                                  id={`featured-${game._id}`}
+                                  id={`featured-${game.uniqueId}`}
                                   checked={game.localFeatured}
-                                  onChange={(e) => handleGameDataChange(game._id, 'localFeatured', e.target.checked)}
+                                  onChange={(e) => handleGameDataChange(game.uniqueId, 'localFeatured', e.target.checked)}
                                   label="Featured Game"
                                   description="Show this game in featured section"
                                 />
                                 <CustomCheckbox
-                                  id={`status-${game._id}`}
+                                  id={`status-${game.uniqueId}`}
                                   checked={game.localStatus}
-                                  onChange={(e) => handleGameDataChange(game._id, 'localStatus', e.target.checked)}
+                                  onChange={(e) => handleGameDataChange(game.uniqueId, 'localStatus', e.target.checked)}
                                   label="Active Status"
                                   description="Game will be visible to users"
                                 />
                                 <CustomCheckbox
-                                  id={`fullscreen-${game._id}`}
+                                  id={`fullscreen-${game.uniqueId}`}
                                   checked={game.localFullScreen}
-                                  onChange={(e) => handleGameDataChange(game._id, 'localFullScreen', e.target.checked)}
+                                  onChange={(e) => handleGameDataChange(game.uniqueId, 'localFullScreen', e.target.checked)}
                                   label="Full Screen Mode"
                                   description="Launch game in full screen"
                                 />
                               </div>
 
-                              {!useDefaultImage[game._id] && (
+                              {!useDefaultImage[game.uniqueId] && (
                                 <div className="mt-6">
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2034,7 +2080,7 @@ const Newgames = () => {
                                         </div>
                                         <button
                                           type="button"
-                                          onClick={() => removeImage(game._id)}
+                                          onClick={() => removeImage(game.uniqueId)}
                                           className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
                                         >
                                           <FaTimes className="w-3 h-3" />
@@ -2053,7 +2099,7 @@ const Newgames = () => {
                                           type="file"
                                           className="hidden"
                                           accept="image/*"
-                                          onChange={(e) => handleImageUpload(game._id, e.target.files[0])}
+                                          onChange={(e) => handleImageUpload(game.uniqueId, e.target.files[0])}
                                         />
                                       </label>
                                     )}
@@ -2061,7 +2107,7 @@ const Newgames = () => {
                                 </div>
                               )}
 
-                              {useDefaultImage[game._id] && (
+                              {useDefaultImage[game.uniqueId] && (
                                 <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                                   <p className="text-xs text-blue-700 flex items-center">
                                     <FaImage className="mr-2" />
@@ -2080,26 +2126,26 @@ const Newgames = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleSaveOrUpdateGame(game._id)}
+                                  onClick={() => handleSaveOrUpdateGame(game.uniqueId)}
                                   disabled={
-                                    (updatingGameId === game._id || savingGameId === game._id) || 
+                                    (updatingGameId === game.uniqueId || savingGameId === game.uniqueId) || 
                                     !game.localCategory || 
-                                    (!useDefaultImage[game._id] && !game.localPortraitImage)
+                                    (!useDefaultImage[game.uniqueId] && !game.localPortraitImage)
                                   }
                                   className={`flex-1 px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
-                                    updatingGameId === game._id || savingGameId === game._id
+                                    updatingGameId === game.uniqueId || savingGameId === game.uniqueId
                                       ? 'bg-gray-400 cursor-wait' 
                                       : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
                                   } ${
-                                    (!game.localCategory || (!useDefaultImage[game._id] && !game.localPortraitImage)) 
+                                    (!game.localCategory || (!useDefaultImage[game.uniqueId] && !game.localPortraitImage)) 
                                       ? 'opacity-50 cursor-not-allowed' 
                                       : 'cursor-pointer'
                                   }`}
                                 >
-                                  {updatingGameId === game._id || savingGameId === game._id ? (
+                                  {updatingGameId === game.uniqueId || savingGameId === game.uniqueId ? (
                                     <>
                                       <FaSpinner className="animate-spin mr-2" />
-                                      {updatingGameId === game._id ? 'Updating...' : 'Adding...'}
+                                      {updatingGameId === game.uniqueId ? 'Updating...' : 'Adding...'}
                                     </>
                                   ) : (
                                     <>
@@ -2111,7 +2157,7 @@ const Newgames = () => {
                             </>
                           )}
 
-                          {!game.isSaved && editingGame !== game._id && (
+                          {!game.isSaved && editingGame !== game.uniqueId && (
                             <div className="mt-3">
                               <button
                                 onClick={() => handleSingleGameAdd(game)}
@@ -2493,12 +2539,12 @@ const Newgames = () => {
                     <p className="text-sm font-medium text-gray-700 mb-2">Selected Games to Delete:</p>
                     <ul className="space-y-1">
                       {Array.from(selectedGames)
-                        .map(id => games.find(g => g._id === id))
+                        .map(id => games.find(g => g.uniqueId === id))
                         .filter(game => game?.isSaved)
                         .map(game => (
-                          <li key={game._id} className="text-sm text-gray-600 flex items-center">
+                          <li key={game.uniqueId} className="text-sm text-gray-600 flex items-center">
                             <FaTrash className="text-red-400 mr-2 text-xs" />
-                            {game.gameName || game.name} ({game.game_code})
+                            {game.gameName || game.name} ({game.game_code} - {game.provider?.providerName})
                           </li>
                         ))}
                     </ul>
