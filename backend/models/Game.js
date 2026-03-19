@@ -13,6 +13,9 @@ const gameSchema = new mongoose.Schema(
       trim: true,
       // This can be auto-generated or same as gameApiID
     },
+    uniqueId:{
+      type: String,
+    },
     gameApiID: {
       type: String,
       required: true,

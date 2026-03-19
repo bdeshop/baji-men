@@ -2989,7 +2989,8 @@ Adminrouter.post(
       // Check if combination of gameApiID and provider already exists
       const existingGame = await Game.findOne({ 
         gameApiID: gameApiID,
-        provider: provider 
+        provider: provider,
+        uniqueId:req.body.uniqueId
       });
       
       if (existingGame) {
@@ -3038,6 +3039,7 @@ Adminrouter.post(
         status: status !== "false" && status !== false, // Handle both string and boolean
         fullScreen: fullScreen === "true" || fullScreen === true,
         gameApiID,
+        uniqueId:req.body.uniqueId
       };
 
       const newGame = new Game(gameData);

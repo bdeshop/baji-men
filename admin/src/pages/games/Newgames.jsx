@@ -886,6 +886,7 @@ const Newgames = () => {
       formData.append("gameApiID", gameToSave.game_code);
       formData.append("name", gameToSave.gameName || gameToSave.name);
       formData.append("provider", gameToSave.provider?.provider_code);
+      formData.append("uniqueId", gameToSave.uniqueId); // Pass the unique ID to backend
       
       const selectedCat = categories.find(cat => 
         cat._id === gameToSave.localCategory || cat.name === gameToSave.localCategory
@@ -897,16 +898,16 @@ const Newgames = () => {
         formData.append("category", gameToSave.localCategory || "");
       }
       
-      formData.append("featured", gameToSave.localFeatured);
-      formData.append("status", gameToSave.localStatus);
-      formData.append("fullScreen", gameToSave.localFullScreen);
+      formData.append("featured", gameToSave.localFeatured ? "true" : "false");
+      formData.append("status", gameToSave.localStatus ? "true" : "false");
+      formData.append("fullScreen", gameToSave.localFullScreen ? "true" : "false");
       
       if (isUsingDefaultImage) {
         const defaultImageUrl = gameToSave.image || gameToSave.coverImage;
         if (defaultImageUrl) {
           formData.append("defaultImage", defaultImageUrl);
-          formData.append("portraitImage", defaultImageUrl);
-          formData.append("landscapeImage", defaultImageUrl);
+          // Don't append portraitImage/landscapeImage when using defaultImage
+          // The backend will handle setting both from defaultImage
         } else {
           toast.error("No default image available for this game.");
           if (isUpdate) {
@@ -1136,6 +1137,7 @@ const Newgames = () => {
           formData.append("gameApiID", game.game_code);
           formData.append("name", game.gameName || game.name);
           formData.append("provider", game.provider?.provider_code);
+          formData.append("uniqueId", game.uniqueId); // Pass the unique ID to backend
           
           const selectedCat = categories.find(cat => cat._id === bulkCategory);
           if (selectedCat) {
@@ -1144,16 +1146,15 @@ const Newgames = () => {
             formData.append("category", bulkCategory);
           }
           
-          formData.append("featured", bulkFeatured);
-          formData.append("status", bulkStatus);
-          formData.append("fullScreen", bulkFullScreen);
+          formData.append("featured", bulkFeatured ? "true" : "false");
+          formData.append("status", bulkStatus ? "true" : "false");
+          formData.append("fullScreen", bulkFullScreen ? "true" : "false");
           
           if (bulkUseDefaultImage) {
             const defaultImageUrl = game.image || game.coverImage;
             if (defaultImageUrl) {
               formData.append("defaultImage", defaultImageUrl);
-              formData.append("portraitImage", defaultImageUrl);
-              formData.append("landscapeImage", defaultImageUrl);
+              // Don't append portraitImage/landscapeImage when using defaultImage
             }
           } else {
             if (bulkImage) {
