@@ -2964,6 +2964,7 @@ Adminrouter.get("/games/gameId/:gameId", async (req, res) => {
 });
 
 // POST create new game
+// POST create new game
 Adminrouter.post(
   "/games",
   uploadGameImages.fields([
@@ -2980,11 +2981,13 @@ Adminrouter.post(
         gameApiID, 
         category, 
         fullScreen,
-        defaultImage  // URL from games API
+        defaultImage
       } = req.body;
       
-      // Check if gameApiID already exists
-    const existingGame = await Game.findOne({ 
+      console.log("req.body", req.body);
+
+      // Check if combination of gameApiID and provider already exists
+      const existingGame = await Game.findOne({ 
         gameApiID: gameApiID,
         provider: provider 
       });
@@ -3025,14 +3028,14 @@ Adminrouter.post(
 
       const gameData = {
         name,
-        gameId: gameApiID,
+        gameId: gameApiID, // This will be set, but not used for uniqueness
         provider,
         category,
         portraitImage: portraitImageValue,
         landscapeImage: landscapeImageValue,
-        defaultImage: defaultImage || null, // Store the default image URL if provided
+        defaultImage: defaultImage || null,
         featured: featured === "true" || featured === true,
-        status: status !== undefined ? status : true,
+        status: status !== "false" && status !== false, // Handle both string and boolean
         fullScreen: fullScreen === "true" || fullScreen === true,
         gameApiID,
       };
@@ -3046,15 +3049,19 @@ Adminrouter.post(
       });
     } catch (error) {
       console.error("Error creating game:", error);
+      
+      // Handle duplicate key error (gameApiID + provider combination)
       if (error.code === 11000) {
         return res.status(400).json({ 
-          error: "A game with this Game API ID already exists. Please use a different ID." 
+          error: "A game with this API ID and provider combination already exists." 
         });
       }
+      
       res.status(500).json({ error: "Failed to create game" });
     }
   }
 );
+// PUT update game
 // PUT update game
 // PUT update game
 Adminrouter.put(
@@ -3071,22 +3078,35 @@ Adminrouter.put(
       }
       
       console.log("Update request body:", req.body);
-      console.log("Update request files:", req.files);
 
       // Update fields
       if (req.body.name) game.name = req.body.name;
-      if (req.body.gameApiID) {
-        // Check if new gameApiID already exists (excluding current game)
+      
+      // Handle gameApiID update with provider combination check
+      if (req.body.gameApiID || req.body.provider) {
+        const newGameApiID = req.body.gameApiID || game.gameApiID;
+        const newProvider = req.body.provider || game.provider;
+        
+        // Check if combination already exists (excluding current game)
         const existingGame = await Game.findOne({
-          gameApiID: req.body.gameApiID,
+          gameApiID: newGameApiID,
+          provider: newProvider,
           _id: { $ne: req.params.id },
         });
+        
         if (existingGame) {
-          return res.status(400).json({ error: "Game API ID already exists" });
+          return res.status(400).json({ 
+            error: `Game with API ID "${newGameApiID}" and provider "${newProvider}" already exists` 
+          });
         }
-        game.gameApiID = req.body.gameApiID;
+        
+        if (req.body.gameApiID) {
+          game.gameApiID = req.body.gameApiID;
+          game.gameId = req.body.gameApiID; // Update gameId as well
+        }
+        if (req.body.provider) game.provider = req.body.provider;
       }
-      if (req.body.provider) game.provider = req.body.provider;
+      
       if (req.body.category) game.category = req.body.category;
       if (req.body.featured !== undefined) game.featured = req.body.featured === "true" || req.body.featured === true;
       if (req.body.status !== undefined) game.status = req.body.status === "true" || req.body.status === true;
@@ -3145,9 +3165,13 @@ Adminrouter.put(
       });
     } catch (error) {
       console.error("Error updating game:", error);
+      
       if (error.code === 11000) {
-        return res.status(400).json({ error: "Game API ID already exists" });
+        return res.status(400).json({ 
+          error: "Game with this API ID and provider combination already exists" 
+        });
       }
+      
       res.status(500).json({ error: "Failed to update game" });
     }
   }
