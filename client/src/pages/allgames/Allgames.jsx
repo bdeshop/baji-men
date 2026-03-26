@@ -143,12 +143,12 @@ const AllGamesContent = () => {
     if (!game) return logo;
     
     // Check for different possible image fields
-    const imageField = game.portraitImage || game.image || game.coverImage;
+    const imageField = game.portraitImage || game.image || game.coverImage || game.defaultImage;
     
     if (!imageField) return logo;
     
-    // If it's already a full URL (default image from provider)
-    if (imageField.startsWith('http')) {
+    // If it's already a full URL (from CDN)
+    if (imageField.startsWith('http://') || imageField.startsWith('https://')) {
       return imageField;
     }
     
@@ -341,14 +341,19 @@ const AllGamesContent = () => {
   const handleCategoryFilter = () => {
     let filtered = allGames;
     if (selectedCategory !== 'all') {
-      filtered = allGames.filter(game => 
-        game.category?.toLowerCase() === selectedCategory
-      );
+      filtered = allGames.filter(game => {
+        // Check if game.category is an array
+        if (Array.isArray(game.category)) {
+          return game.category.some(cat => cat.toLowerCase() === selectedCategory);
+        }
+        // If it's a string, compare directly
+        return game.category?.toLowerCase() === selectedCategory;
+      });
     }
     setGames(filtered);
     setFilteredGames(filtered);
     setProviders(extractUniqueProviders(filtered));
-    setVisibleGamesCount(16);
+    setVisibleGamesCount(21);
   };
 
   const extractUniqueProviders = (gamesList) => {
@@ -391,6 +396,8 @@ const AllGamesContent = () => {
       case 'netent':
         return 'fas fa-star';
       case 'microgaming':
+        return 'fas fa-crown';
+      case 'amigo':
         return 'fas fa-crown';
       default:
         return 'fas fa-puzzle-piece';
@@ -444,9 +451,14 @@ const AllGamesContent = () => {
     
     // Apply category filter
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(game => 
-        game.category?.toLowerCase() === selectedCategory
-      );
+      filtered = filtered.filter(game => {
+        // Check if game.category is an array
+        if (Array.isArray(game.category)) {
+          return game.category.some(cat => cat.toLowerCase() === selectedCategory);
+        }
+        // If it's a string, compare directly
+        return game.category?.toLowerCase() === selectedCategory;
+      });
     }
     
     // Apply search filter
@@ -493,7 +505,7 @@ const AllGamesContent = () => {
         filtered.sort((a, b) => b.name.localeCompare(a.name));
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0));
+        filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         break;
       case 'popularity':
         filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
@@ -503,7 +515,7 @@ const AllGamesContent = () => {
     }
     
     setFilteredGames(filtered);
-    setVisibleGamesCount(16);
+    setVisibleGamesCount(21);
   }, [
     searchTerm, 
     selectedProviders, 
@@ -522,7 +534,7 @@ const AllGamesContent = () => {
   const loadMoreGames = () => {
     setIsLoadingMore(true);
     setTimeout(() => {
-      setVisibleGamesCount(prevCount => prevCount + 16);
+      setVisibleGamesCount(prevCount => prevCount + 21);
       setIsLoadingMore(false);
     }, 800);
   };
@@ -601,8 +613,18 @@ const AllGamesContent = () => {
 
       console.log("Game data:", gameData?.data?.gameApiID);
 
+      // Get category - handle both array and string
+      let categoryValue = 'slots';
+      if (game.category) {
+        if (Array.isArray(game.category)) {
+          categoryValue = game.category[0] || 'slots';
+        } else {
+          categoryValue = game.category;
+        }
+      }
+
       // Navigate with provider and category as query parameters
-      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
+      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`);
     } catch (err) {
       console.error("Error:", err);
       toast.error("Error connecting to game server");
@@ -640,9 +662,67 @@ const AllGamesContent = () => {
         <div className={`flex-1 overflow-auto transition-all duration-300 ${isLoading ? 'opacity-50' : ''}`}>
           <div className='mx-auto pb-[100px] w-full max-w-screen-xl py-4 px-4 sm:px-6 md:px-8 lg:px-12'>
 
-            <div className='flex justify-center md:justify-between  items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
-              <div className="w-full sm:w-auto relative" ref={categoryRef}>
-              </div>
+            <div className='flex justify-center md:justify-between items-center gap-2 sm:gap-3 w-full mb-4 sm:mb-6'>
+              {!providerDisplayName && (
+                <div className="w-full sm:w-auto relative" ref={categoryRef}>
+                  <button 
+                    className="flex w-full sm:w-auto items-center justify-start cursor-pointer text-white pr-4 py-2 sm:py-3 rounded-lg min-w-[180px] text-xs sm:text-sm transition-colors"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  >
+                    <div className="flex items-center">
+                      {categories.find(c => c.value === selectedCategory)?.image && (
+                        <img 
+                          src={getImageUrl({ portraitImage: categories.find(c => c.value === selectedCategory).image })}
+                          alt="" 
+                          className="w-6 h-6 object-cover rounded mr-2" 
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <i className={`${categories.find(c => c.value === selectedCategory)?.icon || "fas fa-list"} mr-2 text-yellow-500`}></i>
+                      <span>{getSelectedCategoryName()}</span>
+                    </div>
+                    {showCategoryDropdown ? <IoChevronUp className="text-sm ml-2" /> : <IoChevronDown className="text-sm ml-2" />}
+                  </button>
+                  
+                  {showCategoryDropdown && (
+                    <div className="absolute top-full left-0 text-xs sm:text-sm right-0 bg-[#222] border border-[#333] rounded-lg shadow-lg z-20 mt-1 overflow-hidden">
+                      {categories.map(category => (
+                        <div 
+                          key={category.value}
+                          className={`px-4 py-3 cursor-pointer flex items-center transition-colors ${selectedCategory === category.value ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`}
+                          onClick={() => handleCategoryChange(category.value)}
+                        >
+                          {category.image && (
+                            <img 
+                              src={getImageUrl({ portraitImage: category.image })} 
+                              alt="" 
+                              className="mr-2 w-4 h-4 object-cover rounded" 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <i className={`${category.icon} mr-2 ${selectedCategory === category.value ? 'text-theme_color' : 'text-gray-400'}`}></i>
+                          {category.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {providerDisplayName && (
+                <div className="w-full sm:w-auto">
+                  <div className="flex items-center text-white">
+                    <i className="fas fa-gamepad mr-2 text-yellow-500"></i>
+                    <span className="text-sm sm:text-base font-medium">
+                      {providerDisplayName} Games
+                    </span>
+                  </div>
+                </div>
+              )}
               
               <div className="flex gap-2 w-full sm:w-auto justify-end">
                 <div className="relative">
@@ -704,7 +784,7 @@ const AllGamesContent = () => {
                   <IoSearchSharp className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
                   <input
                     type="text"
-                    placeholder="Search all games..."
+                    placeholder={providerDisplayName ? `Search ${providerDisplayName} games...` : "Search all games..."}
                     className="w-full pl-12 pr-4 py-3 bg-[#222] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-theme_color focus:border-transparent transition-all duration-300 ease-in-out placeholder-gray-400"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -733,7 +813,7 @@ const AllGamesContent = () => {
 
             {isLoading || isLoadingProviderGames ? (
               <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
-                {Array.from({ length: 12 }).map((_, index) => (
+                {Array.from({ length: 21 }).map((_, index) => (
                   <SkeletonGameCard key={index} />
                 ))}
               </div>
@@ -743,7 +823,6 @@ const AllGamesContent = () => {
                   <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                     {visibleGames.map(game => {
                       const imageUrl = getImageUrl(game);
-                      const isDefaultImage = game.portraitImage?.startsWith('http') || game.image?.startsWith('http');
                       
                       return (
                         <div 
@@ -751,47 +830,29 @@ const AllGamesContent = () => {
                           className="group relative bg-gradient-to-br from-[#1a1a1a] to-[#222] rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
                           onClick={() => handleGameClick(game)}
                         >
-                          <div className="relative overflow-hidden">
-                            <img 
-                              src={imageUrl} 
-                              alt={game.name} 
-                              className="w-full h-[175px] sm:h-[200px] md:h-[220px] object-cover transition-transform duration-500 group-hover:scale-110" 
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = logo;
-                              }}
-                            />
+                          <div className="allgames-game-image-container relative overflow-hidden w-full">
+                            <div className="relative w-full pb-[133.33%] overflow-hidden bg-[#1a1a1a]">
+                              <img 
+                                src={imageUrl} 
+                                alt={game.name} 
+                                className="absolute top-0 left-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = logo;
+                                }}
+                              />
+                            </div>
                             
-                            {/* Default Image Badge */}
-                            {isDefaultImage && (
-                              <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 opacity-70">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="8"
-                                  height="8"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                  <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                                <span>Default</span>
-                              </div>
-                            )}
-                            
+                            {/* Glow Sweep Animation */}
+                            <div className="allgames-glow-sweep"></div>
                             {game.featured && (
-                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md z-10">
                                 NEW
                               </div>
                             )}
                             
                             {/* Game Name Overlay on Hover */}
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10">
                               <p className="text-white text-xs font-medium truncate">{game.name}</p>
                               <p className="text-gray-300 text-[10px] truncate">{game.provider}</p>
                             </div>
@@ -1129,6 +1190,50 @@ const AllGamesContent = () => {
       )}
 
       <style jsx>{`
+        /* ── Portrait-ratio container for consistent game card sizing ── */
+        .allgames-game-image-container {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+        }
+
+        /* ── Glow Sweep Animation ── */
+        .allgames-glow-sweep {
+          position: absolute;
+          top: 0;
+          left: -200%;
+          width: 250%;
+          height: 100%;
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.02) 20%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(255, 255, 255, 0.02) 80%,
+            transparent 100%
+          );
+          transform: skewX(-25deg);
+          animation: allgamesSweepWide 5s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        @keyframes allgamesSweepWide {
+          0%   { left: -250%; opacity: 0; }
+          10%  { opacity: 1; }
+          60%  { left: 150%; opacity: 1; }
+          70%  { opacity: 0; }
+          100% { left: 150%; opacity: 0; }
+        }
+
+        /* Stagger delays so cards don't all flash at once */
+        .group:nth-child(2n) .allgames-glow-sweep { animation-delay: 0.7s; }
+        .group:nth-child(3n) .allgames-glow-sweep { animation-delay: 1.4s; }
+        .group:nth-child(4n) .allgames-glow-sweep { animation-delay: 2.1s; }
+        .group:nth-child(5n) .allgames-glow-sweep { animation-delay: 2.8s; }
+        .group:nth-child(6n) .allgames-glow-sweep { animation-delay: 3.5s; }
+        .group:nth-child(7n) .allgames-glow-sweep { animation-delay: 4.2s; }
+
         ::-webkit-scrollbar {
           width: 8px;
         }

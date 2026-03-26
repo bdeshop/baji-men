@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
@@ -7,7 +7,9 @@ import { FaFolderOpen, FaMoneyBillWave, FaExchangeAlt } from "react-icons/fa";
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
 import axios from "axios";
 import { format } from "date-fns";
-import logo from "../../assets/logo.png"
+import logo from "../../assets/logo.png";
+import { LanguageContext } from "../../context/LanguageContext";
+
 const Transaction = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
@@ -23,6 +25,9 @@ const Transaction = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const limit = 10;
+
+  // Get language context
+  const { language, t } = useContext(LanguageContext);
 
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const token = localStorage.getItem('token');
@@ -54,11 +59,11 @@ const Transaction = () => {
         setTransactions(response.data.data);
         setTotalPages(response.data.totalPages);
       } else {
-        setError("Failed to fetch transactions");
+        setError(t?.failedToFetchTransactions || "Failed to fetch transactions");
       }
     } catch (err) {
       console.error("Error fetching transactions:", err);
-      setError("Failed to load transactions. Please try again.");
+      setError(t?.failedToLoadTransactions || "Failed to load transactions. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -85,14 +90,14 @@ const Transaction = () => {
 
   const formatDate = (dateString) => {
     try {
-      return format(new Date(dateString), "MMM dd, yyyy HH:mm");
+      return format(new Date(dateString), t?.dateFormat || "MMM dd, yyyy HH:mm");
     } catch (error) {
       return dateString;
     }
   };
 
   const formatAmount = (amount) => {
-    return `৳${amount.toLocaleString()}`;
+    return `${t?.currencySymbol || "৳"}${amount.toLocaleString()}`;
   };
 
   const getStatusColor = (status) => {
@@ -110,6 +115,36 @@ const Transaction = () => {
     return <FaExchangeAlt className="text-blue-400 text-xl" />;
   };
 
+  const getTranslatedStatus = (status) => {
+    const statusMap = {
+      completed: t?.completed || "Completed",
+      pending: t?.pending || "Pending",
+      failed: t?.failed || "Failed",
+      cancelled: t?.cancelled || "Cancelled",
+      rejected: t?.rejected || "Rejected"
+    };
+    return statusMap[status] || status;
+  };
+
+  const getTranslatedType = (type) => {
+    const typeMap = {
+      deposit: t?.deposit || "Deposit",
+      withdrawal: t?.withdrawal || "Withdrawal"
+    };
+    return typeMap[type] || type;
+  };
+
+  const getTranslatedMethod = (method) => {
+    const methodMap = {
+      bkash: "bKash",
+      nagad: "Nagad",
+      rocket: "Rocket",
+      bank: t?.bank || "Bank",
+      crypto: t?.crypto || "Crypto"
+    };
+    return methodMap[method] || method;
+  };
+
   const renderPagination = () => {
     if (totalPages <= 1) return null;
 
@@ -120,7 +155,7 @@ const Transaction = () => {
           disabled={currentPage === 1}
           className="px-3 py-1 bg-[#2c2c2c] rounded-md text-sm disabled:opacity-50"
         >
-          Previous
+          {t?.previous || "Previous"}
         </button>
         
         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -149,7 +184,7 @@ const Transaction = () => {
           disabled={currentPage === totalPages}
           className="px-3 py-1 bg-[#2c2c2c] rounded-md text-sm disabled:opacity-50"
         >
-          Next
+          {t?.next || "Next"}
         </button>
       </div>
     );
@@ -170,7 +205,7 @@ const Transaction = () => {
           <div className="mx-auto w-full overflow-y-auto min-h-screen max-w-screen-xl md:px-4 py-4 px-3">
             {/* Top Section */}
             <div className="flex flex-row items-center justify-between pt-[30px] md:pt-[60px] mb-6 gap-4">
-              <h2 className="text-[18px] md:text-[22px] font-[600]">Transaction records</h2>
+              <h2 className="text-[18px] md:text-[22px] font-[600]">{t?.transactionRecords || "Transaction records"}</h2>
 
               <div className="flex items-center space-x-4">
                 <button 
@@ -178,7 +213,7 @@ const Transaction = () => {
                   className="px-4 py-2 bg-[#2c2c2c] rounded-[2px] cursor-pointer text-sm hover:bg-[#3a3a3a] transition flex items-center gap-2"
                 >
                   <FiSliders className="text-lg" />
-                  Filters
+                  {t?.filters || "Filters"}
                   {showFilters ? <FiChevronUp /> : <FiChevronDown />}
                 </button>
               </div>
@@ -188,38 +223,38 @@ const Transaction = () => {
             {showFilters && (
               <div className="bg-[#2c2c2c] p-4 rounded-[2px] mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm mb-2 text-gray-400">Type</label>
+                  <label className="block text-sm mb-2 text-gray-400">{t?.type || "Type"}</label>
                   <select
                     name="type"
                     value={filters.type}
                     onChange={handleFilterChange}
                     className="w-full bg-[#3a3a3a] border border-[#4a4a4a] rounded-md px-3 py-2 text-sm"
                   >
-                    <option value="">All Types</option>
-                    <option value="deposit">Deposit</option>
-                    <option value="withdrawal">Withdrawal</option>
+                    <option value="">{t?.allTypes || "All Types"}</option>
+                    <option value="deposit">{t?.deposit || "Deposit"}</option>
+                    <option value="withdrawal">{t?.withdrawal || "Withdrawal"}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-2 text-gray-400">Status</label>
+                  <label className="block text-sm mb-2 text-gray-400">{t?.status || "Status"}</label>
                   <select
                     name="status"
                     value={filters.status}
                     onChange={handleFilterChange}
                     className="w-full bg-[#3a3a3a] border border-[#4a4a4a] rounded-md px-3 py-2 text-sm"
                   >
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
-                    <option value="failed">Failed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="">{t?.allStatus || "All Status"}</option>
+                    <option value="pending">{t?.pending || "Pending"}</option>
+                    <option value="completed">{t?.completed || "Completed"}</option>
+                    <option value="failed">{t?.failed || "Failed"}</option>
+                    <option value="cancelled">{t?.cancelled || "Cancelled"}</option>
+                    <option value="rejected">{t?.rejected || "Rejected"}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-2 text-gray-400">Start Date</label>
+                  <label className="block text-sm mb-2 text-gray-400">{t?.startDate || "Start Date"}</label>
                   <input
                     type="date"
                     name="startDate"
@@ -230,7 +265,7 @@ const Transaction = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm mb-2 text-gray-400">End Date</label>
+                  <label className="block text-sm mb-2 text-gray-400">{t?.endDate || "End Date"}</label>
                   <input
                     type="date"
                     name="endDate"
@@ -245,13 +280,13 @@ const Transaction = () => {
                     onClick={clearFilters}
                     className="px-4 py-2 bg-[#3a3a3a] rounded-[2px] cursor-pointer text-sm hover:bg-[#4a4a4a] transition"
                   >
-                    Clear Filters
+                    {t?.clearFilters || "Clear Filters"}
                   </button>
                   <button
                     onClick={fetchTransactions}
                     className="px-4 py-2 bg-theme_color rounded-[2px] cursor-pointer text-sm hover:bg-opacity-90 transition"
                   >
-                    Apply Filters
+                    {t?.applyFilters || "Apply Filters"}
                   </button>
                 </div>
               </div>
@@ -259,13 +294,13 @@ const Transaction = () => {
 
             {/* Transactions List */}
             {loading ? (
-                    <div className='w-full p-[20px] flex justify-center items-center'>
-                             <div className="relative w-24 h-24 flex justify-center items-center">
-                               <div className="absolute w-full h-full rounded-full border-4 border-transparent border-t-green-500 border-r-green-500 animate-spin"></div>
-                               <div className="w-20 h-20 rounded-full flex justify-center items-center font-bold text-lg">
-                               </div>
-                             </div>
-                           </div>
+              <div className='w-full p-[20px] flex justify-center items-center'>
+                <div className="relative w-24 h-24 flex justify-center items-center">
+                  <div className="absolute w-full h-full rounded-full border-4 border-transparent border-t-green-500 border-r-green-500 animate-spin"></div>
+                  <div className="w-20 h-20 rounded-full flex justify-center items-center font-bold text-lg">
+                  </div>
+                </div>
+              </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <p className="text-red-400 mb-4">{error}</p>
@@ -273,19 +308,19 @@ const Transaction = () => {
                   onClick={fetchTransactions}
                   className="px-4 py-2 bg-theme_color rounded-md text-sm hover:bg-opacity-90 transition"
                 >
-                  Try Again
+                  {t?.tryAgain || "Try Again"}
                 </button>
               </div>
             ) : transactions.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <FaFolderOpen className="text-5xl text-theme_color mb-4" />
-                <p className="text-gray-400">No transactions found</p>
+                <p className="text-gray-400">{t?.noTransactionsFound || "No transactions found"}</p>
                 {Object.values(filters).some(filter => filter !== "") && (
                   <button
                     onClick={clearFilters}
                     className="mt-4 px-4 py-2 bg-theme_color rounded-md text-sm hover:bg-opacity-90 transition"
                   >
-                    Clear Filters
+                    {t?.clearFilters || "Clear Filters"}
                   </button>
                 )}
               </div>
@@ -302,10 +337,10 @@ const Transaction = () => {
                           <div>
                             <div className="flex items-center space-x-2">
                               <span className="font-medium capitalize">
-                                {transaction.type}
+                                {getTranslatedType(transaction.type)}
                               </span>
                               <span className="text-xs px-2 py-1 bg-[#3a3a3a] rounded-full capitalize">
-                                {transaction.method}
+                                {getTranslatedMethod(transaction.method)}
                               </span>
                             </div>
                             <p className="text-sm text-gray-400">
@@ -324,7 +359,7 @@ const Transaction = () => {
                             {transaction.type === 'deposit' ? '+' : '-'}{formatAmount(transaction.amount)}
                           </div>
                           <div className={`text-sm capitalize ${getStatusColor(transaction.status)}`}>
-                            {transaction.status}
+                            {getTranslatedStatus(transaction.status)}
                           </div>
                         </div>
                       </div>

@@ -13,7 +13,7 @@ const gameSchema = new mongoose.Schema(
       trim: true,
       // This can be auto-generated or same as gameApiID
     },
-    uniqueId:{
+    uniqueId: {
       type: String,
     },
     gameApiID: {
@@ -27,10 +27,18 @@ const gameSchema = new mongoose.Schema(
       trim: true,
       required: true,
     },
+    // Updated category field to support multiple categories
     category: {
-      type: String,
+      type: [String], // Changed to array of strings
       trim: true,
       required: true,
+      validate: {
+        validator: function(categories) {
+          // Ensure at least one category is provided
+          return Array.isArray(categories) && categories.length > 0;
+        },
+        message: "Game must belong to at least one category"
+      }
     },
     portraitImage: {
       type: String,
@@ -71,9 +79,9 @@ gameSchema.index({ gameApiID: 1, provider: 1 }, { unique: true });
 
 // Regular indexes for query performance
 gameSchema.index({ provider: 1 });
-gameSchema.index({ category: 1 });
 gameSchema.index({ status: 1 });
 gameSchema.index({ featured: 1 });
+gameSchema.index({ category: 1 }); // Index for array field for efficient queries
 
 // Pre-save middleware to handle gameId
 gameSchema.pre('save', function(next) {
@@ -81,8 +89,62 @@ gameSchema.pre('save', function(next) {
   if (!this.gameId && this.gameApiID) {
     this.gameId = this.gameApiID;
   }
+  
+  // Ensure category is an array
+  if (typeof this.category === 'string') {
+    this.category = [this.category];
+  }
+  
   next();
 });
+
+// Helper method to add a category
+gameSchema.methods.addCategory = function(category) {
+  if (!this.category.includes(category)) {
+    this.category.push(category);
+    return true;
+  }
+  return false;
+};
+
+// Helper method to remove a category
+gameSchema.methods.removeCategory = function(category) {
+  const index = this.category.indexOf(category);
+  if (index > -1) {
+    this.category.splice(index, 1);
+    return true;
+  }
+  return false;
+};
+
+// Helper method to check if game has a category
+gameSchema.methods.hasCategory = function(category) {
+  return this.category.includes(category);
+};
+
+// Static method to find games by multiple categories
+gameSchema.statics.findByCategories = function(categories, options = {}) {
+  const query = { category: { $in: categories } };
+  if (options.status !== undefined) query.status = options.status;
+  if (options.featured !== undefined) query.featured = options.featured;
+  
+  return this.find(query)
+    .sort(options.sort || { order: 1, createdAt: -1 })
+    .limit(options.limit || 0)
+    .skip(options.skip || 0);
+};
+
+// Static method to find games that match all specified categories
+gameSchema.statics.findByAllCategories = function(categories, options = {}) {
+  const query = { category: { $all: categories } };
+  if (options.status !== undefined) query.status = options.status;
+  if (options.featured !== undefined) query.featured = options.featured;
+  
+  return this.find(query)
+    .sort(options.sort || { order: 1, createdAt: -1 })
+    .limit(options.limit || 0)
+    .skip(options.skip || 0);
+};
 
 // Drop any existing problematic indexes on application startup
 gameSchema.statics.ensureIndexes = async function() {

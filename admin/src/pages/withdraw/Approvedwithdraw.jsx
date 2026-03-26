@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaMoneyBill, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaSync } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaSync, FaSpinner } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import axios from 'axios';
-import toast, { Toaster } from "react-hot-toast"
-import { FaSpinner } from 'react-icons/fa';
+import toast, { Toaster } from "react-hot-toast";
 
 const Approvedwithdraw = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -29,13 +28,43 @@ const Approvedwithdraw = () => {
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   
-  const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank_transfer'];
+  const methods = ['all', 'bkash', 'rocket', 'nagad', 'bank'];
+  
+  // Helper function to get account details from withdrawal
+  const getAccountDetails = (withdrawal) => {
+    if (!withdrawal) return { accountNumber: 'N/A', fullDetails: 'N/A' };
+    
+    if (withdrawal.method === 'bkash' || withdrawal.method === 'rocket' || withdrawal.method === 'nagad') {
+      if (withdrawal.mobileBankingDetails) {
+        return {
+          accountNumber: withdrawal.mobileBankingDetails.phoneNumber,
+          accountType: withdrawal.mobileBankingDetails.accountType,
+          fullDetails: `${withdrawal.mobileBankingDetails.phoneNumber}${withdrawal.mobileBankingDetails.accountType ? ` (${withdrawal.mobileBankingDetails.accountType})` : ''}`
+        };
+      }
+      return { accountNumber: withdrawal.phoneNumber || 'N/A', fullDetails: withdrawal.phoneNumber || 'N/A' };
+    } else if (withdrawal.method === 'bank') {
+      if (withdrawal.bankDetails) {
+        return {
+          accountNumber: withdrawal.bankDetails.accountNumber,
+          bankName: withdrawal.bankDetails.bankName,
+          accountHolderName: withdrawal.bankDetails.accountHolderName,
+          branchName: withdrawal.bankDetails.branchName,
+          district: withdrawal.bankDetails.district,
+          routingNumber: withdrawal.bankDetails.routingNumber,
+          fullDetails: `${withdrawal.bankDetails.bankName} - ${withdrawal.bankDetails.accountNumber}`
+        };
+      }
+      return { accountNumber: 'N/A', fullDetails: 'N/A' };
+    }
+    return { accountNumber: 'N/A', fullDetails: 'N/A' };
+  };
   
   // Fetch completed withdrawals from API
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -54,17 +83,17 @@ const Approvedwithdraw = () => {
       });
       
       if (response.data) {
-        setWithdrawals(response.data.withdrawals);
+        const withdrawalsData = response.data.withdrawals || response.data.data || [];
+        setWithdrawals(withdrawalsData);
         
         // Calculate statistics for completed withdrawals only
-        const totalWithdrawals = response.data.total;
-        const totalAmount = response.data.totalAmount || 0;
-        const completedAmount = response.data.statusCounts?.find(s => s._id === 'completed')?.amount || 0;
+        const totalWithdrawals = withdrawalsData.length;
+        const totalAmount = withdrawalsData.reduce((sum, w) => sum + (w.amount || 0), 0);
         
         setStats({
           total: totalWithdrawals,
-          totalAmount,
-          completedAmount
+          totalAmount: totalAmount,
+          completedAmount: totalAmount
         });
       }
     } catch (err) {
@@ -72,104 +101,95 @@ const Approvedwithdraw = () => {
       setError('Failed to load completed withdrawals. Please try again.');
       
       // Fallback to sample completed data if API fails
-      setWithdrawals([
+      const sampleData = [
         {
-          _id: "68ae24b8c2b1c27dfe6572d1",
-          userId: { username: "abusaid", player_id: "PID507954" },
-          amount: 3000,
+          _id: "69c4c57a9763d121d14b47c0",
+          userId: { _id: "69c4c4629763d121d14b418a", username: "testuser", player_id: "PID123456" },
           method: "bkash",
-          phoneNumber: "015*****123",
-          transactionId: "TXW789456123",
+          mobileBankingDetails: {
+            phoneNumber: "01655585555",
+            accountType: "personal"
+          },
+          bankDetails: null,
+          amount: 500,
           status: "completed",
-          processedAt: "2025-08-26T21:25:48.904Z",
-          createdAt: "2025-08-26T21:18:48.904Z",
-          adminNotes: "Regular withdrawal"
+          transactionId: "TXN123456789",
+          processedAt: "2026-03-26T06:34:50.687Z",
+          createdAt: "2026-03-26T05:34:50.687Z",
+          rejectionReason: null,
+          adminNote: "Withdrawal processed successfully",
+          updatedAt: "2026-03-26T06:34:50.687Z"
         },
         {
-          _id: "68ae24b8c2b1c27dfe6572d3",
-          userId: { username: "sarahsmith", player_id: "PID507956" },
-          amount: 15000,
-          method: "nagad",
-          phoneNumber: "017*****456",
-          transactionId: "TXW123456789",
+          _id: "69c4c5be9763d121d14b4803",
+          userId: { _id: "69c4c4629763d121d14b418a", username: "testuser", player_id: "PID123456" },
+          method: "bank",
+          mobileBankingDetails: null,
+          bankDetails: {
+            bankName: "Dutch Bangla Bank",
+            accountHolderName: "John Doe",
+            accountNumber: "435345345345",
+            branchName: "Main Branch",
+            district: "Dhaka",
+            routingNumber: "123456789"
+          },
+          amount: 500,
           status: "completed",
-          processedAt: "2025-08-27T11:20:15.904Z",
-          createdAt: "2025-08-27T11:05:15.904Z",
-          adminNotes: "Quick withdrawal"
-        },
-        {
-          _id: "68ae24b8c2b1c27dfe6572d6",
-          userId: { username: "johndoe", player_id: "PID507955" },
-          amount: 12000,
-          method: "bank_transfer",
-          phoneNumber: "1234567890",
-          transactionId: "TXW357159846",
-          status: "completed",
-          processedAt: "2025-08-28T16:20:33.904Z",
-          createdAt: "2025-08-28T16:05:33.904Z",
-          adminNotes: "Confirmed bank transfer"
+          transactionId: "TXN987654321",
+          processedAt: "2026-03-26T06:35:58.042Z",
+          createdAt: "2026-03-26T05:35:58.042Z",
+          rejectionReason: null,
+          adminNote: "Bank transfer completed",
+          updatedAt: "2026-03-26T06:35:58.042Z"
         }
-      ]);
+      ];
+      setWithdrawals(sampleData);
+      setStats({
+        total: sampleData.length,
+        totalAmount: sampleData.reduce((sum, w) => sum + w.amount, 0),
+        completedAmount: sampleData.reduce((sum, w) => sum + w.amount, 0)
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch withdrawal statistics for completed only
-  const fetchStats = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals-stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          status: 'completed' // Only get stats for completed withdrawals
-        }
-      });
-      
-      if (response.data.success) {
-        setStats({
-          total: response.data.total?.totalCount || 0,
-          totalAmount: response.data.total?.totalAmount || 0,
-          completedAmount: response.data.byStatus?.find(s => s._id === 'completed')?.amount || 0
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    }
-  };
-
   // Export to CSV
-  const exportToCSV = async () => {
+  const exportToCSV = () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals/export`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          status: 'completed' // Only export completed withdrawals
-        },
-        responseType: 'blob'
-      });
+      const headers = ['Date', 'Processed Date', 'Player ID', 'Username', 'Method', 'Amount', 'Account Details', 'Transaction ID', 'Status', 'Admin Notes'];
+      const csvData = withdrawals.map(w => [
+        formatDate(w.createdAt),
+        formatDate(w.processedAt),
+        w.userId?.player_id || 'N/A',
+        w.userId?.username || 'N/A',
+        getMethodName(w.method),
+        w.amount,
+        getAccountDetails(w).fullDetails,
+        w.transactionId || 'N/A',
+        w.status,
+        w.adminNote || ''
+      ]);
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `completed_withdrawals_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('CSV exported successfully!');
     } catch (err) {
       console.error('Error exporting CSV:', err);
-      alert('Failed to export data. Please try again.');
+      toast.error('Failed to export data. Please try again.');
     }
   };
 
   useEffect(() => {
     fetchWithdrawals();
-    fetchStats();
   }, [currentPage, methodFilter, searchTerm, dateRange, sortConfig]);
 
   // Sort withdrawals
@@ -180,7 +200,6 @@ const Approvedwithdraw = () => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
-        // Handle nested objects
         if (sortConfig.key === 'createdAt' || sortConfig.key === 'processedAt') {
           aValue = aValue ? new Date(aValue) : new Date(0);
           bValue = bValue ? new Date(bValue) : new Date(0);
@@ -203,7 +222,6 @@ const Approvedwithdraw = () => {
     return sortableItems;
   }, [withdrawals, sortConfig]);
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -212,26 +230,22 @@ const Approvedwithdraw = () => {
     setSortConfig({ key, direction });
   };
 
-  // Get sort icon
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
     if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
     return <FaSortDown className="text-orange-500" />;
   };
 
-  // View withdrawal details
   const viewWithdrawalDetails = (withdrawal) => {
     setSelectedWithdrawal(withdrawal);
     setShowWithdrawalDetails(true);
   };
 
-  // Close withdrawal details modal
   const closeWithdrawalDetails = () => {
     setShowWithdrawalDetails(false);
     setSelectedWithdrawal(null);
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-BD', {
@@ -243,7 +257,6 @@ const Approvedwithdraw = () => {
     });
   };
 
-  // Format currency (BDT)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-BD', {
       style: 'currency',
@@ -252,29 +265,33 @@ const Approvedwithdraw = () => {
     }).format(amount || 0);
   };
 
-  // Get status icon and color
   const getStatusInfo = (status) => {
     switch(status) {
       case 'completed':
         return { icon: <FaCheckCircle className="text-green-500" />, color: 'bg-green-100 text-green-800 border-green-200' };
+      case 'pending':
+        return { icon: <FaClock className="text-yellow-500" />, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+      case 'processing':
+        return { icon: <FaClock className="text-blue-500" />, color: 'bg-blue-100 text-blue-800 border-blue-200' };
+      case 'failed':
+      case 'rejected':
+      case 'cancelled':
+        return { icon: <FaTimesCircle className="text-red-500" />, color: 'bg-red-100 text-red-800 border-red-200' };
       default:
         return { icon: <FaCheckCircle className="text-green-500" />, color: 'bg-green-100 text-green-800 border-green-200' };
     }
   };
 
-  // Get method display name
   const getMethodName = (method) => {
     switch(method) {
       case 'bkash': return 'bKash';
       case 'nagad': return 'Nagad';
       case 'rocket': return 'Rocket';
-      case 'upay': return 'Upay';
-      case 'bank_transfer': return 'Bank Transfer';
+      case 'bank': return 'Bank Transfer';
       default: return method;
     }
   };
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, methodFilter, dateRange]);
@@ -282,7 +299,7 @@ const Approvedwithdraw = () => {
   return (
     <section className="font-nunito h-screen">
       <Header toggleSidebar={toggleSidebar} />
-      <Toaster/>
+      <Toaster position="top-right" />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
 
@@ -321,7 +338,7 @@ const Approvedwithdraw = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Total Completed Withdrawals</h3>
-                <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.total}</p>
               </div>
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Total Amount</h3>
@@ -329,7 +346,7 @@ const Approvedwithdraw = () => {
               </div>
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Completed Amount</h3>
-                <p className="text-2xl font-bold text-gray-800">{formatCurrency(stats.completedAmount)}</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.completedAmount)}</p>
               </div>
             </div>
             
@@ -352,7 +369,7 @@ const Approvedwithdraw = () => {
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Search Input */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -389,7 +406,8 @@ const Approvedwithdraw = () => {
                     onChange={(e) => requestSort(e.target.value)}
                   >
                     <option value="">Sort By</option>
-                    <option value="createdAt">Date</option>
+                    <option value="createdAt">Request Date</option>
+                    <option value="processedAt">Processed Date</option>
                     <option value="amount">Amount</option>
                     <option value="userId">Username</option>
                   </select>
@@ -406,6 +424,7 @@ const Approvedwithdraw = () => {
                       value={dateRange.start}
                       onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Start Date"
                     />
                     <span className="self-center text-gray-500 hidden md:inline">to</span>
                     <input
@@ -413,6 +432,7 @@ const Approvedwithdraw = () => {
                       value={dateRange.end}
                       onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="End Date"
                     />
                   </div>
                 </div>
@@ -432,9 +452,9 @@ const Approvedwithdraw = () => {
             {/* Loading State */}
             {loading && (
               <div className="bg-white rounded-lg p-8 text-center mb-6">
-                    <div className="flex justify-center items-center py-8">
-                                                           <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                                                         </div>
+                <div className="flex justify-center items-center py-8">
+                  <FaSpinner className="animate-spin text-orange-500 text-2xl" />
+                </div>
                 <p className="text-gray-600 mt-4">Loading completed withdrawals...</p>
               </div>
             )}
@@ -459,20 +479,29 @@ const Approvedwithdraw = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-green-500 to-green-600">
                       <tr>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Date & Time
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('processedAt')}>
+                          <div className="flex items-center gap-2">
+                            Processed Date
+                            {getSortIcon('processedAt')}
+                          </div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Player ID / Username
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('userId')}>
+                          <div className="flex items-center gap-2">
+                            Player ID / Username
+                            {getSortIcon('userId')}
+                          </div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                           Method
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Amount
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('amount')}>
+                          <div className="flex items-center gap-2">
+                            Amount
+                            {getSortIcon('amount')}
+                          </div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Account Number
+                          Account Details
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                           Transaction ID
@@ -483,14 +512,14 @@ const Approvedwithdraw = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {withdrawals.length > 0 ? (
-                        withdrawals.map((withdrawal) => {
-                          const statusInfo = getStatusInfo(withdrawal.status);
+                      {sortedWithdrawals.length > 0 ? (
+                        sortedWithdrawals.map((withdrawal) => {
+                          const accountDetails = getAccountDetails(withdrawal);
                           return (
                             <tr key={withdrawal._id} className="hover:bg-gray-50 transition-colors duration-150">
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-700">{formatDate(withdrawal.processedAt)}</div>
-                                <div className="text-xs text-gray-500">Completed</div>
+                                <div className="text-sm text-gray-700">{formatDate(withdrawal.processedAt || withdrawal.createdAt)}</div>
+                                <div className="text-xs text-green-600">Completed</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-semibold text-gray-700 font-mono">{withdrawal.userId?.player_id || 'N/A'}</div>
@@ -500,15 +529,15 @@ const Approvedwithdraw = () => {
                                 <div className="text-sm text-gray-700">{getMethodName(withdrawal.method)}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-bold text-gray-900">{formatCurrency(withdrawal.amount)}</div>
+                                <div className="text-sm font-bold text-green-600">{formatCurrency(withdrawal.amount)}</div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                                  {withdrawal.phoneNumber || 'N/A'}
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 max-w-xs truncate" title={accountDetails.fullDetails}>
+                                  {accountDetails.fullDetails}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-700 font-mono">
+                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
                                   {withdrawal.transactionId || 'N/A'}
                                 </div>
                               </td>
@@ -571,18 +600,18 @@ const Approvedwithdraw = () => {
                       {Array.from({ length: Math.ceil(stats.total / itemsPerPage) }, (_, i) => i + 1)
                         .slice(Math.max(0, currentPage - 3), Math.min(Math.ceil(stats.total / itemsPerPage), currentPage + 2))
                         .map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-green-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-green-500 text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(stats.total / itemsPerPage)))}
@@ -658,30 +687,81 @@ const Approvedwithdraw = () => {
               
               <div className="bg-green-50 p-4 rounded-md mb-6">
                 <h4 className="text-sm font-medium text-green-700 mb-3">Amount Details</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-green-600">Amount:</span>
-                    <span className="text-lg font-bold text-green-900">{formatCurrency(selectedWithdrawal.amount)}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-green-200 pt-2">
-                    <span className="text-sm font-medium text-green-700">Net Amount:</span>
-                    <span className="text-lg font-bold text-green-600">{formatCurrency(selectedWithdrawal.amount)}</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-green-600">Amount:</span>
+                  <span className="text-lg font-bold text-green-900">{formatCurrency(selectedWithdrawal.amount)}</span>
                 </div>
               </div>
               
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Payment Details</h4>
-                <dl className="space-y-2 bg-gray-50 p-3 rounded-md">
+                <div className="bg-gray-50 p-3 rounded-md space-y-2">
                   <div className="flex justify-between">
                     <dt className="text-sm text-gray-600">Method:</dt>
                     <dd className="text-sm text-gray-900">{getMethodName(selectedWithdrawal.method)}</dd>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-sm text-gray-600">Account Number:</dt>
-                    <dd className="text-sm font-medium text-gray-900">{selectedWithdrawal.phoneNumber || 'N/A'}</dd>
-                  </div>
-                </dl>
+                  {(() => {
+                    if (selectedWithdrawal.method === 'bkash' || selectedWithdrawal.method === 'rocket' || selectedWithdrawal.method === 'nagad') {
+                      const details = selectedWithdrawal.mobileBankingDetails;
+                      if (details) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Phone Number:</dt>
+                              <dd className="text-sm font-medium text-gray-900">{details.phoneNumber}</dd>
+                            </div>
+                            {details.accountType && (
+                              <div className="flex justify-between">
+                                <dt className="text-sm text-gray-600">Account Type:</dt>
+                                <dd className="text-sm text-gray-900 capitalize">{details.accountType}</dd>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } else if (selectedWithdrawal.phoneNumber) {
+                        return (
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-600">Phone Number:</dt>
+                            <dd className="text-sm font-medium text-gray-900">{selectedWithdrawal.phoneNumber}</dd>
+                          </div>
+                        );
+                      }
+                    } else if (selectedWithdrawal.method === 'bank') {
+                      const details = selectedWithdrawal.bankDetails;
+                      if (details) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Bank Name:</dt>
+                              <dd className="text-sm text-gray-900">{details.bankName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Account Holder:</dt>
+                              <dd className="text-sm text-gray-900">{details.accountHolderName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Account Number:</dt>
+                              <dd className="text-sm font-mono text-gray-900">{details.accountNumber}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Branch:</dt>
+                              <dd className="text-sm text-gray-900">{details.branchName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">District:</dt>
+                              <dd className="text-sm text-gray-900">{details.district}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Routing Number:</dt>
+                              <dd className="text-sm text-gray-900">{details.routingNumber}</dd>
+                            </div>
+                          </>
+                        );
+                      }
+                    }
+                    return <p className="text-sm text-gray-500">No additional details available</p>;
+                  })()}
+                </div>
               </div>
               
               <div className="mb-6">
@@ -697,10 +777,10 @@ const Approvedwithdraw = () => {
                 })()}
               </div>
 
-              {selectedWithdrawal.adminNotes && (
+              {selectedWithdrawal.adminNote && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Admin Notes</h4>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedWithdrawal.adminNotes}</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedWithdrawal.adminNote}</p>
                 </div>
               )}
             </div>

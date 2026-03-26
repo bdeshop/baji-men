@@ -140,12 +140,12 @@ const SlotsContent = () => {
     if (!game) return logo;
     
     // Check for different possible image fields
-    const imageField = game.portraitImage || game.image || game.coverImage;
+    const imageField = game.portraitImage || game.image || game.coverImage || game.defaultImage;
     
     if (!imageField) return logo;
     
-    // If it's already a full URL (default image from provider)
-    if (imageField.startsWith('http')) {
+    // If it's already a full URL
+    if (imageField.startsWith('http://') || imageField.startsWith('https://')) {
       return imageField;
     }
     
@@ -260,14 +260,19 @@ const SlotsContent = () => {
   const handleCategoryFilter = () => {
     let filtered = allGames;
     if (selectedCategory !== 'all') {
-      filtered = allGames.filter(game => 
-        game.category?.toLowerCase() === selectedCategory
-      );
+      filtered = allGames.filter(game => {
+        // Check if game.category is an array
+        if (Array.isArray(game.category)) {
+          return game.category.some(cat => cat.toLowerCase() === selectedCategory);
+        }
+        // If it's a string, compare directly
+        return game.category?.toLowerCase() === selectedCategory;
+      });
     }
     setGames(filtered);
     setProviders(extractUniqueProviders(filtered));
     setSelectedProviders([]);
-    setVisibleGamesCount(16);
+    setVisibleGamesCount(21);
   };
 
   const extractUniqueProviders = (gamesList) => {
@@ -307,6 +312,8 @@ const SlotsContent = () => {
         return 'fas fa-dice';
       case 'playtech':
         return 'fas fa-gamepad';
+      case 'amigo':
+        return 'fas fa-crown';
       default:
         return 'fas fa-puzzle-piece';
     }
@@ -388,7 +395,7 @@ const SlotsContent = () => {
         filtered.sort((a, b) => b.name.localeCompare(a.name));
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       case 'popularity':
         filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
@@ -398,7 +405,7 @@ const SlotsContent = () => {
     }
     
     setFilteredGames(filtered);
-    setVisibleGamesCount(16);
+    setVisibleGamesCount(21);
   }, [searchTerm, selectedProviders, selectedGameTypes, selectedThemes, selectedSpecialFeatures, sortOption, games]);
 
   const visibleGames = filteredGames.slice(0, visibleGamesCount);
@@ -408,7 +415,7 @@ const SlotsContent = () => {
   const loadMoreGames = () => {
     setIsLoadingMore(true);
     setTimeout(() => {
-      setVisibleGamesCount(prevCount => prevCount + 16);
+      setVisibleGamesCount(prevCount => prevCount + 21);
       setIsLoadingMore(false);
     }, 800);
   };
@@ -455,44 +462,44 @@ const SlotsContent = () => {
   };
 
   // Handle opening the game
-const handleOpenGame = async (game) => {
-  console.log("Attempting to open game:", game);
+  const handleOpenGame = async (game) => {
+    console.log("Attempting to open game:", game);
 
-  // Check if user is logged in
-  if (!user) {
-    toast.error("Please login to play games");
-    setShowLoginPopup(true);
-    return;
-  }
-
-  try {
-    setGameLoading(true);
-
-    const gameId = game.gameId || game.gameApiID;
-
-    console.log("Game ID:", gameId);
-
-    const response = await fetch(`${base_url}/api/games/${gameId}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch game with ID ${gameId}`);
+    // Check if user is logged in
+    if (!user) {
+      toast.error("Please login to play games");
+      setShowLoginPopup(true);
+      return;
     }
 
-    const gameData = await response.json();
-    if (!gameData.success) {
-      throw new Error(`Failed to fetch game with ID ${gameId}`);
+    try {
+      setGameLoading(true);
+
+      const gameId = game.gameId || game.gameApiID;
+
+      console.log("Game ID:", gameId);
+
+      const response = await fetch(`${base_url}/api/games/${gameId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch game with ID ${gameId}`);
+      }
+
+      const gameData = await response.json();
+      if (!gameData.success) {
+        throw new Error(`Failed to fetch game with ID ${gameId}`);
+      }
+
+      console.log("Game data:", gameData?.data?.gameApiID);
+
+      // Navigate with provider and category as query parameters
+      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(Array.isArray(game.category) ? game.category[0] : game.category || 'slots')}`);
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("Error connecting to game server");
+    } finally {
+      setGameLoading(false);
     }
-
-    console.log("Game data:", gameData?.data?.gameApiID);
-
-    // Navigate with provider and category as query parameters
-    navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
-  } catch (err) {
-    console.error("Error:", err);
-    toast.error("Error connecting to game server");
-  } finally {
-    setGameLoading(false);
-  }
-};
+  };
 
   const handleLoginFromPopup = () => {
     setShowLoginPopup(false);
@@ -653,7 +660,7 @@ const handleOpenGame = async (game) => {
 
             {isLoading ? (
               <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
-                {Array.from({ length: 12 }).map((_, index) => (
+                {Array.from({ length: 21 }).map((_, index) => (
                   <SkeletonGameCard key={index} />
                 ))}
               </div>
@@ -663,55 +670,36 @@ const handleOpenGame = async (game) => {
                   <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                     {visibleGames.map(game => {
                       const imageUrl = getImageUrl(game);
-                      const isDefaultImage = game.portraitImage?.startsWith('http') || game.image?.startsWith('http');
                       
                       return (
                         <div 
                           key={game._id} 
-                          className="group relative bg-gradient-to-br from-[#1a1a1a] to-[#222] rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
+                          className="group relative rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
                           onClick={() => handleGameClick(game)}
                         >
-                          <div className="relative overflow-hidden">
+                          {/* ── Portrait-ratio image container with glow sweep ── */}
+                          <div className="slots-game-image-container w-full">
                             <img 
                               src={imageUrl} 
                               alt={game.name} 
-                              className="w-full h-[175px] sm:h-[200px] md:h-[220px] object-cover transition-transform duration-500 group-hover:scale-110" 
+                              className="slots-game-image transition-transform duration-500 group-hover:scale-110"
                               onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = logo;
                               }}
                             />
-                            
-                            {/* Default Image Badge */}
-                            {isDefaultImage && (
-                              <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 opacity-70">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="8"
-                                  height="8"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                  <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                                <span>Default</span>
-                              </div>
-                            )}
-                            
+
+                            {/* Glow Sweep Animation — same as Category component */}
+                            <div className="slots-glow-sweep"></div>
+
                             {game.featured && (
-                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md z-10">
                                 NEW
                               </div>
                             )}
                             
                             {/* Game Name Overlay on Hover */}
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10">
                               <p className="text-white text-xs font-medium truncate">{game.name}</p>
                               <p className="text-gray-300 text-[10px] truncate">{game.provider}</p>
                             </div>
@@ -1047,6 +1035,63 @@ const handleOpenGame = async (game) => {
       )}
 
       <style jsx>{`
+        /* ── Portrait-ratio container (matches Category component) ── */
+        .slots-game-image-container {
+          position: relative;
+          width: 100%;
+          padding-bottom: 133.33%; /* 3:4 portrait ratio */
+          overflow: hidden;
+          border-radius: 3px;
+          background: #1a1a1a;
+        }
+
+        .slots-game-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        /* ── Glow Sweep — identical to Category component ── */
+        .slots-glow-sweep {
+          position: absolute;
+          top: 0;
+          left: -200%;
+          width: 250%;
+          height: 100%;
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.02) 20%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(255, 255, 255, 0.02) 80%,
+            transparent 100%
+          );
+          transform: skewX(-25deg);
+          /* 5s cycle: ~3s sweep + 2s hidden pause */
+          animation: slotsSweepWide 5s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        @keyframes slotsSweepWide {
+          0%   { left: -250%; opacity: 0; }
+          10%  { opacity: 1; }
+          60%  { left: 150%; opacity: 1; }
+          70%  { opacity: 0; }
+          100% { left: 150%; opacity: 0; }
+        }
+
+        /* Stagger the sweep per card so they don't all flash at once */
+        .slots-game-image-container:nth-child(2n)   .slots-glow-sweep { animation-delay: 0.7s; }
+        .slots-game-image-container:nth-child(3n)   .slots-glow-sweep { animation-delay: 1.4s; }
+        .slots-game-image-container:nth-child(4n)   .slots-glow-sweep { animation-delay: 2.1s; }
+        .slots-game-image-container:nth-child(5n)   .slots-glow-sweep { animation-delay: 2.8s; }
+        .slots-game-image-container:nth-child(6n)   .slots-glow-sweep { animation-delay: 3.5s; }
+        .slots-game-image-container:nth-child(7n)   .slots-glow-sweep { animation-delay: 4.2s; }
+
         ::-webkit-scrollbar {
           width: 8px;
         }
@@ -1061,12 +1106,8 @@ const handleOpenGame = async (game) => {
           background: #444;
         }
         @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         .animate-shimmer {
           animation: shimmer 1.5s infinite;

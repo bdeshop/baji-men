@@ -177,6 +177,45 @@ const UserSchema = new Schema({
     affiliateCode:{
       type: String,
     },
+    // Add these fields to your UserSchema in the model file
+
+// In the BASIC INFORMATION section, add:
+email: {
+    type: String,
+    unique: true,
+    sparse: true, // Allows multiple null values but ensures unique if present
+    lowercase: true,
+    trim: true,
+    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
+},
+fullName: {
+    type: String,
+    trim: true,
+    required: function() { return !this.isOneClickUser; } // Required for non-one-click users
+},
+dateOfBirth: {
+    type: Date,
+    validate: {
+        validator: function(value) {
+            if (!value) return true; // Optional
+            const age = Math.floor((new Date() - new Date(value)) / (1000 * 60 * 60 * 24 * 365.25));
+            return age >= 18 && age <= 120; // Must be at least 18 years old
+        },
+        message: 'User must be at least 18 years old'
+    }
+},
+pendingEmail:{
+    type: String,
+},
+// Add this to the SECURITY section:
+emailVerificationOTP: {
+    code: String,
+    expiresAt: Date,
+    verified: { type: Boolean, default: false },
+    attempts: { type: Number, default: 0 },
+    lastAttemptAt: Date
+},
+emailVerifiedAt: Date,
     // ========== ACCOUNT INFORMATION ==========
     player_id: {
         type: String,

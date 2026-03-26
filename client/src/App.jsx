@@ -30,6 +30,8 @@ import Termsandcondition from "./pages/termsandpolicy/Termsandcondition";
 import Responsiblegaming from "./pages/termsandpolicy/Responsiblegaming";
 import KycPolicy from "./pages/termsandpolicy/KycPolicy";
 import ForgotPassword from "./components/ForgotPassword/ForgotPassword";
+import Security from "./pages/profile/Security";
+import Verification from "./pages/profile/Verification";
 
 const AuthContext = createContext();
 
@@ -390,7 +392,7 @@ const App = () => {
               path="/member/profile/verify"
               element={
                 <ProtectedRoute>
-                  <Profile />
+                  <Verification />
                 </ProtectedRoute>
               }
             />
@@ -398,7 +400,7 @@ const App = () => {
               path="/member/profile/account"
               element={
                 <ProtectedRoute>
-                  <Profile />
+                  <Security />
                 </ProtectedRoute>
               }
             />

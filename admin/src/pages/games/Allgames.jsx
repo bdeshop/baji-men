@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FaEdit, FaTrash, FaSearch, FaFilter, FaEye, FaPlus, FaSort, FaSortUp, FaSortDown, FaSpinner, FaImage } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSearch, FaFilter, FaEye, FaPlus, FaSort, FaSortUp, FaSortDown, FaSpinner, FaImage, FaTags } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { NavLink } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
 
 const Allgames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -74,7 +75,7 @@ const Allgames = () => {
         params.search = searchTerm;
       }
       
-      console.log("Fetching games with params:", params); // Debug log
+      console.log("Fetching games with params:", params);
       
       const response = await axios.get(`${base_url}/api/admin/games`, { params });
       
@@ -114,7 +115,7 @@ const Allgames = () => {
   const fetchProviders = async () => {
     try {
       const response = await axios.get(`${base_url}/api/admin/game-providers`);
-      console.log("Providers response:", response.data); // Debug log to check structure
+      console.log("Providers response:", response.data);
       setProviders(response.data);
     } catch (error) {
       console.error('Error fetching providers:', error);
@@ -168,28 +169,56 @@ const Allgames = () => {
     return <FaSortDown className="text-orange-500" />;
   };
 
-  // Handle game deletion
-  const handleDelete = (id) => {
-    setGameToDelete(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = async () => {
-    try {
-      await axios.delete(`${base_url}/api/admin/games/${gameToDelete}`);
-      fetchGames();
-      setShowDeleteConfirm(false);
-      setGameToDelete(null);
-      toast.success('Game deleted successfully');
-    } catch (error) {
-      console.error('Error deleting game:', error);
-      toast.error('Failed to delete game');
-    }
-  };
-
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false);
-    setGameToDelete(null);
+  // Handle game deletion with SweetAlert
+  const handleDelete = (game) => {
+    Swal.fire({
+      title: 'Delete Game?',
+      html: `Are you sure you want to delete "<strong>${game.name}</strong>"?<br/>This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      background: '#fff',
+      customClass: {
+        popup: 'rounded-2xl',
+        title: 'text-xl font-bold',
+        confirmButton: 'px-6 py-2 rounded-lg font-medium',
+        cancelButton: 'px-6 py-2 rounded-lg font-medium'
+      }
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await axios.delete(`${base_url}/api/admin/games/${game._id}`);
+          fetchGames();
+          Swal.fire({
+            title: 'Deleted!',
+            text: `"${game.name}" has been removed successfully.`,
+            icon: 'success',
+            confirmButtonColor: '#f97316',
+            background: '#fff',
+            customClass: {
+              popup: 'rounded-2xl',
+              confirmButton: 'px-6 py-2 rounded-lg font-medium'
+            }
+          });
+        } catch (error) {
+          console.error('Error deleting game:', error);
+          Swal.fire({
+            title: 'Error!',
+            text: error.response?.data?.error || error.response?.data?.message || 'Failed to delete game',
+            icon: 'error',
+            confirmButtonColor: '#f97316',
+            background: '#fff',
+            customClass: {
+              popup: 'rounded-2xl',
+              confirmButton: 'px-6 py-2 rounded-lg font-medium'
+            }
+          });
+        }
+      }
+    });
   };
 
   // Handle game status toggle
@@ -231,8 +260,20 @@ const Allgames = () => {
   // Get image URL helper
   const getImageUrl = (imagePath) => {
     if (!imagePath) return 'https://via.placeholder.com/300x200?text=No+Image';
-    if (imagePath.startsWith('http')) return imagePath; // Default image URL
-    return `${base_url}${imagePath}`; // Uploaded image path
+    if (imagePath.startsWith('http')) return imagePath;
+    return `${base_url}${imagePath}`;
+  };
+
+  // Format categories display (handle array or string)
+  const formatCategories = (categories) => {
+    if (!categories) return 'Uncategorized';
+    if (Array.isArray(categories)) {
+      return categories.join(', ');
+    }
+    if (typeof categories === 'string') {
+      return categories;
+    }
+    return 'Uncategorized';
   };
 
   // Open view modal
@@ -244,13 +285,25 @@ const Allgames = () => {
   // Open edit modal
   const openEdit = (game) => {
     setSelectedGame(game);
+    
+    // Parse categories to array if needed
+    let categoriesArray = [];
+    if (game.category) {
+      if (Array.isArray(game.category)) {
+        categoriesArray = game.category;
+      } else if (typeof game.category === 'string') {
+        // Handle comma-separated string
+        categoriesArray = game.category.split(',').map(c => c.trim());
+      }
+    }
+    
     const hasDefaultImage = game.portraitImage?.startsWith('http') || game.landscapeImage?.startsWith('http');
     
     setEditForm({
       name: game.name || '',
       gameId: game.gameId || '',
       provider: game.provider || '',
-      category: game.category || '',
+      categories: categoriesArray,
       featured: game.featured || false,
       status: game.status !== undefined ? game.status : true,
       fullScreen: game.fullScreen || false,
@@ -266,6 +319,21 @@ const Allgames = () => {
     setPortraitPreview(null);
     setLandscapePreview(null);
     setShowEditModal(true);
+  };
+
+  // Handle category toggle in edit form
+  const toggleCategory = (categoryId) => {
+    const categoryName = categories.find(c => c._id === categoryId)?.name;
+    if (!categoryName) return;
+    
+    setEditForm(prev => {
+      const currentCategories = [...(prev.categories || [])];
+      if (currentCategories.includes(categoryName)) {
+        return { ...prev, categories: currentCategories.filter(c => c !== categoryName) };
+      } else {
+        return { ...prev, categories: [...currentCategories, categoryName] };
+      }
+    });
   };
 
   // Handle image file selection
@@ -299,7 +367,6 @@ const Allgames = () => {
   const toggleDefaultImages = () => {
     setUseDefaultImages(!useDefaultImages);
     if (!useDefaultImages) {
-      // Switching to default images - clear file inputs
       setPortraitFile(null);
       setLandscapeFile(null);
       setPortraitPreview(null);
@@ -312,25 +379,26 @@ const Allgames = () => {
     e.preventDefault();
     
     // Validation
-    if (!editForm.category) {
-      toast.error("Please select a category");
+    if (!editForm.categories || editForm.categories.length === 0) {
+      toast.error("Please select at least one category");
       return;
     }
 
     const formData = new FormData();
     
     // Append all form fields
-    Object.keys(editForm).forEach(key => {
-      if (key !== 'portraitImage' && key !== 'landscapeImage' && key !== 'defaultImage') {
-        formData.append(key, editForm[key]);
-      }
-    });
+    formData.append('name', editForm.name);
+    formData.append('gameApiID', editForm.gameId);
+    formData.append('provider', editForm.provider);
+    formData.append('category', editForm.categories.join(',')); // Send as comma-separated string
+    formData.append('featured', editForm.featured ? 'true' : 'false');
+    formData.append('status', editForm.status ? 'true' : 'false');
+    formData.append('fullScreen', editForm.fullScreen ? 'true' : 'false');
+    formData.append('order', editForm.order || 0);
     
     // Handle images
     if (useDefaultImages && editForm.defaultImage) {
       formData.append('defaultImage', editForm.defaultImage);
-      formData.append('portraitImage', editForm.defaultImage);
-      formData.append('landscapeImage', editForm.defaultImage);
     } else {
       if (portraitFile) formData.append('portraitImage', portraitFile);
       if (landscapeFile) formData.append('landscapeImage', landscapeFile);
@@ -361,7 +429,7 @@ const Allgames = () => {
 
   // Generate pagination items with ellipsis
   const getPaginationItems = () => {
-    const delta = 2; // Number of pages to show on each side of current page
+    const delta = 2;
     const range = [];
     const rangeWithDots = [];
     let l;
@@ -476,7 +544,7 @@ const Allgames = () => {
                   </select>
                 </div>
                 
-                {/* Provider Filter - FIXED */}
+                {/* Provider Filter */}
                 <div>
                   <select
                     value={providerFilter}
@@ -485,8 +553,7 @@ const Allgames = () => {
                   >
                     <option value="all">All Providers</option>
                     {providers.map((provider) => {
-                      // Determine the correct value to use based on provider data structure
-                      const providerValue = provider.providercode;
+                      const providerValue = provider.providercode || provider.name;
                       return (
                         <option key={provider._id || providerValue} value={providerValue}>
                           {provider.name || providerValue}
@@ -527,7 +594,6 @@ const Allgames = () => {
                   <option value="">Default</option>
                   <option value="name">Name</option>
                   <option value="provider">Provider</option>
-                  <option value="category">Category</option>
                   <option value="featured">Featured</option>
                   <option value="createdAt">Date Added</option>
                 </select>
@@ -573,12 +639,11 @@ const Allgames = () => {
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
-                          onClick={() => requestSort('category')}
+                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider"
                         >
                           <div className="flex items-center">
-                            Category
-                            {getSortIcon('category')}
+                            <FaTags className="mr-1" />
+                            Categories
                           </div>
                         </th>
                         <th 
@@ -641,10 +706,20 @@ const Allgames = () => {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-medium text-gray-700">{game.provider}</div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
-                                  {game.category}
-                                </span>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {Array.isArray(game.category) ? (
+                                    game.category.map((cat, idx) => (
+                                      <span key={idx} className="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+                                        {cat}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+                                      {typeof game.category === 'string' ? game.category : 'Uncategorized'}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <label className="inline-flex items-center cursor-pointer">
@@ -654,7 +729,7 @@ const Allgames = () => {
                                     onChange={() => toggleStatus(game._id)} 
                                     className="sr-only peer" 
                                   />
-                                  <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                                  <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-green-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                                 </label>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -665,7 +740,7 @@ const Allgames = () => {
                                     onChange={() => toggleFeatured(game._id)} 
                                     className="sr-only peer" 
                                   />
-                                  <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 dark:peer-focus:ring-orange-800 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-600"></div>
+                                  <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
                                 </label>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -686,7 +761,7 @@ const Allgames = () => {
                                   </button>
                                   <button 
                                     className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700"
-                                    onClick={() => handleDelete(game._id)}
+                                    onClick={() => handleDelete(game)}
                                     title="Delete game"
                                   >
                                     <FaTrash />
@@ -783,32 +858,6 @@ const Allgames = () => {
         </main>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[1000] backdrop-blur-md p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Deletion</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete this game? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={cancelDelete}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* View Modal */}
       {showViewModal && selectedGame && (
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
@@ -826,7 +875,20 @@ const Allgames = () => {
                 <p className="mb-2"><strong>Name:</strong> {selectedGame.name}</p>
                 <p className="mb-2"><strong>Game ID:</strong> {selectedGame.gameId || selectedGame.gameApiID}</p>
                 <p className="mb-2"><strong>Provider:</strong> {selectedGame.provider}</p>
-                <p className="mb-2"><strong>Category:</strong> {selectedGame.category}</p>
+                <p className="mb-2"><strong>Categories:</strong></p>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {Array.isArray(selectedGame.category) ? (
+                    selectedGame.category.map((cat, idx) => (
+                      <span key={idx} className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
+                        {cat}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
+                      {typeof selectedGame.category === 'string' ? selectedGame.category : 'Uncategorized'}
+                    </span>
+                  )}
+                </div>
                 <p className="mb-2"><strong>Status:</strong> 
                   <span className={`ml-2 px-2 py-1 rounded-full text-xs ${selectedGame.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                     {selectedGame.status ? 'Active' : 'Inactive'}
@@ -873,7 +935,7 @@ const Allgames = () => {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal with Multi-Category Support */}
       {showEditModal && selectedGame && (
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
           <div className="bg-white rounded-[2px] shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -941,26 +1003,39 @@ const Allgames = () => {
                   >
                     <option value="">Select Provider</option>
                     {providers.map((provider) => (
-                      <option key={provider._id} value={provider.name || provider}>
-                        {provider.name || provider}
+                      <option key={provider._id} value={provider.name || provider.providercode}>
+                        {provider.name || provider.providercode}
                       </option>
                     ))}
                   </select>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Category</label>
-                  <select 
-                    value={editForm.category} 
-                    onChange={(e) => setEditForm({...editForm, category: e.target.value})} 
-                    className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color"
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((category) => (
-                      <option key={category._id} value={category.name}>{category.name}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Categories <span className="text-red-500">*</span>
+                    <span className="text-xs text-gray-500 ml-2">(Select multiple)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border border-gray-300 rounded-md bg-gray-50">
+                    {categories
+                      .filter(cat => cat.status !== false)
+                      .map((category) => (
+                        <button
+                          key={category._id}
+                          type="button"
+                          onClick={() => toggleCategory(category._id)}
+                          className={`px-3 py-1.5 text-sm rounded-full border transition-all duration-200 ${
+                            (editForm.categories || []).includes(category.name)
+                              ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                          }`}
+                        >
+                          {category.name}
+                        </button>
+                      ))}
+                  </div>
+                  {(editForm.categories || []).length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">Please select at least one category</p>
+                  )}
                 </div>
                 
                 <div>
@@ -1011,7 +1086,6 @@ const Allgames = () => {
                   
                   {!useDefaultImages && (
                     <>
-                      {/* Current Portrait */}
                       {editForm.portraitImage && !portraitPreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">Current Image:</p>
@@ -1024,7 +1098,6 @@ const Allgames = () => {
                         </div>
                       )}
                       
-                      {/* Preview new image */}
                       {portraitPreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">New Image Preview:</p>
@@ -1063,7 +1136,6 @@ const Allgames = () => {
                   
                   {!useDefaultImages && (
                     <>
-                      {/* Current Landscape */}
                       {editForm.landscapeImage && !landscapePreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">Current Image:</p>
@@ -1076,7 +1148,6 @@ const Allgames = () => {
                         </div>
                       )}
                       
-                      {/* Preview new image */}
                       {landscapePreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">New Image Preview:</p>

@@ -2878,6 +2878,7 @@ Adminrouter.get("/games", async (req, res) => {
       search,
       sortBy = "createdAt",
       sortOrder = "desc",
+      matchAllCategories = "false", // New parameter to control category matching
     } = req.query;
 
     let filter = {};
@@ -2886,12 +2887,22 @@ Adminrouter.get("/games", async (req, res) => {
       filter.status = status === "true";
     }
 
+    // Updated category filtering to handle multiple categories
     if (category && category !== "all") {
-      filter.category = category;
+      const categories = category.split(','); // Support multiple categories: "slots,featured,new"
+      
+      if (matchAllCategories === "true") {
+        // Match games that have ALL specified categories
+        filter.category = { $all: categories };
+      } else {
+        // Match games that have ANY of the specified categories (default)
+        filter.category = { $in: categories };
+      }
     }
 
     if (provider && provider !== "all") {
-      filter.provider = provider;
+      const providers = provider.split(',');
+      filter.provider = { $in: providers };
     }
 
     if (search) {
@@ -2964,7 +2975,6 @@ Adminrouter.get("/games/gameId/:gameId", async (req, res) => {
 });
 
 // POST create new game
-// POST create new game
 Adminrouter.post(
   "/games",
   uploadGameImages.fields([
@@ -2986,11 +2996,34 @@ Adminrouter.post(
       
       console.log("req.body", req.body);
 
+      // Parse category if it's a string (could be comma-separated or array)
+      let categoriesArray = [];
+      if (typeof category === 'string') {
+        if (category.includes(',')) {
+          categoriesArray = category.split(',').map(c => c.trim());
+        } else {
+          categoriesArray = [category];
+        }
+      } else if (Array.isArray(category)) {
+        categoriesArray = category;
+      } else {
+        return res.status(400).json({ 
+          error: "Category must be provided as a string or array" 
+        });
+      }
+
+      // Validate categories
+      if (categoriesArray.length === 0) {
+        return res.status(400).json({ 
+          error: "At least one category is required" 
+        });
+      }
+
       // Check if combination of gameApiID and provider already exists
       const existingGame = await Game.findOne({ 
         gameApiID: gameApiID,
         provider: provider,
-        uniqueId:req.body.uniqueId
+        uniqueId: req.body.uniqueId
       });
       
       if (existingGame) {
@@ -3000,7 +3033,7 @@ Adminrouter.post(
       }
       
       // Enhanced validation
-      const requiredFields = { name, provider, category, gameApiID };
+      const requiredFields = { name, provider, gameApiID };
       const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field]);
       
       if (missingFields.length > 0) {
@@ -3029,17 +3062,17 @@ Adminrouter.post(
 
       const gameData = {
         name,
-        gameId: gameApiID, // This will be set, but not used for uniqueness
+        gameId: gameApiID,
         provider,
-        category,
+        category: categoriesArray,
         portraitImage: portraitImageValue,
         landscapeImage: landscapeImageValue,
         defaultImage: defaultImage || null,
         featured: featured === "true" || featured === true,
-        status: status !== "false" && status !== false, // Handle both string and boolean
+        status: status !== "false" && status !== false,
         fullScreen: fullScreen === "true" || fullScreen === true,
         gameApiID,
-        uniqueId:req.body.uniqueId
+        uniqueId: req.body.uniqueId
       };
 
       const newGame = new Game(gameData);
@@ -3063,8 +3096,7 @@ Adminrouter.post(
     }
   }
 );
-// PUT update game
-// PUT update game
+
 // PUT update game
 Adminrouter.put(
   "/games/:id",
@@ -3109,7 +3141,29 @@ Adminrouter.put(
         if (req.body.provider) game.provider = req.body.provider;
       }
       
-      if (req.body.category) game.category = req.body.category;
+      // Handle category update (multiple categories)
+      if (req.body.category) {
+        let categoriesArray = [];
+        
+        if (typeof req.body.category === 'string') {
+          if (req.body.category.includes(',')) {
+            categoriesArray = req.body.category.split(',').map(c => c.trim());
+          } else {
+            categoriesArray = [req.body.category];
+          }
+        } else if (Array.isArray(req.body.category)) {
+          categoriesArray = req.body.category;
+        }
+        
+        if (categoriesArray.length === 0) {
+          return res.status(400).json({ 
+            error: "At least one category is required" 
+          });
+        }
+        
+        game.category = categoriesArray;
+      }
+      
       if (req.body.featured !== undefined) game.featured = req.body.featured === "true" || req.body.featured === true;
       if (req.body.status !== undefined) game.status = req.body.status === "true" || req.body.status === true;
       if (req.body.fullScreen !== undefined) game.fullScreen = req.body.fullScreen === "true" || req.body.fullScreen === true;
@@ -3178,6 +3232,7 @@ Adminrouter.put(
     }
   }
 );
+
 // PUT update game status
 Adminrouter.put("/games/:id/status", async (req, res) => {
   try {
@@ -3220,6 +3275,55 @@ Adminrouter.put("/games/:id/featured", async (req, res) => {
   }
 });
 
+// Additional endpoint for managing categories on a game
+Adminrouter.put("/games/:id/categories", async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+
+    const { action, categories } = req.body;
+    
+    if (!action || !categories) {
+      return res.status(400).json({ 
+        error: "Action and categories are required" 
+      });
+    }
+
+    let categoriesArray = [];
+    if (typeof categories === 'string') {
+      categoriesArray = categories.includes(',') ? categories.split(',').map(c => c.trim()) : [categories];
+    } else if (Array.isArray(categories)) {
+      categoriesArray = categories;
+    }
+
+    switch (action) {
+      case 'add':
+        categoriesArray.forEach(cat => game.addCategory(cat));
+        break;
+      case 'remove':
+        categoriesArray.forEach(cat => game.removeCategory(cat));
+        break;
+      case 'set':
+        game.category = categoriesArray;
+        break;
+      default:
+        return res.status(400).json({ error: "Invalid action. Use 'add', 'remove', or 'set'" });
+    }
+
+    await game.save();
+    
+    res.json({
+      message: "Categories updated successfully",
+      game: game,
+    });
+  } catch (error) {
+    console.error("Error updating game categories:", error);
+    res.status(500).json({ error: "Failed to update game categories" });
+  }
+});
+
 // DELETE game
 Adminrouter.delete("/games/:id", async (req, res) => {
   try {
@@ -3229,15 +3333,15 @@ Adminrouter.delete("/games/:id", async (req, res) => {
     }
 
     // Delete image files
-    if (game.portraitImage) {
-      const portraitPath = path.join(__dirname, "..", game.portraitImage);
+    if (game.portraitImage && !game.portraitImage.startsWith('http')) {
+      const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
       if (fs.existsSync(portraitPath)) {
         fs.unlinkSync(portraitPath);
       }
     }
 
-    if (game.landscapeImage) {
-      const landscapePath = path.join(__dirname, "..", game.landscapeImage);
+    if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
+      const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
       if (fs.existsSync(landscapePath)) {
         fs.unlinkSync(landscapePath);
       }
@@ -3343,7 +3447,7 @@ Adminrouter.delete("/games/all", async (req, res) => {
 Adminrouter.post(
   "/games/bulk",
   uploadGameImages.fields([
-    { name: "portraitImage", maxCount: 10 }, // Adjust maxCount as needed
+    { name: "portraitImage", maxCount: 10 },
     { name: "landscapeImage", maxCount: 10 },
   ]),
   async (req, res) => {
@@ -3380,7 +3484,7 @@ Adminrouter.post(
 
         try {
           // Validate required fields
-          const requiredFields = ['name', 'provider', 'category', 'gameApiID'];
+          const requiredFields = ['name', 'provider', 'gameApiID'];
           const missingFields = requiredFields.filter(field => !gameData[field]);
           
           if (missingFields.length > 0) {
@@ -3391,12 +3495,36 @@ Adminrouter.post(
             continue;
           }
 
+          // Parse categories
+          let categoriesArray = [];
+          if (gameData.category) {
+            if (typeof gameData.category === 'string') {
+              categoriesArray = gameData.category.includes(',') ? 
+                gameData.category.split(',').map(c => c.trim()) : 
+                [gameData.category];
+            } else if (Array.isArray(gameData.category)) {
+              categoriesArray = gameData.category;
+            }
+          }
+          
+          if (categoriesArray.length === 0) {
+            results.failed.push({
+              game: gameData,
+              error: "At least one category is required"
+            });
+            continue;
+          }
+
           // Check if gameApiID already exists
-          const existingGame = await Game.findOne({ gameApiID: gameData.gameApiID });
+          const existingGame = await Game.findOne({ 
+            gameApiID: gameData.gameApiID,
+            provider: gameData.provider 
+          });
+          
           if (existingGame) {
             results.failed.push({
               game: gameData,
-              error: `Game API ID "${gameData.gameApiID}" is already in use`
+              error: `Game with API ID "${gameData.gameApiID}" and provider "${gameData.provider}" already exists`
             });
             continue;
           }
@@ -3405,17 +3533,19 @@ Adminrouter.post(
           let landscapeImageValue;
 
           // Handle images for this specific game
-          // For bulk upload, we need to map files to specific games
-          // This assumes files are named or indexed in a way that matches the game data
           if (req.files && req.files.portraitImage && req.files.portraitImage[gameIndex]) {
             portraitImageValue = `/uploads/games/portrait/${req.files.portraitImage[gameIndex].filename}`;
-          } else if (req.files && req.files.landscapeImage && req.files.landscapeImage[gameIndex]) {
+          }
+          
+          if (req.files && req.files.landscapeImage && req.files.landscapeImage[gameIndex]) {
             landscapeImageValue = `/uploads/games/landscape/${req.files.landscapeImage[gameIndex].filename}`;
-          } else if (gameData.defaultImage) {
-            // Use default image URL if provided
+          }
+          
+          // Use default image if no uploaded files
+          if (!portraitImageValue && gameData.defaultImage) {
             portraitImageValue = gameData.defaultImage;
             landscapeImageValue = gameData.defaultImage;
-          } else {
+          } else if (!portraitImageValue || !landscapeImageValue) {
             results.failed.push({
               game: gameData,
               error: "No image provided for this game"
@@ -3434,7 +3564,7 @@ Adminrouter.post(
             name: gameData.name,
             gameId: gameData.gameApiID,
             provider: gameData.provider,
-            category: gameData.category,
+            category: categoriesArray,
             portraitImage: portraitImageValue,
             landscapeImage: landscapeImageValue,
             defaultImage: gameData.defaultImage || null,
@@ -3442,6 +3572,7 @@ Adminrouter.post(
             status: gameData.status !== undefined ? gameData.status : true,
             fullScreen: gameData.fullScreen === "true" || gameData.fullScreen === true || false,
             gameApiID: gameData.gameApiID,
+            uniqueId: gameData.uniqueId
           });
 
           const savedGame = await newGame.save();
@@ -3512,11 +3643,21 @@ Adminrouter.post("/games/bulk-json", async (req, res) => {
       failed: []
     };
 
+    // Helper function to validate URL
+    const isValidUrl = (url) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     // Process each game
     for (const gameData of gamesData) {
       try {
         // Validate required fields
-        const requiredFields = ['name', 'provider', 'category', 'gameApiID'];
+        const requiredFields = ['name', 'provider', 'gameApiID'];
         const missingFields = requiredFields.filter(field => !gameData[field]);
         
         if (missingFields.length > 0) {
@@ -3527,12 +3668,36 @@ Adminrouter.post("/games/bulk-json", async (req, res) => {
           continue;
         }
 
-        // Check if gameApiID already exists
-        const existingGame = await Game.findOne({ gameApiID: gameData.gameApiID });
+        // Parse categories
+        let categoriesArray = [];
+        if (gameData.category) {
+          if (typeof gameData.category === 'string') {
+            categoriesArray = gameData.category.includes(',') ? 
+              gameData.category.split(',').map(c => c.trim()) : 
+              [gameData.category];
+          } else if (Array.isArray(gameData.category)) {
+            categoriesArray = gameData.category;
+          }
+        }
+        
+        if (categoriesArray.length === 0) {
+          results.failed.push({
+            game: gameData,
+            error: "At least one category is required"
+          });
+          continue;
+        }
+
+        // Check if game already exists
+        const existingGame = await Game.findOne({ 
+          gameApiID: gameData.gameApiID,
+          provider: gameData.provider 
+        });
+        
         if (existingGame) {
           results.failed.push({
             game: gameData,
-            error: `Game API ID "${gameData.gameApiID}" is already in use`
+            error: `Game with API ID "${gameData.gameApiID}" and provider "${gameData.provider}" already exists`
           });
           continue;
         }
@@ -3562,7 +3727,7 @@ Adminrouter.post("/games/bulk-json", async (req, res) => {
           name: gameData.name,
           gameId: gameData.gameApiID,
           provider: gameData.provider,
-          category: gameData.category,
+          category: categoriesArray,
           portraitImage: portraitImage,
           landscapeImage: landscapeImage,
           defaultImage: gameData.defaultImage || null,
@@ -3570,6 +3735,7 @@ Adminrouter.post("/games/bulk-json", async (req, res) => {
           status: gameData.status !== undefined ? gameData.status : true,
           fullScreen: gameData.fullScreen === true || false,
           gameApiID: gameData.gameApiID,
+          uniqueId: gameData.uniqueId
         });
 
         const savedGame = await newGame.save();
@@ -3615,8 +3781,6 @@ Adminrouter.post("/games/bulk-json", async (req, res) => {
     });
   }
 });
-
-// Helper function to validate URLs (add this near the top of your file)
 function isValidUrl(string) {
   try {
     new URL(string);
@@ -3625,6 +3789,9 @@ function isValidUrl(string) {
     return false;
   }
 }
+
+
+// ----------------------------------end-of-game-route---------------------------------
 
 // GET game categories for dropdown
 Adminrouter.get("/games/categories/list", async (req, res) => {
@@ -10186,7 +10353,7 @@ Adminrouter.get("/menu-games/:id", async (req, res) => {
 Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res) => {
     try {
         const { category, categoryname, name, gameId, provider, status = true } = req.body;
-  console.log(req.body)
+             console.log(req.body)
         // Validation
         if (!req.file) {
             return res.status(400).json({ error: "Image is required" });
@@ -10199,7 +10366,7 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
         }
 
         // Check if gameId already exists
-        const existingGame = await MenuGame.findOne({ gameId });
+        const existingGame = await MenuGame.findOne({ name });
         if (existingGame) {
             // Delete uploaded file if gameId already exists
             if (req.file) {

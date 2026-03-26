@@ -7,15 +7,47 @@ const Deposit = require("../models/Deposit");
 const Withdrawal = require("../models/Withdrawal");
 const mongoose = require("mongoose");
 const axios = require("axios");
-
+const nodemailer=require("nodemailer");
 const qs = require("qs");
 // JWT Secret Key
 const JWT_SECRET = process.env.JWT_SECRET || "fsdfsdfsd43534";
+
+// ==================== EMAIL CONFIGURATION ====================
+// Configure nodemailer transporter
+const emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+    }
+});
+
+// Helper function to generate OTP
+function generateOTP() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Helper function to send email
+async function sendEmail(to, subject, html) {
+    try {
+        await emailTransporter.sendMail({
+            from: `"Your Platform" <${process.env.EMAIL_USER}>`,
+            to: to,
+            subject: subject,
+            html: html
+        });
+        return true;
+    } catch (error) {
+        console.error("Email sending error:", error);
+        return false;
+    }
+}
+
 // Authentication Middleware
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers["authorization"];
-    const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
@@ -24,10 +56,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Find user and attach to request
     const user = await User.findById(decoded.userId);
     if (!user) {
       return res.status(401).json({
@@ -36,7 +65,6 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Attach user to request object
     req.user = user;
     next();
   } catch (error) {
@@ -77,6 +105,7 @@ Userrouter.get("/all-information/:id", authenticateToken, async (req, res) => {
     });
   }
 });
+
 // Get user information
 Userrouter.get("/my-information", authenticateToken, async (req, res) => {
   try {
@@ -120,9 +149,34 @@ Userrouter.put("/update-personal-info", authenticateToken, async (req, res) => {
     const { fullName, dateOfBirth, phone } = req.body;
     const user = req.user;
 
-    // Update fields if provided
-    if (fullName !== undefined) user.fullName = fullName;
-    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
+    if (fullName !== undefined) {
+      if (fullName.trim().length < 2) {
+        return res.status(400).json({
+          success: false,
+          message: "Full name must be at least 2 characters long"
+        });
+      }
+      user.fullName = fullName.trim();
+    }
+    
+    if (dateOfBirth !== undefined) {
+      const dob = new Date(dateOfBirth);
+      const age = Math.floor((new Date() - dob) / (1000 * 60 * 60 * 24 * 365.25));
+      if (age < 18) {
+        return res.status(400).json({
+          success: false,
+          message: "You must be at least 18 years old"
+        });
+      }
+      if (age > 120) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date of birth"
+        });
+      }
+      user.dateOfBirth = dob;
+    }
+    
     if (phone !== undefined) user.phone = phone;
 
     await user.save();
@@ -144,16 +198,841 @@ Userrouter.put("/update-personal-info", authenticateToken, async (req, res) => {
     });
   }
 });
+// ==================== FULL NAME UPDATE ROUTE (SEPARATE) ====================
 
-// -------- PASSWORD & SECURITY ROUTES --------
+// Update full name only - Separate route
+Userrouter.put("/update-fullname", authenticateToken, async (req, res) => {
+  try {
+    const { fullName } = req.body;
+    const user = req.user;
 
-// Change password
+    // Validate full name
+    if (!fullName) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name is required"
+      });
+    }
+
+    // Trim and validate length
+    const trimmedFullName = fullName.trim();
+    if (trimmedFullName.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name must be at least 2 characters long"
+      });
+    }
+
+    if (trimmedFullName.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name cannot exceed 100 characters"
+      });
+    }
+
+    // Validate name format (only letters, spaces, hyphens, and apostrophes)
+    const nameRegex = /^[A-Za-z\s\-']+$/;
+    if (!nameRegex.test(trimmedFullName)) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name can only contain letters, spaces, hyphens, and apostrophes"
+      });
+    }
+
+    // Update full name
+    const oldFullName = user.fullName;
+    user.fullName = trimmedFullName;
+    await user.save();
+
+    // Log the name change in transaction history
+    user.transactionHistory.push({
+      type: "profile_update",
+      amount: 0,
+      balanceBefore: user.balance,
+      balanceAfter: user.balance,
+      description: `Full name updated from "${oldFullName || 'Not set'}" to "${trimmedFullName}"`,
+      referenceId: `NAME-${Date.now()}`,
+      createdAt: new Date()
+    });
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Full name updated successfully",
+      data: {
+        fullName: user.fullName,
+        previousName: oldFullName || null,
+        updatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error("Update full name error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update full name",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined
+    });
+  }
+});
+// ==================== DATE OF BIRTH UPDATE ROUTE (SEPARATE) ====================
+
+// Update date of birth only - Separate route
+Userrouter.put("/update-dob", authenticateToken, async (req, res) => {
+  try {
+    const { dateOfBirth } = req.body;
+    const user = req.user;
+
+    // Validate date of birth is provided
+    if (!dateOfBirth) {
+      return res.status(400).json({
+        success: false,
+        message: "Date of birth is required"
+      });
+    }
+
+    // Parse and validate date
+    const dob = new Date(dateOfBirth);
+    
+    // Check if date is valid
+    if (isNaN(dob.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Please use YYYY-MM-DD format."
+      });
+    }
+
+    // Check if date is not in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (dob > today) {
+      return res.status(400).json({
+        success: false,
+        message: "Date of birth cannot be in the future"
+      });
+    }
+
+    // Calculate age
+    const age = Math.floor((today - dob) / (1000 * 60 * 60 * 24 * 365.25));
+    
+    // Age validation (must be at least 18 years old)
+    if (age < 18) {
+      return res.status(400).json({
+        success: false,
+        message: `You must be at least 18 years old. Your age is ${age} years.`
+      });
+    }
+
+    // Maximum age validation (120 years)
+    if (age > 120) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date of birth. Age cannot exceed 120 years."
+      });
+    }
+
+    // Store old date of birth for logging
+    const oldDOB = user.dateOfBirth;
+
+    // Update date of birth
+    user.dateOfBirth = dob;
+    await user.save();
+
+    // Log the DOB change in transaction history (optional)
+    user.transactionHistory = user.transactionHistory || [];
+    user.transactionHistory.push({
+      type: "profile_update",
+      amount: 0,
+      balanceBefore: user.balance,
+      balanceAfter: user.balance,
+      description: `Date of birth updated${oldDOB ? ` from ${oldDOB.toLocaleDateString()} to ${dob.toLocaleDateString()}` : ''}`,
+      referenceId: `DOB-${Date.now()}`,
+      createdAt: new Date()
+    });
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Date of birth updated successfully",
+      data: {
+        dateOfBirth: dob,
+        formattedDate: dob.toLocaleDateString(),
+        age: age,
+        previousDateOfBirth: oldDOB || null,
+        updatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error("Update date of birth error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update date of birth",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined
+    });
+  }
+});
+// ==================== EMAIL UPDATE ROUTES ====================
+
+// Request email update (send OTP to new email)
+Userrouter.post("/request-email-update", authenticateToken, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    const user = req.user;
+
+    if (!newEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "New email is required"
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format"
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: newEmail.toLowerCase() });
+    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered"
+      });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+
+    // Store OTP and pending email
+    user.pendingEmail = newEmail.toLowerCase();
+    user.emailVerificationOTP = {
+      code: otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      verified: false,
+      attempts: 0,
+      lastAttemptAt: new Date()
+    };
+
+    await user.save();
+
+    // Send OTP email
+    const emailSent = await sendEmail(
+      newEmail,
+      "Email Verification - Update Your Email",
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Email Verification</h2>
+          <p>Hello ${user.username},</p>
+          <p>You requested to update your email address to ${newEmail}. Please use the following OTP code to verify:</p>
+          <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This OTP will expire in 10 minutes.</p>
+          <p>If you didn't request this, please ignore this email and contact support.</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+        </div>
+      `
+    );
+
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send verification email"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Verification code sent to your new email address",
+      data: {
+        email: newEmail,
+        expiresIn: 10
+      }
+    });
+  } catch (error) {
+    console.error("Request email update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process email update request"
+    });
+  }
+});
+
+// Verify and update email with OTP
+Userrouter.post("/verify-email-update", authenticateToken, async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const user = req.user;
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP is required"
+      });
+    }
+
+    // Check if there's a pending email
+    if (!user.pendingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "No pending email update request"
+      });
+    }
+
+    // Check if OTP exists
+    if (!user.emailVerificationOTP || !user.emailVerificationOTP.code) {
+      return res.status(400).json({
+        success: false,
+        message: "No verification request found. Please request a new code"
+      });
+    }
+
+    // Check if OTP is expired
+    if (new Date() > user.emailVerificationOTP.expiresAt) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification code has expired. Please request a new one"
+      });
+    }
+
+    // Verify OTP
+    if (user.emailVerificationOTP.code !== otp) {
+      user.emailVerificationOTP.attempts = (user.emailVerificationOTP.attempts || 0) + 1;
+      await user.save();
+      
+      const remainingAttempts = Math.max(0, 3 - (user.emailVerificationOTP.attempts || 0));
+      return res.status(400).json({
+        success: false,
+        message: `Invalid verification code. ${remainingAttempts} attempts remaining`
+      });
+    }
+
+    // Update email
+    const oldEmail = user.email;
+    user.email = user.pendingEmail;
+    user.isEmailVerified = true;
+    user.emailVerifiedAt = new Date();
+    user.pendingEmail = undefined;
+    user.emailVerificationOTP = undefined;
+
+    await user.save();
+
+    // Send confirmation email to old email
+    if (oldEmail) {
+      await sendEmail(
+        oldEmail,
+        "Email Changed - Security Alert",
+        `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Email Address Changed</h2>
+            <p>Hello ${user.username},</p>
+            <p>Your email address has been changed from ${oldEmail} to ${user.email}.</p>
+            <p>If you did not make this change, please contact our support immediately.</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+          </div>
+        `
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "Email updated successfully",
+      data: {
+        email: user.email,
+        verifiedAt: user.emailVerifiedAt
+      }
+    });
+  } catch (error) {
+    console.error("Verify email update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify and update email"
+    });
+  }
+});
+
+// ==================== EMAIL VERIFICATION ROUTES ====================
+
+// Request email verification
+Userrouter.post("/request-email-verification", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user.email) {
+      return res.status(400).json({
+        success: false,
+        message: "No email address found. Please add an email first"
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified",
+      });
+    }
+
+    // Check rate limiting
+    const lastAttempt = user.emailVerificationOTP?.lastAttemptAt;
+    const attempts = user.emailVerificationOTP?.attempts || 0;
+    
+    if (lastAttempt && attempts >= 3) {
+      const timeSinceLastAttempt = Date.now() - new Date(lastAttempt);
+      const oneHour = 60 * 60 * 1000;
+      
+      if (timeSinceLastAttempt < oneHour) {
+        const minutesLeft = Math.ceil((oneHour - timeSinceLastAttempt) / (60 * 1000));
+        return res.status(429).json({
+          success: false,
+          message: `Too many attempts. Please try again in ${minutesLeft} minutes`
+        });
+      }
+    }
+
+    const otp = generateOTP();
+
+    user.emailVerificationOTP = {
+      code: otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      verified: false,
+      attempts: (user.emailVerificationOTP?.attempts || 0) + 1,
+      lastAttemptAt: new Date()
+    };
+
+    await user.save();
+
+    const emailSent = await sendEmail(
+      user.email,
+      "Email Verification - Verify Your Account",
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Email Verification</h2>
+          <p>Hello ${user.username},</p>
+          <p>Please verify your email address by entering the following OTP code:</p>
+          <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This OTP will expire in 10 minutes.</p>
+          <p>If you didn't request this verification, please ignore this email.</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+        </div>
+      `
+    );
+
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send verification email",
+      });
+    }
+
+    res.send({
+      success: true,
+      message: "Verification email sent",
+      data: { expiresIn: 10 }
+    });
+  } catch (error) {
+    console.error("Request email verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Verify email with OTP
+Userrouter.post("/verify-email", authenticateToken, async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const user = req.user;
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP is required"
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified",
+      });
+    }
+
+    if (!user.emailVerificationOTP || !user.emailVerificationOTP.code) {
+      return res.status(400).json({
+        success: false,
+        message: "No verification request found. Please request a new code",
+      });
+    }
+
+    if (user.emailVerificationOTP.expiresAt < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one",
+      });
+    }
+
+    if (user.emailVerificationOTP.code !== otp) {
+      user.emailVerificationOTP.attempts = (user.emailVerificationOTP.attempts || 0) + 1;
+      await user.save();
+      
+      return res.status(400).json({
+        success: false,
+        message: `Invalid OTP. ${3 - (user.emailVerificationOTP.attempts || 0)} attempts remaining`,
+      });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerifiedAt = new Date();
+    user.emailVerificationOTP.verified = true;
+    await user.save();
+
+    res.send({
+      success: true,
+      message: "Email verified successfully",
+      data: {
+        email: user.email,
+        verifiedAt: user.emailVerifiedAt
+      }
+    });
+  } catch (error) {
+    console.error("Verify email error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Resend verification email
+Userrouter.post("/resend-verification-email", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user.email) {
+      return res.status(400).json({
+        success: false,
+        message: "No email address found"
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified"
+      });
+    }
+
+    // Check if last attempt was within 30 seconds
+    const lastAttempt = user.emailVerificationOTP?.lastAttemptAt;
+    if (lastAttempt) {
+      const timeSinceLastAttempt = Date.now() - new Date(lastAttempt);
+      if (timeSinceLastAttempt < 30 * 1000) {
+        const secondsLeft = Math.ceil((30 * 1000 - timeSinceLastAttempt) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Please wait ${secondsLeft} seconds before requesting another code`
+        });
+      }
+    }
+
+    const otp = generateOTP();
+
+    user.emailVerificationOTP = {
+      code: otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      verified: false,
+      attempts: 0,
+      lastAttemptAt: new Date()
+    };
+
+    await user.save();
+
+    const emailSent = await sendEmail(
+      user.email,
+      "Email Verification - Resend",
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Email Verification</h2>
+          <p>Hello ${user.username},</p>
+          <p>Your new verification code is:</p>
+          <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This OTP will expire in 10 minutes.</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+        </div>
+      `
+    );
+
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send verification email"
+      });
+    }
+
+    res.send({
+      success: true,
+      message: "Verification code resent",
+      data: { expiresIn: 10 }
+    });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+
+// ==================== PASSWORD RESET ROUTES ====================
+
+// Request password reset (forgot password)
+Userrouter.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    // Don't reveal if user exists or not (security)
+    if (!user) {
+      return res.json({
+        success: true,
+        message: "If an account exists with this email, you will receive a password reset link"
+      });
+    }
+
+    // Check if user has email
+    if (!user.email) {
+      return res.json({
+        success: true,
+        message: "If an account exists with this email, you will receive a password reset link"
+      });
+    }
+
+    // Generate reset token and OTP
+    const resetToken = Math.random().toString(36).substr(2, 32);
+    const otp = generateOTP();
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+    user.passwordResetOTP = {
+      code: otp,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      attempts: 0
+    };
+
+    await user.save();
+
+    // Send password reset email
+    const emailSent = await sendEmail(
+      user.email,
+      "Password Reset Request",
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Password Reset Request</h2>
+          <p>Hello ${user.username},</p>
+          <p>We received a request to reset your password. Please use the following OTP code to reset your password:</p>
+          <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This OTP will expire in 10 minutes.</p>
+          <p>If you didn't request this, please ignore this email and ensure your account is secure.</p>
+          <p>You can also use this link: ${process.env.FRONTEND_URL}/reset-password?token=${resetToken}</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+        </div>
+      `
+    );
+
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send password reset email"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Password reset instructions sent to your email",
+      data: {
+        resetToken,
+        expiresIn: 60
+      }
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process password reset request"
+    });
+  }
+});
+
+// Verify OTP and reset password
+Userrouter.post("/reset-password", async (req, res) => {
+  try {
+    const { resetToken, otp, newPassword, confirmNewPassword } = req.body;
+
+    if (!resetToken || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token, OTP, and new password are required"
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match"
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long"
+      });
+    }
+
+    // Find user with valid reset token
+    const user = await User.findOne({
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: { $gt: new Date() }
+    }).select("+password");
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token"
+      });
+    }
+
+    // Check OTP
+    if (!user.passwordResetOTP || !user.passwordResetOTP.code) {
+      return res.status(400).json({
+        success: false,
+        message: "No OTP request found. Please request a new password reset"
+      });
+    }
+
+    if (new Date() > user.passwordResetOTP.expiresAt) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new password reset"
+      });
+    }
+
+    if (user.passwordResetOTP.code !== otp) {
+      user.passwordResetOTP.attempts = (user.passwordResetOTP.attempts || 0) + 1;
+      await user.save();
+      
+      return res.status(400).json({
+        success: false,
+        message: `Invalid OTP. ${3 - (user.passwordResetOTP.attempts || 0)} attempts remaining`
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.passwordResetOTP = undefined;
+
+    await user.save();
+
+    // Send confirmation email
+    await sendEmail(
+      user.email,
+      "Password Changed Successfully",
+      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Password Changed Successfully</h2>
+          <p>Hello ${user.username},</p>
+          <p>Your password has been successfully changed.</p>
+          <p>If you did not make this change, please contact our support immediately.</p>
+          <hr>
+          <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+        </div>
+      `
+    );
+
+    res.json({
+      success: true,
+      message: "Password reset successfully"
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reset password"
+    });
+  }
+});
+
+// ==================== ENHANCED PASSWORD CHANGE ROUTE ====================
+
+// Change password (when logged in)
 Userrouter.post("/change-password", authenticateToken, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
     const user = await User.findById(req.user._id).select("+password");
 
-    // Verify current password
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New passwords do not match",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
+    if (newPassword.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Password cannot exceed 50 characters",
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({
@@ -162,17 +1041,39 @@ Userrouter.post("/change-password", authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if new password is the same as current
-    if (currentPassword === newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must be different from current password",
-      });
+    // Check password history (prevent reuse of last 5 passwords)
+    if (user.passwordHistory && user.passwordHistory.length > 0) {
+      for (const oldPassword of user.passwordHistory.slice(-5)) {
+        const isReused = await bcrypt.compare(newPassword, oldPassword.password);
+        if (isReused) {
+          return res.status(400).json({
+            success: false,
+            message: "Cannot reuse a recent password",
+          });
+        }
+      }
     }
 
-    // Update password
     user.password = newPassword;
     await user.save();
+
+    // Send notification email
+    if (user.email && user.isEmailVerified) {
+      await sendEmail(
+        user.email,
+        "Password Changed - Security Alert",
+        `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Password Changed</h2>
+            <p>Hello ${user.username},</p>
+            <p>Your password was changed successfully.</p>
+            <p>If you did not make this change, please contact our support immediately.</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
+          </div>
+        `
+      );
+    }
 
     res.send({
       success: true,
@@ -183,6 +1084,87 @@ Userrouter.post("/change-password", authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+});
+
+// ==================== FULL NAME UPDATE ROUTE ====================
+
+// Update full name
+Userrouter.put("/update-fullname", authenticateToken, async (req, res) => {
+  try {
+    const { fullName } = req.body;
+    const user = req.user;
+
+    if (!fullName || fullName.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name must be at least 2 characters long"
+      });
+    }
+
+    user.fullName = fullName.trim();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Full name updated successfully",
+      data: { fullName: user.fullName }
+    });
+  } catch (error) {
+    console.error("Update full name error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update full name"
+    });
+  }
+});
+
+// ==================== DATE OF BIRTH UPDATE ROUTE ====================
+
+// Update date of birth
+Userrouter.put("/update-dob", authenticateToken, async (req, res) => {
+  try {
+    const { dateOfBirth } = req.body;
+    const user = req.user;
+
+    if (!dateOfBirth) {
+      return res.status(400).json({
+        success: false,
+        message: "Date of birth is required"
+      });
+    }
+
+    const dob = new Date(dateOfBirth);
+    const age = Math.floor((new Date() - dob) / (1000 * 60 * 60 * 24 * 365.25));
+
+    if (age < 18) {
+      return res.status(400).json({
+        success: false,
+        message: "You must be at least 18 years old"
+      });
+    }
+
+    if (age > 120) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date of birth"
+      });
+    }
+
+    user.dateOfBirth = dob;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Date of birth updated successfully",
+      data: { dateOfBirth: user.dateOfBirth }
+    });
+  } catch (error) {
+    console.error("Update DOB error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update date of birth"
     });
   }
 });
@@ -999,101 +1981,349 @@ Userrouter.get("/history", authenticateToken, async (req, res) => {
   }
 });
 // Withdrawal route
+// Helper function to validate withdrawal details based on method
+const validateWithdrawalDetails = (method, body) => {
+  const errors = [];
+  
+  switch(method) {
+    case "bkash":
+      if (!body.phoneNumber) {
+        errors.push("Phone number is required for bKash");
+      } else if (!/^(01[3-9]\d{8})$/.test(body.phoneNumber)) {
+        errors.push("Invalid Bangladeshi phone number format");
+      }
+      if (!body.accountType) {
+        errors.push("Account type (personal/agent) is required for bKash");
+      } else if (!["personal", "agent"].includes(body.accountType)) {
+        errors.push("Account type must be either 'personal' or 'agent'");
+      }
+      break;
+      
+    case "rocket":
+    case "nagad":
+      if (!body.phoneNumber) {
+        errors.push(`Phone number is required for ${method.toUpperCase()}`);
+      } else if (!/^(01[3-9]\d{8})$/.test(body.phoneNumber)) {
+        errors.push("Invalid Bangladeshi phone number format");
+      }
+      break;
+      
+    case "bank":
+      if (!body.bankName) errors.push("Bank name is required");
+      if (!body.accountHolderName) errors.push("Account holder name is required");
+      if (!body.accountNumber) errors.push("Account number is required");
+      if (!body.branchName) errors.push("Branch name is required");
+      if (!body.district) errors.push("District is required");
+      if (!body.routingNumber) errors.push("Routing number is required");
+      if (body.routingNumber && !/^\d{9}$/.test(body.routingNumber)) {
+        errors.push("Routing number must be 9 digits");
+      }
+      break;
+      
+    default:
+      errors.push("Invalid withdrawal method");
+  }
+  
+  return errors;
+};
+
+// Create withdrawal request
 Userrouter.post("/withdraw", authenticateToken, async (req, res) => {
   try {
-    const { method, accountNumber, amount } = req.body;
+    const { 
+      method, 
+      amount,
+      phoneNumber,
+      accountType,
+      bankName,
+      accountHolderName,
+      accountNumber,
+      branchName,
+      district,
+      routingNumber
+    } = req.body;
+    
     const userId = req.user._id;
-   console.log(req.body)
+    
+    console.log("Withdrawal request:", req.body);
+    
+    // Validate method
+    const validMethods = ["bkash", "rocket", "nagad", "bank"];
+    if (!validMethods.includes(method)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid withdrawal method. Supported methods: bKash, Rocket, Nagad, Bank"
+      });
+    }
+    
+    // Validate withdrawal details
+    const validationErrors = validateWithdrawalDetails(method, req.body);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: validationErrors
+      });
+    }
+    
+    // Check minimum withdrawal amount
+    const minWithdrawal = 100;
+    if (amount < minWithdrawal) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum withdrawal amount is ${minWithdrawal} Taka`
+      });
+    }
+    
+    // Get user and check balance
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
     // Check user balance
-    if (amount > req.user.balance) {
+    if (amount > user.balance) {
       return res.status(400).json({
         success: false,
         message: "Insufficient balance",
+        balance: user.balance,
+        requested: amount
       });
     }
-
-    // Create withdrawal record
-    const withdrawal = new Withdrawal({
+    
+    // Prepare withdrawal data based on method
+    let withdrawalData = {
       userId,
       method,
-      phoneNumber:accountNumber,
       amount,
-      status: "pending",
-    });
-
+      status: "pending"
+    };
+    
+    // Add method-specific details
+    if (method === "bkash") {
+      withdrawalData.mobileBankingDetails = {
+        phoneNumber,
+        accountType: accountType || "personal"
+      };
+    } else if (method === "rocket" || method === "nagad") {
+      withdrawalData.mobileBankingDetails = {
+        phoneNumber,
+        accountType: null
+      };
+    } else if (method === "bank") {
+      withdrawalData.bankDetails = {
+        bankName,
+        accountHolderName,
+        accountNumber,
+        branchName,
+        district,
+        routingNumber
+      };
+    }
+    
+    // Create withdrawal record
+    const withdrawal = new Withdrawal(withdrawalData);
     await withdrawal.save();
-
+    
     // Update user balance
     await User.findByIdAndUpdate(userId, {
-      $inc: { balance: -amount },
+      $inc: { balance: -amount }
+    });
+    
+    // Add to withdrawal history array in user document (if you have this field)
+    await User.findByIdAndUpdate(userId, {
       $push: {
         withdrawalHistory: {
+          withdrawalId: withdrawal._id,
           method,
           amount,
           date: new Date(),
           status: "pending",
-          phoneNumber:accountNumber,
-        },
-      },
+          ...(phoneNumber && { phoneNumber }),
+          ...(bankName && { bankName, accountNumber })
+        }
+      }
     });
-
+    
+    // Format response based on method
+    let responseDetails = { method, amount, withdrawalId: withdrawal._id };
+    if (method === "bkash") {
+      responseDetails.phoneNumber = phoneNumber;
+      responseDetails.accountType = accountType;
+    } else if (method === "rocket" || method === "nagad") {
+      responseDetails.phoneNumber = phoneNumber;
+    } else if (method === "bank") {
+      responseDetails.bankName = bankName;
+      responseDetails.accountNumber = accountNumber;
+    }
+    
     res.status(200).json({
       success: true,
       message: "Withdrawal request submitted successfully",
-      data: {
-        withdrawalId: withdrawal._id,
-        amount,
-        method,
-      },
+      data: responseDetails
     });
+    
   } catch (error) {
     console.error("Withdrawal error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message
     });
   }
 });
 
 // Get withdrawal history
-Userrouter.get(
-  "/withdraw/history/:userId",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { page = 1, limit = 10 } = req.query;
-
-      // Verify the user is requesting their own history
-      if (req.user._id.toString() !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied",
-        });
-      }
-
-      const withdrawals = await Withdrawal.find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-
-      const total = await Withdrawal.countDocuments({ userId });
-
-      res.json({
-        success: true,
-        data: withdrawals,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-      });
-    } catch (error) {
-      console.error("Withdrawal history error:", error);
-      res.status(500).json({
+Userrouter.get("/withdraw/history/:userId", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    // Verify the user is requesting their own history
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({
         success: false,
-        message: "Internal server error",
+        message: "Access denied"
       });
     }
+    
+    const withdrawals = await Withdrawal.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('userId', 'name email phone');
+    
+    const total = await Withdrawal.countDocuments({ userId });
+    
+    // Format withdrawals for better readability
+    const formattedWithdrawals = withdrawals.map(withdrawal => {
+      const formatted = {
+        id: withdrawal._id,
+        method: withdrawal.method,
+        amount: withdrawal.amount,
+        status: withdrawal.status,
+        createdAt: withdrawal.createdAt,
+        updatedAt: withdrawal.updatedAt,
+        transactionId: withdrawal.transactionId,
+        processedAt: withdrawal.processedAt
+      };
+      
+      // Add method-specific details
+      if (withdrawal.method === "bkash" && withdrawal.mobileBankingDetails) {
+        formatted.details = {
+          phoneNumber: withdrawal.mobileBankingDetails.phoneNumber,
+          accountType: withdrawal.mobileBankingDetails.accountType
+        };
+      } else if ((withdrawal.method === "rocket" || withdrawal.method === "nagad") && withdrawal.mobileBankingDetails) {
+        formatted.details = {
+          phoneNumber: withdrawal.mobileBankingDetails.phoneNumber
+        };
+      } else if (withdrawal.method === "bank" && withdrawal.bankDetails) {
+        formatted.details = {
+          bankName: withdrawal.bankDetails.bankName,
+          accountHolderName: withdrawal.bankDetails.accountHolderName,
+          accountNumber: withdrawal.bankDetails.accountNumber,
+          branchName: withdrawal.bankDetails.branchName,
+          district: withdrawal.bankDetails.district,
+          routingNumber: withdrawal.bankDetails.routingNumber
+        };
+      }
+      
+      return formatted;
+    });
+    
+    res.json({
+      success: true,
+      data: formattedWithdrawals,
+      pagination: {
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error("Withdrawal history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
   }
-);
+});
+
+// Get single withdrawal details
+Userrouter.get("/withdraw/:withdrawalId", authenticateToken, async (req, res) => {
+  try {
+    const { withdrawalId } = req.params;
+    const userId = req.user._id;
+    
+    const withdrawal = await Withdrawal.findOne({
+      _id: withdrawalId,
+      userId
+    }).populate('userId', 'name email phone balance');
+    
+    if (!withdrawal) {
+      return res.status(404).json({
+        success: false,
+        message: "Withdrawal not found"
+      });
+    }
+    
+    // Format response
+    const response = {
+      id: withdrawal._id,
+      method: withdrawal.method,
+      amount: withdrawal.amount,
+      status: withdrawal.status,
+      createdAt: withdrawal.createdAt,
+      updatedAt: withdrawal.updatedAt,
+      transactionId: withdrawal.transactionId,
+      processedAt: withdrawal.processedAt,
+      rejectionReason: withdrawal.rejectionReason,
+      adminNote: withdrawal.adminNote
+    };
+    
+    // Add method-specific details
+    if (withdrawal.method === "bkash" && withdrawal.mobileBankingDetails) {
+      response.details = {
+        phoneNumber: withdrawal.mobileBankingDetails.phoneNumber,
+        accountType: withdrawal.mobileBankingDetails.accountType
+      };
+    } else if ((withdrawal.method === "rocket" || withdrawal.method === "nagad") && withdrawal.mobileBankingDetails) {
+      response.details = {
+        phoneNumber: withdrawal.mobileBankingDetails.phoneNumber
+      };
+    } else if (withdrawal.method === "bank" && withdrawal.bankDetails) {
+      response.details = {
+        bankName: withdrawal.bankDetails.bankName,
+        accountHolderName: withdrawal.bankDetails.accountHolderName,
+        accountNumber: withdrawal.bankDetails.accountNumber,
+        branchName: withdrawal.bankDetails.branchName,
+        district: withdrawal.bankDetails.district,
+        routingNumber: withdrawal.bankDetails.routingNumber
+      };
+    }
+    
+    res.json({
+      success: true,
+      data: response
+    });
+    
+  } catch (error) {
+    console.error("Get withdrawal error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+});
+
 const Notification = require("../models/Notification"); // Add this at the top with other imports
 const BettingHistory = require("../models/BettingHistory");
 const Affiliate = require("../models/Affiliate");

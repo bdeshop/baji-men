@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import {
   FaBars,
   FaChevronDown,
@@ -43,12 +43,121 @@ import profile_img from "../../assets/profile.png";
 import menu_img from "../../assets/icon-menu.png";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../App";
+import { LanguageContext } from "../../context/LanguageContext"; // ← import context
+import telegram_icon from "../../assets/social_icon/telegram.png"
+import whatsapp_icon from "../../assets/social_icon/whatsapp.png"
 
 const APK_FILE = "https://bajiman.com/Bajiman.apk";
+
+// ── Flag URLs ─────────────────────────────────────────────────────────────────
+const US_FLAG = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/1280px-Flag_of_the_United_States.svg.png";
+const BD_FLAG = "https://cdn.britannica.com/67/6267-050-8A26DFEE/Flag-Bangladesh.jpg";
+
+// ── Language Toggle Switch Component ─────────────────────────────────────────
+const LanguageToggle = ({ isBangla, onToggle, compact = false }) => {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: compact ? "6px" : "8px",
+        userSelect: "none",
+      }}
+    >
+      {/* EN label (only shown when not compact) */}
+      {!compact && (
+        <span
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            color: !isBangla ? "#fff" : "#888",
+            letterSpacing: "0.05em",
+            transition: "color 0.25s",
+            minWidth: "20px",
+            textAlign: "right",
+          }}
+        >
+          EN
+        </span>
+      )}
+
+      {/* Toggle pill */}
+      <button
+        onClick={onToggle}
+        aria-label={isBangla ? "Switch to English" : "Switch to Bangla"}
+        className="border-[1px] border-gray-700"
+        style={{
+          position: "relative",
+          width: compact ? "52px" : "58px",
+          height: compact ? "28px" : "30px",
+          borderRadius: "999px",
+          background: "#222424",
+          cursor: "pointer",
+          padding: 0,
+          outline: "none",
+          flexShrink: 0,
+          boxShadow: "inset 0 1px 3px rgba(0,0,0,0.25)",
+          transition: "background 0.25s",
+        }}
+      >
+        {/* Sliding flag circle */}
+        <span
+          style={{
+            position: "absolute",
+            top: "3px",
+            left: isBangla
+              ? `calc(100% - ${compact ? "25px" : "27px"})`
+              : "3px",
+            width: compact ? "22px" : "24px",
+            height: compact ? "22px" : "24px",
+            borderRadius: "50%",
+            overflow: "hidden",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+            transition: "left 0.28s cubic-bezier(0.4,0,0.2,1)",
+            border: "1.5px solid rgba(255,255,255,0.8)",
+            display: "block",
+          }}
+        >
+          <img
+            src={isBangla ? BD_FLAG : US_FLAG}
+            alt={isBangla ? "Bangladesh" : "USA"}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        </span>
+      </button>
+
+      {/* BN label (only shown when not compact) */}
+      {!compact && (
+        <span
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            color: isBangla ? "#fff" : "#888",
+            letterSpacing: "0.05em",
+            transition: "color 0.25s",
+            minWidth: "20px",
+          }}
+        >
+          BN
+        </span>
+      )}
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
+
+  // ── Translation hook ────────────────────────────────────────────────────────
+  const { t, language, changeLanguage } = useContext(LanguageContext);
+  // ────────────────────────────────────────────────────────────────────────────
 
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeSubMenu, setActiveSubMenu] = useState(null);
@@ -71,11 +180,44 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const [showMobileAppBanner, setShowMobileAppBanner] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
-  
+
   // Social links states
   const [socialLinks, setSocialLinks] = useState([]);
   const [loadingSocialLinks, setLoadingSocialLinks] = useState(false);
-  
+
+  // ── Language state — now derived from LanguageContext ────────────────────────
+  // isBangla is true when the context language code is "bn"
+  const isBangla = language.code === "bn";
+
+  const handleLanguageToggle = () => {
+    const next = !isBangla;
+    const nextLang = next
+      ? {
+          code: "bn",
+          name: "বাংলা",
+          flag: "https://images.5849492029.com//TCG_PROD_IMAGES/COUNTRY_FLAG/CIRCLE/BD.svg",
+        }
+      : {
+          code: "en",
+          name: "English",
+          flag: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/1280px-Flag_of_the_United_States.svg.png",
+        };
+
+    changeLanguage(nextLang);
+
+    // Keep localStorage string key "language" = "bn"/"en" for backward-compat
+    localStorage.setItem("language", next ? "bn" : "en");
+
+    // Notify other components
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "language",
+        newValue: next ? "bn" : "en",
+      })
+    );
+  };
+  // ────────────────────────────────────────────────────────────────────────────
+
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const popupRef = useRef(null);
@@ -132,20 +274,17 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   // Function to sort categories with Exclusive always first
   const sortCategoriesWithExclusiveFirst = (categories) => {
     if (!categories || categories.length === 0) return defaultCategories;
-    
-    // Find Exclusive category
-    const exclusiveCategory = categories.find(cat => 
+
+    const exclusiveCategory = categories.find(cat =>
       cat.name.toLowerCase() === "exclusive"
     );
-    
-    // If no Exclusive category found, use default
+
     if (!exclusiveCategory) return categories;
-    
-    // Filter out exclusive category and then add it at the beginning
-    const otherCategories = categories.filter(cat => 
+
+    const otherCategories = categories.filter(cat =>
       cat.name.toLowerCase() !== "exclusive"
     );
-    
+
     return [exclusiveCategory, ...otherCategories];
   };
 
@@ -154,19 +293,19 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     {
       platform: "whatsapp",
       url: "https://wa.me/+4407386588951",
-      title: "WhatsApp",
+      title: t.whatsapp,
       icon: <FaWhatsapp className="w-4 h-4 mr-2" />
     },
     {
       platform: "email",
       url: "mailto:support@yourdomain.com",
-      title: "Email",
+      title: t.email,
       icon: <FaEnvelope className="w-4 h-4 mr-2" />
     },
     {
       platform: "facebook",
       url: "https://facebook.com/yourpage",
-      title: "Facebook",
+      title: t.facebook,
       icon: <FaFacebook className="w-4 h-4 mr-2" />
     }
   ];
@@ -182,21 +321,21 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
 
     const bannerHiddenUntil = localStorage.getItem("mobileAppBannerHiddenUntil");
     const downloadHiddenUntil = localStorage.getItem("mobileAppDownloadHiddenUntil");
-    
+
     if (downloadHiddenUntil) {
       const downloadHideTime = parseInt(downloadHiddenUntil);
       if (Date.now() < downloadHideTime) {
         return false;
       }
     }
-    
+
     if (bannerHiddenUntil) {
       const bannerHideTime = parseInt(bannerHiddenUntil);
       if (Date.now() < bannerHideTime) {
         return false;
       }
     }
-    
+
     return true;
   };
 
@@ -205,20 +344,17 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     if (isMobile) {
       setSidebarOpen(false);
     }
-    
-    // Always show default categories initially
+
     if (!categories.length) {
-      // Set default categories immediately
       setCategories(defaultCategories);
-      // Then fetch from API
       fetchCategories();
     }
-    
+
     if (!promotions.length) fetchPromotions();
     checkAuthStatus();
     fetchBrandingData();
-    fetchSocialLinks(); // Fetch social links
-    
+    fetchSocialLinks();
+
     const hasShownSignupPopup = localStorage.getItem("hasShownSignupPopup");
     if (isLoggedIn && !hasShownSignupPopup) {
       setShowSignupPopup(true);
@@ -254,8 +390,8 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/branding`);
       if (response.data.success && response.data.data && response.data.data.logo) {
-        const logoUrl = response.data.data.logo.startsWith('http') 
-          ? response.data.data.logo 
+        const logoUrl = response.data.data.logo.startsWith('http')
+          ? response.data.data.logo
           : `${API_BASE_URL}${response.data.data.logo.startsWith('/') ? '' : '/'}${response.data.data.logo}`;
         setDynamicLogo(logoUrl);
       }
@@ -270,45 +406,55 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       setLoadingSocialLinks(true);
       const response = await axios.get(`${API_BASE_URL}/api/social-links`);
       if (response.data.success && response.data.data) {
-        // Map API response to standardized format
         const mappedLinks = response.data.data.map(link => {
           let icon;
           let title;
-          
+
           switch(link.platform.toLowerCase()) {
             case 'whatsapp':
               icon = <FaWhatsapp className="w-4 h-4 mr-2" />;
-              title = "WhatsApp";
+              title = t.whatsapp;
               break;
             case 'email':
               icon = <FaEnvelope className="w-4 h-4 mr-2" />;
-              title = "Email";
+              title = t.email;
               break;
             case 'facebook':
               icon = <FaFacebook className="w-4 h-4 mr-2" />;
-              title = "Facebook";
+              title = t.facebook;
+              break;
+            case 'instagram':
+              icon = <FaInstagram className="w-4 h-4 mr-2" />;
+              title = t.instagram;
+              break;
+            case 'telegram':
+              icon = <FaTelegram className="w-4 h-4 mr-2" />;
+              title = t.telegram;
+              break;
+            case 'twitter':
+            case 'x':
+              icon = <FaTwitter className="w-4 h-4 mr-2" />;
+              title = t.twitter;
               break;
             default:
               icon = <FaWhatsapp className="w-4 h-4 mr-2" />;
               title = link.platform;
           }
-          
+
           return {
             ...link,
             icon,
             title
           };
         });
-        
+
         setSocialLinks(mappedLinks);
       } else {
         console.error("Failed to fetch social links");
-        // Fallback to default social links if API fails
         setSocialLinks(getDefaultSocialLinks());
       }
     } catch (error) {
       console.error("Error fetching social links:", error);
-      // Fallback to default social links if API fails
       setSocialLinks(getDefaultSocialLinks());
     } finally {
       setLoadingSocialLinks(false);
@@ -320,14 +466,12 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       setIsLoadingCategories(true);
       const response = await axios.get(`${API_BASE_URL}/api/categories`);
       if (response.data && response.data.data) {
-        // Sort categories with Exclusive first
         const sortedCategories = sortCategoriesWithExclusiveFirst(response.data.data);
         setCategories(sortedCategories);
         localStorage.setItem("categories", JSON.stringify(sortedCategories));
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
-      // Keep default categories if API fails
       setCategories(defaultCategories);
     } finally {
       setIsLoadingCategories(false);
@@ -361,7 +505,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       );
       if (response.data.success) {
         setProviders(response.data.data);
-        setExclusiveGames([]); // Clear exclusive games when showing providers
+        setExclusiveGames([]);
       }
     } catch (error) {
       console.error("Error fetching providers:", error);
@@ -374,29 +518,27 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     try {
       setSidebarLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/menu-games`);
-      
+
       let gamesData = [];
-      
+
       if (response.data && response.data.data) {
         gamesData = response.data.data;
       } else if (Array.isArray(response.data)) {
         gamesData = response.data;
       }
-      
-      // Try different possible category name variations
+
       const exclusiveGamesData = gamesData.filter(game => {
         if (!game) return false;
-        
+
         const categoryName = (game.categoryname || game.category || game.categoryName || '').toLowerCase();
         const gameName = (game.name || game.gameName || '').toLowerCase();
-        
-        // Check for exclusive category or exclusive in game name
-        return categoryName.includes("exclusive") || 
+
+        return categoryName.includes("exclusive") ||
                categoryName.includes("exlusive") ||
                gameName.includes("exclusive") ||
                gameName.includes("exlusive");
       });
-      
+
       setExclusiveGames(exclusiveGamesData);
       setProviders([]);
     } catch (error) {
@@ -414,7 +556,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       setExclusiveGames([]);
     } else {
       setActiveMenu(category.name);
-      // Check if it's the Exclusive category (case insensitive)
       if (category.name.toLowerCase() === "exclusive") {
         fetchExclusiveGames();
       } else {
@@ -431,14 +572,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       setSidebarOpen(false);
     }
   };
+
   const { user } = useAuth();
-   const handleGameClick = (game) => {
-    // Check if user is logged in
+  const handleGameClick = (game) => {
     if (!user) {
-      navigate("/login")
+      navigate("/login");
       return;
     }
-    // If user is logged in, navigate directly to game
     navigate(`/game/${game.gameId}`);
   };
 
@@ -466,32 +606,31 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         setUserData(response.data.data);
         localStorage.setItem("user", JSON.stringify(response.data.data));
         setIsLoggedIn(true);
-      } 
+      }
     } catch (error) {
       console.error("Token verification failed:", error);
     }
   };
 
-  // Function to refresh user balance
   const refreshBalance = async () => {
     if (!isLoggedIn) return;
-    
+
     try {
       setIsRefreshingBalance(true);
       const token = localStorage.getItem("usertoken");
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      
+
       const response = await axios.get(
         `${API_BASE_URL}/api/user/my-information`
       );
-      
+
       if (response.data.success) {
         setUserData(response.data.data);
         localStorage.setItem("user", JSON.stringify(response.data.data));
       }
     } catch (error) {
       console.error("Error refreshing balance:", error);
-      toast.error("Failed to refresh balance");
+      toast.error(t.failedRefreshBalance);
     } finally {
       setIsRefreshingBalance(false);
     }
@@ -506,6 +645,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     setProfileDropdownOpen(false);
     navigate("/");
   };
+
   const handleCloseBanner = () => {
     const hideUntil = Date.now() + (10 * 60 * 1000);
     localStorage.setItem("mobileAppBannerHiddenUntil", hideUntil.toString());
@@ -515,49 +655,49 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const menuItems = [
     {
       id: "notifications",
-      label: "Notifications",
+      label: t.notifications,
       icon: <FiBell />,
       path: "/member/inbox/notification",
     },
     {
       id: "personal-info",
-      label: "Personal info",
+      label: t.personalInfo,
       icon: <FiUser />,
       path: "/member/profile/info",
     },
     {
       id: "login-security",
-      label: "Login & Security",
+      label: t.loginSecurity,
       icon: <FiLock />,
       path: "/member/profile/account",
     },
     {
       id: "verification",
-      label: "Verification",
+      label: t.verification,
       icon: <FiCheckCircle />,
       path: "/member/profile/verify",
     },
     {
       id: "transactions",
-      label: "Transaction records",
+      label: t.transactions,
       icon: <FiFileText />,
       path: "/member/transaction-records",
     },
     {
       id: "betting-records",
-      label: "Betting records",
+      label: t.bettingRecords,
       icon: <MdSportsSoccer />,
       path: "/member/betting-records/settled",
     },
     {
       id: "turnover",
-      label: "Turnover",
+      label: t.turnover,
       icon: <FiTrendingUp />,
       path: "/member/turnover/uncomplete",
     },
     {
       id: "referral",
-      label: "My referral",
+      label: t.myReferral,
       icon: <FiUsers />,
       path: "/referral-program/details",
     },
@@ -565,22 +705,22 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
 
   const secondaryMenuItems = [
     {
-      title: "Promotions",
+      title: t.promotions,
       icon: <FaGift className="w-5 h-5 min-w-[20px]" />,
       subItems: ["Welcome Bonus", "Reload Bonus", "Cashback"],
     },
     {
-      title: "VIP Club",
+      title: t.vipClub,
       icon: <FaCrown className="w-5 h-5 min-w-[20px]" />,
       subItems: ["VIP Levels", "Exclusive Rewards", "Personal Manager"],
     },
     {
-      title: "Referral program",
+      title: t.referralProgram,
       icon: <FaUserFriends className="w-5 h-5 min-w-[20px]" />,
       subItems: ["Invite Friends", "Earn Commission", "Bonus Terms"],
     },
     {
-      title: "Affiliate",
+      title: t.affiliate,
       icon: <FaHandshake className="w-5 h-5 min-w-[20px]" />,
       subItems: ["Join Program", "Marketing Tools", "Commission Rates"],
     },
@@ -588,49 +728,49 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
 
   const bottomMenuItems = [
     {
-      title: "VIP Club",
+      title: t.vipClub,
       icon: <FaCrown className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
       path: "/vip-club"
     },
     {
-      title: "Referral program",
+      title: t.referralProgram,
       icon: <FaUserFriends className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
       path: "/referral-program"
     },
     {
-      title: "Affiliate",
+      title: t.affiliate,
       icon: <FaHandshake className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
-            onClick: () =>{window.location.href="https://m-affiliate.bajiman.com"},
+      onClick: () => { window.location.href = "https://m-affiliate.bajiman.com" },
     },
     {
-      title: "Brand Ambassadors",
+      title: t.brandAmbassadors,
       icon: <MdSupportAgent className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
       path: "/coming-soon?title=Brand Ambassadors"
     },
     {
-      title: "APP Download",
+      title: t.appDownload,
       icon: <FaMobileAlt className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
       onClick: () => downloadFileAtURL(APK_FILE),
     },
     {
-      title: "Contact Us",
+      title: t.contactUs,
       icon: <FaPhone className="w-5 h-5 min-w-[20px]" />,
-      subItems: [], // We'll handle contact items separately
-      isContact: true // Flag to identify contact us item
+      subItems: [],
+      isContact: true
     },
     {
-      title: "New Member Guide",
+      title: t.newMemberGuide,
       icon: <FaBook className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
       path: "/coming-soon?title=New Member Guide"
     },
     {
-      title: "BJ Forum",
+      title: t.bjForum,
       icon: <FaComments className="w-5 h-5 min-w-[20px]" />,
       subItems: [],
       path: "/coming-soon?title=BJ Forum"
@@ -652,6 +792,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const toggleSubMenu = (subItem) => {
     setActiveSubMenu(activeSubMenu === subItem ? null : subItem);
   };
+
   const downloadFileAtURL = (url) => {
     const fileName = url.split("/").pop();
     const aTag = document.createElement("a");
@@ -660,26 +801,25 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     document.body.appendChild(aTag);
     aTag.click();
     aTag.remove();
-    toast.success("APK Download Started!");
+    toast.success(t.apkDownloadStarted);
   };
+
   const handleContactClick = (url) => {
     if (url) {
       window.open(url, '_blank');
     }
   };
 
-  // Get game image URL for exclusive games
   const getGameImageUrl = (game) => {
     if (!game) return '';
-    
+
     const imagePath = game.portraitImage || game.image || game.thumbnail || '';
     if (!imagePath) return '';
-    
+
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    
-    // Remove leading slash if present to avoid double slash
+
     const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
     return `${API_BASE_URL}/${cleanPath}`;
   };
@@ -695,26 +835,26 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           >
             <FaBars size={18} />
           </button>
-          <NavLink to="/">
-            <img 
-              src={dynamicLogo} 
-              alt="Logo" 
-              className="w-[150px]" 
+          <a href="/">
+            <img
+              src={dynamicLogo}
+              alt="Logo"
+              className="w-[120px] md:w-[150px]"
             />
-          </NavLink>
+          </a>
           <NavLink
             to="/slots"
             className="md:flex hidden items-center space-x-2 text-[13px] font-[400] text-gray-400 hover:text-yellow-400"
           >
             <img src={slot_img} alt="Slots" className="h-5 w-5" />
-            <span>Slots</span>
+            <span>{t.slots}</span>
           </NavLink>
           <NavLink
             to="/casino"
             className="md:flex hidden items-center space-x-2 text-gray-400 text-[13px] font-[400] hover:text-yellow-400"
           >
             <img src={casino_img} alt="Casino" className="h-5 w-5" />
-            <span>Casino</span>
+            <span>{t.casino}</span>
           </NavLink>
           {isLoggedIn && (
             <div className="relative" ref={dropdownRef}>
@@ -723,7 +863,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 className="md:flex hidden cursor-pointer items-center space-x-2 text-gray-400 text-[13px] font-[400] hover:text-yellow-400"
               >
                 <img src={profile_img} alt="Profile" className="h-5 w-5" />
-                <span>Profile</span>
+                <span>{t.profile}</span>
               </button>
               {profileDropdownOpen && (
                 <div className="absolute top-[170%] left-0 mt-2 w-80 bg-[#111] rounded-b-[3px] shadow-xl z-50 text-white">
@@ -737,10 +877,10 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     </div>
                     <div>
                       <div className="font-[500] text-sm">
-                        Username: {userData?.username || "N/A"}
+                        {t.username}: {userData?.username || "N/A"}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Player ID: {userData?.player_id || "N/A"}
+                        {t.playerId}: {userData?.player_id || "N/A"}
                       </div>
                     </div>
                   </div>
@@ -769,7 +909,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                       className="flex items-center justify-center gap-2 w-full py-2 text-sm rounded-md border border-[#333] text-gray-300 hover:bg-[#222] hover:text-white transition"
                       onClick={logout}
                     >
-                      <FiLogOut /> Log out
+                      <FiLogOut /> {t.logout}
                     </button>
                   </div>
                 </div>
@@ -778,6 +918,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           )}
         </div>
         <div className="flex items-center space-x-3">
+
+          {/* ── Language Toggle — desktop only ────────────────────────────── */}
+          <div className="hidden md:flex items-center">
+            <LanguageToggle isBangla={isBangla} onToggle={handleLanguageToggle} />
+          </div>
+          {/* ──────────────────────────────────────────────────────────────── */}
+
           {isLoggedIn ? (
             <>
               {/* Desktop View */}
@@ -797,9 +944,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={refreshBalance}
                     disabled={isRefreshingBalance}
-                    aria-label="Refresh balance"
+                    aria-label={t.refreshBalance}
                   >
-                    <FiRefreshCw 
+                    <FiRefreshCw
                       className={`w-4 h-4 ${isRefreshingBalance ? 'animate-spin' : ''}`}
                     />
                   </button>
@@ -809,13 +956,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     to="/member/withdraw"
                     className="text-white text-[12px] md:text-sm px-5 py-2 border-[1px] cursor-pointer border-gray-700 rounded hover:bg-[#333] transition-all duration-200"
                   >
-                    Withdrawal
+                    {t.withdrawal}
                   </NavLink>
                   <NavLink
                     to="/member/deposit"
                     className="bg-theme_color text-[12px] md:text-sm px-5 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
                   >
-                    Deposit
+                    {t.deposit}
                   </NavLink>
                 </div>
               </div>
@@ -830,16 +977,16 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                       alt="BDT"
                     />
                     <span className="text-white min-w-[40px]">
-                     {parseFloat(userData?.balance || 0).toFixed(2)}
+                      {parseFloat(userData?.balance || 0).toFixed(2)}
                     </span>
                   </div>
                   <button
                     className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={refreshBalance}
                     disabled={isRefreshingBalance}
-                    aria-label="Refresh balance"
+                    aria-label={t.refreshBalance}
                   >
-                    <FiRefreshCw 
+                    <FiRefreshCw
                       className={`w-4 h-4 ${isRefreshingBalance ? 'animate-spin' : ''}`}
                     />
                   </button>
@@ -848,7 +995,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   to="/member/deposit"
                   className="bg-theme_color text-[12px] px-3 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
                 >
-                  Deposit
+                  {t.deposit}
                 </NavLink>
               </div>
             </>
@@ -858,13 +1005,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 to="/login"
                 className="text-white text-[12px] md:text-sm px-5 py-2 border-[1px] cursor-pointer border-gray-700 rounded hover:bg-[#333] transition-all duration-200"
               >
-                Log in
+                {t.login}
               </NavLink>
               <NavLink
                 to="/register"
                 className="bg-theme_color text-[12px] md:text-sm px-5 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
               >
-                Sign up
+                {t.signup}
               </NavLink>
             </>
           )}
@@ -897,10 +1044,28 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             >
               <span className="bg-[#222424] text-[16px] px-2 py-2.5 mt-3 rounded-[3px] text-center flex justify-center items-center gap-3 cursor-pointer hover:bg-[#2a2a2a] transition">
                 <MdSupportAgent className="text-white text-[20px]" />
-                <span className="text-[13px]">24/7 Live Chat</span>
+                <span className="text-[13px]">{t.liveChat}</span>
               </span>
             </a>
           </div>
+
+          {/* ── Language Toggle in Sidebar ────────────────────────────────── */}
+          <div className="px-4 py-3 border-b border-[#2a2a2a]">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">{t.language}</span>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: "11px", fontWeight: 600, color: !isBangla ? "#fff" : "#666", transition: "color 0.25s" }}>
+                  EN
+                </span>
+                <LanguageToggle isBangla={isBangla} onToggle={handleLanguageToggle} compact />
+                <span style={{ fontSize: "11px", fontWeight: 600, color: isBangla ? "#fff" : "#666", transition: "color 0.25s" }}>
+                  বাং
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* ──────────────────────────────────────────────────────────────── */}
+
           <div className="p-[10px]">
             <img className="w-full" src={banner} alt="" />
           </div>
@@ -909,11 +1074,11 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           <div className="px-2 mt-4">
             <button
               className="flex items-center p-3 rounded w-full bg-gradient-to-r from-theme_color/20 to-theme_color/10 text-theme_color cursor-pointer hover:bg-theme_color/30 transition-all duration-200 border border-theme_color/30"
-              onClick={()=>{downloadFileAtURL(APK_FILE)}}
+              onClick={() => { downloadFileAtURL(APK_FILE) }}
             >
               <FaMobileAlt className="w-6 h-6 min-w-[24px]" />
               <div className="flex items-center ml-3 w-full">
-                <span className="text-sm font-semibold flex-grow">Download App Now</span>
+                <span className="text-sm font-semibold flex-grow">{t.downloadAppNow}</span>
                 <FaChevronRight className="text-xs" />
               </div>
             </button>
@@ -922,10 +1087,10 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           <div className="space-y-1 px-2 mt-[15px]">
             {isLoadingCategories && (
               <div className="text-center py-4 text-gray-400 text-sm">
-                Loading categories...
+                {t.loadingCategories}
               </div>
             )}
-            
+
             {/* Categories List - Exclusive always at top */}
             {categories.map((category, index) => (
               <div key={index}>
@@ -940,7 +1105,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     alt={category.name}
                     className="w-5 h-5 min-w-[20px]"
                     onError={(e) => {
-                      // Fallback for broken images
                       e.target.onerror = null;
                       e.target.src = `https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc`;
                     }}
@@ -965,10 +1129,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     <div className="ml-2 mt-1 mb-2">
                       {sidebarLoading ? (
                         <div className="p-4 text-center text-[12px] text-gray-400">
-                          Loading...
+                          {t.loading}
                         </div>
                       ) : category.name.toLowerCase() === "exclusive" ? (
-                        // Exclusive Games Grid - Similar to Category Page
                         <div className="grid grid-cols-2 md:grid-cols-2 gap-2 p-2">
                           {exclusiveGames.map((game, gameIndex) => (
                             <div
@@ -976,7 +1139,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                               className="flex flex-col items-center rounded-[3px] transition-all cursor-pointer group"
                               onClick={() => handleGameClick(game)}
                             >
-                              {/* Game Image Container with fixed aspect ratio (Portrait) */}
                               <div className="game-image-container w-full mb-2">
                                 <img
                                   src={getGameImageUrl(game)}
@@ -987,7 +1149,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                                   }}
                                 />
                               </div>
-                              {/* Game Name */}
                               <div className="w-full pt-1">
                                 <span className="text-xs text-gray-400 truncate block text-center">
                                   {game.name || game.gameName || "Game"}
@@ -997,7 +1158,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           ))}
                         </div>
                       ) : (
-                        // Providers List for Non-Exclusive Categories
                         <div className="space-y-1">
                           {providers.map((provider, providerIndex) => (
                             <div
@@ -1027,15 +1187,14 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           <div className="border-t border-[#222424] my-4 mx-2"></div>
           <div className="px-2 mb-2">
             <div className="flex justify-between items-center p-2">
-              <span className="text-sm font-medium">Promotions</span>
+              <span className="text-sm font-medium">{t.promotions}</span>
               <NavLink
                 to="/promotions"
                 className="text-xs text-theme_color2 underline cursor-pointer"
               >
-                View all
+                {t.viewAll}
               </NavLink>
             </div>
-            
           </div>
 
           <div className="border-t border-[#222424] my-4 mx-2"></div>
@@ -1064,9 +1223,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     <span className="text-sm flex-grow whitespace-nowrap">
                       {item.title}
                     </span>
-                    
                     <div className="flex items-center">
-                      {/* Always show chevron for all menu items */}
                       {item.isContact && activeMenu === item.title ? (
                         <FaChevronDown className="text-xs text-gray-400 transition-transform duration-200" />
                       ) : (
@@ -1075,13 +1232,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Contact Us Submenu */}
                 {item.isContact && activeMenu === item.title && (
                   <div className="pl-3 mb-2 space-y-2 animate-fadeIn">
                     {loadingSocialLinks ? (
                       <div className="p-2 text-center">
-                        <div className="text-xs text-gray-400">Loading contact options...</div>
+                        <div className="text-xs text-gray-400">{t.loadingContactOptions}</div>
                       </div>
                     ) : socialLinks.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3 p-2">
@@ -1089,8 +1246,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           let bgColor = "";
                           let iconColor = "";
                           let textColor = "";
-                          
-                          // Set different colors based on platform
+
                           switch(contact.platform.toLowerCase()) {
                             case 'whatsapp':
                               bgColor = "bg-gradient-to-r from-green-900/20 to-green-700/10";
@@ -1128,7 +1284,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                               iconColor = "text-gray-400";
                               textColor = "text-gray-300";
                           }
-                          
+
                           return (
                             <div
                               key={contactIndex}
@@ -1148,9 +1304,8 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                         })}
                       </div>
                     ) : (
-                      // Fallback if no social links - Colorful design
+                      // Fallback grid
                       <div className="grid grid-cols-2 gap-3 p-2">
-                        {/* WhatsApp */}
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-green-900/20 to-green-700/10 border border-green-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("https://wa.me/+4407386588951", "_blank")}
@@ -1158,10 +1313,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           <div className="mb-2">
                             <FaWhatsapp className="text-2xl text-green-400" />
                           </div>
-                          <span className="text-xs font-medium text-green-300">WhatsApp</span>
+                          <span className="text-xs font-medium text-green-300">{t.whatsapp}</span>
                         </div>
-                        
-                        {/* Email */}
+
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-blue-900/20 to-blue-700/10 border border-blue-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("mailto:support@yourdomain.com", "_blank")}
@@ -1169,10 +1323,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           <div className="mb-2">
                             <FaEnvelope className="text-2xl text-blue-400" />
                           </div>
-                          <span className="text-xs font-medium text-blue-300">Email</span>
+                          <span className="text-xs font-medium text-blue-300">{t.email}</span>
                         </div>
-                        
-                        {/* Facebook */}
+
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-indigo-900/20 to-indigo-700/10 border border-indigo-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("https://facebook.com", "_blank")}
@@ -1180,10 +1333,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           <div className="mb-2">
                             <FaFacebook className="text-2xl text-indigo-400" />
                           </div>
-                          <span className="text-xs font-medium text-indigo-300">Facebook</span>
+                          <span className="text-xs font-medium text-indigo-300">{t.facebook}</span>
                         </div>
-                        
-                        {/* Instagram */}
+
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-pink-900/20 to-purple-700/10 border border-pink-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("https://instagram.com", "_blank")}
@@ -1191,10 +1343,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           <div className="mb-2">
                             <FaInstagram className="text-2xl text-pink-400" />
                           </div>
-                          <span className="text-xs font-medium text-pink-300">Instagram</span>
+                          <span className="text-xs font-medium text-pink-300">{t.instagram}</span>
                         </div>
-                        
-                        {/* Telegram */}
+
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-sky-900/20 to-sky-700/10 border border-sky-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("https://t.me/bajiman", "_blank")}
@@ -1202,10 +1353,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           <div className="mb-2">
                             <FaTelegram className="text-2xl text-sky-400" />
                           </div>
-                          <span className="text-xs font-medium text-sky-300">Telegram</span>
+                          <span className="text-xs font-medium text-sky-300">{t.telegram}</span>
                         </div>
-                        
-                        {/* Twitter/X */}
+
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-gray-900/20 to-gray-700/10 border border-gray-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("https://twitter.com", "_blank")}
@@ -1213,7 +1363,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                           <div className="mb-2">
                             <FaTwitter className="text-2xl text-gray-400" />
                           </div>
-                          <span className="text-xs font-medium text-gray-300">Twitter</span>
+                          <span className="text-xs font-medium text-gray-300">{t.twitter}</span>
                         </div>
                       </div>
                     )}
@@ -1242,17 +1392,17 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 <img src={logo} className="w-[60px]" alt="" />
               </div>
               <div>
-                <h3 className="text-white text-sm font-[500]">Download Our App</h3>
-                <p className="text-gray-400 text-xs">Better experience & exclusive bonuses</p>
+                <h3 className="text-white text-sm font-[500]">{t.downloadOurApp}</h3>
+                <p className="text-gray-400 text-xs">{t.betterExperience}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <button
-                onClick={()=>{downloadFileAtURL(APK_FILE)}}
+                onClick={() => { downloadFileAtURL(APK_FILE) }}
                 className="bg-theme_color cursor-pointer hover:bg-theme_color/90 text-white text-xs font-medium py-2 px-3 rounded transition-colors"
               >
-                Download
-              </button> 
+                {t.download}
+              </button>
               <button
                 onClick={handleCloseBanner}
                 className="text-gray-400 cursor-pointer hover:text-white p-1 transition-colors"
@@ -1266,7 +1416,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       )}
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-[#333] z-50" 
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-[#333] z-50"
            style={showMobileAppBanner ? { bottom: '80px' } : {}}>
         <div className="flex justify-around items-center py-2">
           <button
@@ -1274,7 +1424,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             className="flex flex-col items-center cursor-pointer justify-center p-2 text-xs text-gray-400 hover:text-yellow-400 transition-colors"
           >
             <img src={menu_img} alt="Menu" className="h-6 w-6 mb-1" />
-            <span>Menu</span>
+            <span>{t.menu}</span>
           </button>
           <NavLink
             to="/casino"
@@ -1282,7 +1432,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             onClick={() => setSidebarOpen(false)}
           >
             <img src={casino_img} alt="Casino" className="h-6 w-6 mb-1" />
-            <span>Casino</span>
+            <span>{t.casino}</span>
           </NavLink>
           <NavLink
             to="/slots"
@@ -1290,7 +1440,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             onClick={() => setSidebarOpen(false)}
           >
             <img src={slot_img} alt="Slots" className="h-6 w-6 mb-1" />
-            <span>Slots</span>
+            <span>{t.slots}</span>
           </NavLink>
 
           {/* Download App Button in Mobile Bottom Bar */}
@@ -1299,7 +1449,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             className="flex flex-col items-center justify-center p-2 text-xs text-theme_color hover:text-yellow-400 transition-colors"
           >
             <FaMobileAlt className="h-6 w-6 mb-1" />
-            <span>App</span>
+            <span>{t.app}</span>
           </button>
 
           {isLoggedIn ? (
@@ -1309,7 +1459,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
               onClick={() => setSidebarOpen(false)}
             >
               <img src={profile_img} alt="Profile" className="h-6 w-6 mb-1" />
-              <span>Profile</span>
+              <span>{t.profile}</span>
             </NavLink>
           ) : (
             <NavLink
@@ -1322,36 +1472,36 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 alt="Promotions"
                 className="h-6 w-6 mb-1"
               />
-              <span>Promotions</span>
+              <span>{t.promotions}</span>
             </NavLink>
           )}
         </div>
       </div>
 
       {/* WhatsApp & Telegram Floating Buttons - Vertical Stack */}
-      <div className="fixed bottom-25 md:bottom-20 right-4 z-[1000] flex flex-col gap-4">
+      <div className="fixed bottom-25 md:bottom-20 right-4 z-[1000] flex flex-col gap-2">
         {/* Telegram Button - Top */}
         <a
           href="https://t.me/bajiman"
           target="_blank"
           rel="noopener noreferrer"
-          className="border-[1px] border-gray-200 bg-blue-500 p-4 rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300 animate-bounce hover:animate-pulse"
+          className="transition-all duration-300 animate-bounce hover:animate-pulse"
           aria-label="Join Telegram Channel"
           style={{ animationDelay: '0.1s' }}
         >
-          <FaTelegram className="text-white text-2xl" />
+         <img src={telegram_icon} className="w-[80px]" alt="" />
         </a>
-        
+
         {/* WhatsApp Button - Bottom */}
         <a
           href="https://wa.me/+4407386588951"
           target="_blank"
           rel="noopener noreferrer"
-          className="border-[1px] border-gray-200 bg-green-500 p-4 rounded-full shadow-lg hover:bg-green-600 transition-all duration-300 animate-bounce hover:animate-pulse"
+          className="transition-all duration-300 animate-bounce hover:animate-pulse"
           aria-label="Contact Support on WhatsApp"
           style={{ animationDelay: '0.2s' }}
         >
-          <FaWhatsapp className="text-white text-2xl" />
+                 <img src={whatsapp_icon} className="w-[80px]" alt="" />
         </a>
       </div>
 
@@ -1375,15 +1525,15 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 </svg>
               </div>
             </div>
-            <h2 className="text-white text-center text-lg font-semibold mb-2">Sign up successfully</h2>
+            <h2 className="text-white text-center text-lg font-semibold mb-2">{t.signupSuccess}</h2>
             <p className="text-gray-300 text-xs md:text-[15px] text-center mb-6">
-              Your registration is complete and get ready for the thrill of the game! The world of sports betting is now at your fingertips. Best of luck on your bets!
+              {t.signupSuccessMessage}
             </p>
             <NavLink
               to="/member/deposit"
               className="bg-theme_color text-center hover:bg-theme_color/90 text-[14px] text-white font-medium py-3 px-4 rounded-md transition-colors w-full block"
             >
-              Deposit now
+              {t.depositNow}
             </NavLink>
           </div>
         </div>

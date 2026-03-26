@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import videoBackgroundUrl from "../../assets/mainvideo.mp4";
 import { NavLink, useSearchParams } from 'react-router-dom';
 import logo from "../../assets/logo.png";
+import { LanguageContext } from "../../context/LanguageContext"; // ← import context
 
 export default function Register() {
+  // ── Translation hook ──────────────────────────────────────────────────────
+  const { t } = useContext(LanguageContext);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [phone, setPhone] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -171,7 +176,7 @@ export default function Register() {
       if (userResponse.data.success) {
         setReferralValid(true);
         setReferrerInfo(userResponse.data.referrer);
-        toast.success("Referral code is valid!", {
+        toast.success(t.toastReferralValid, {
           position: "top-right",
           autoClose: 3000,
         });
@@ -342,7 +347,7 @@ export default function Register() {
           otpRefs[0].current?.focus();
         }, 100);
         
-        toast.success('OTP sent to your phone!', {
+        toast.success(t.toastOtpSent, {
           position: "top-right",
           autoClose: 3000,
         });
@@ -363,7 +368,7 @@ export default function Register() {
       }
     } catch (error) {
       console.error('OTP request error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to send OTP. Please try again.';
+      const errorMessage = error.response?.data?.message || t.toastFailedSendOtp;
       setOtpError(errorMessage);
       toast.error(errorMessage);
       return false;
@@ -390,7 +395,7 @@ export default function Register() {
         setResendCooldown(60);
         setOtpDigits(["", "", "", "", "", ""]);
         
-        toast.success('OTP resent successfully!', {
+        toast.success(t.toastOtpResent, {
           position: "top-right",
           autoClose: 3000,
         });
@@ -425,7 +430,7 @@ export default function Register() {
     const fullOtp = getFullOtp();
     
     if (fullOtp.length !== 6) {
-      setOtpError("Please enter all 6 digits");
+      setOtpError(t.pleaseEnterAllDigits);
       return;
     }
 
@@ -454,19 +459,19 @@ export default function Register() {
       if (response.data.success) {
         setOtpVerified(true);
         
-        toast.success('Account created successfully!', {
+        toast.success(t.toastAccountCreated, {
           position: "top-right",
           autoClose: 3000,
         });
 
         // Show appropriate referral success message
         if (response.data.user.isAffiliateReferred) {
-          toast.success('Welcome! You were referred by an affiliate.', {
+          toast.success(t.toastAffiliateWelcome, {
             position: "top-right",
             autoClose: 3000,
           });
         } else if (response.data.user.isUserReferred) {
-          toast.success('Welcome! Your referral has been recorded.', {
+          toast.success(t.toastUserReferralWelcome, {
             position: "top-right",
             autoClose: 3000,
           });
@@ -537,7 +542,7 @@ export default function Register() {
       });
 
       if (response.data.success) {
-        toast.success('Login successful!', {
+        toast.success(t.toastLoginSuccess, {
           position: "top-right",
           autoClose: 3000,
         });
@@ -602,7 +607,7 @@ export default function Register() {
           otpRefs[0].current?.focus();
         }, 100);
         
-        toast.success('OTP sent to your phone!', {
+        toast.success(t.toastOtpSent, {
           position: "top-right",
           autoClose: 3000,
         });
@@ -645,7 +650,7 @@ export default function Register() {
     }
 
     if (fullOtp.length !== 6) {
-      setLoginError("Please enter all 6 digits");
+      setLoginError(t.pleaseEnterAllDigits);
       return;
     }
 
@@ -659,7 +664,7 @@ export default function Register() {
       });
 
       if (response.data.success) {
-        toast.success('Login successful!', {
+        toast.success(t.toastLoginSuccess, {
           position: "top-right",
           autoClose: 3000,
         });
@@ -778,7 +783,7 @@ export default function Register() {
                 }} 
                 className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${!isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
-                Log in
+                {t.tabLogin}
               </button>
               <button 
                 onClick={() => {
@@ -790,7 +795,7 @@ export default function Register() {
                 }} 
                 className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
-                Sign up
+                {t.tabSignup}
               </button>
             </div>
 
@@ -800,7 +805,7 @@ export default function Register() {
                 <form onSubmit={handleSignUpSubmit}>
                   {/* Phone Number Input - Always visible */}
                   <div className="mb-4">
-                    <label htmlFor="phone" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Phone number</label>
+                    <label htmlFor="phone" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">{t.phoneNumber}</label>
                     <div className="flex items-stretch bg-[#222424] overflow-hidden hover:border-gray-600 transition-colors">
                       {/* Country Code with Flag */}
                       <div className="flex items-center px-2 md:px-3 rounded-l border-r border-gray-700">
@@ -816,7 +821,7 @@ export default function Register() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                           className="w-full py-2 md:py-3.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
-                          placeholder="Enter phone number"
+                          placeholder={t.enterPhoneNumber}
                           disabled={isLoading || otpSent}
                         />
                       </div>
@@ -829,42 +834,42 @@ export default function Register() {
                     <>
                       {/* Username Input */}
                       <div className="mb-4">
-                        <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">Username</label>
+                        <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">{t.usernameLabel}</label>
                         <input
                           type="text"
                           id="username"
                           value={username}
                           onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                           className="w-full p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
-                          placeholder="Enter your username"
+                          placeholder={t.enterUsername}
                           disabled={isLoading}
                         />
                       </div>
 
                       {/* Password Input */}
                       <div className="mb-4">
-                        <label htmlFor="password" className="block text-sm md:text-sm text-gray-200 mb-2">Password</label>
+                        <label htmlFor="password" className="block text-sm md:text-sm text-gray-200 mb-2">{t.passwordLabel}</label>
                         <input
                           type="password"
                           id="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           className="w-full p-2 md:p-4 text-sm font-[300] bg-[#222424] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
-                          placeholder="Create a password"
+                          placeholder={t.createPassword}
                           disabled={isLoading}
                         />
                       </div>
 
                       {/* Confirm Password Input */}
                       <div className="mb-4">
-                        <label htmlFor="confirmPassword" className="block text-sm md:text-sm text-gray-200 mb-2">Confirm Password</label>
+                        <label htmlFor="confirmPassword" className="block text-sm md:text-sm text-gray-200 mb-2">{t.confirmPasswordLabel}</label>
                         <input
                           type="password"
                           id="confirmPassword"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           className="w-full p-2 md:p-4 text-sm font-[300] bg-[#222424] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
-                          placeholder="Confirm your password"
+                          placeholder={t.confirmPasswordPlaceholder}
                           disabled={isLoading}
                         />
                       </div>
@@ -872,7 +877,7 @@ export default function Register() {
                       {/* Referral Code Input */}
                       <div className="mb-4">
                         <label htmlFor="referralCode" className="block text-sm md:text-sm font-[300] text-gray-200 mb-2">
-                          Referral Code (Optional)
+                          {t.referralCodeLabel}
                         </label>
                         <div className="flex gap-2">
                           <input
@@ -885,7 +890,7 @@ export default function Register() {
                               setReferrerInfo(null);
                             }}
                             className="flex-1 p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none focus:border-green-500 hover:border-gray-600 transition-colors"
-                            placeholder="Enter referral code"
+                            placeholder={t.enterReferralCode}
                             disabled={referralValid || isLoading}
                           />
                           {!referralValid && (
@@ -895,7 +900,7 @@ export default function Register() {
                               disabled={isCheckingReferral || !referralCode || isLoading}
                               className="px-3 md:px-4 bg-[#0C4D38] text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
                             >
-                              {isCheckingReferral ? 'Checking...' : 'Verify'}
+                              {isCheckingReferral ? t.checkingBtn : t.verifyBtn}
                             </button>
                           )}
                           {referralValid && (
@@ -909,14 +914,14 @@ export default function Register() {
                               className="px-3 md:px-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg text-sm font-[500] hover:from-red-700 hover:to-red-800 transition-all shadow-md"
                               disabled={isLoading}
                             >
-                              Change
+                              {t.changeBtn}
                             </button>
                           )}
                         </div>
                         {referralError && <p className="text-red-400 text-xs mt-1">{referralError}</p>}
                         {referralValid && referrerInfo && (
                           <p className="text-green-400 text-xs mt-1">
-                            ✅ Valid referral code from {referrerInfo.username}
+                            {t.validReferralCode} {referrerInfo.username}
                           </p>
                         )}
                       </div>
@@ -927,7 +932,7 @@ export default function Register() {
                   {otpSent && !otpVerified && (
                     <div className="mb-6 p-5 bg-[#1a1c1d] rounded-lg border border-gray-700">
                       <label className="block text-sm md:text-sm text-gray-200 mb-4 font-[300] text-center">
-                        Enter 6-digit OTP sent to +880{phone}
+                        {t.otpSentTo} +880{phone}
                       </label>
                       
                       {/* 6-digit OTP Input Fields */}
@@ -953,9 +958,9 @@ export default function Register() {
                       <div className="flex justify-between items-center">
                         <div className="text-sm text-gray-400">
                           {timeLeft > 0 ? (
-                            <span>Expires in: <span className="text-yellow-400 font-mono">{formatTimeLeft(timeLeft)}</span></span>
+                            <span>{t.otpExpiresIn} <span className="text-yellow-400 font-mono">{formatTimeLeft(timeLeft)}</span></span>
                           ) : (
-                            <span className="text-red-400">OTP expired</span>
+                            <span className="text-red-400">{t.otpExpired}</span>
                           )}
                         </div>
                         
@@ -965,7 +970,7 @@ export default function Register() {
                             onClick={cancelOTPVerification}
                             className="text-sm text-gray-400 hover:text-white px-3 py-1 border border-gray-600 rounded hover:border-gray-500 transition-colors"
                           >
-                            Back
+                            {t.backBtn}
                           </button>
                           
                           <button
@@ -978,7 +983,7 @@ export default function Register() {
                                 : 'text-gray-600 border border-gray-700 cursor-not-allowed'
                             }`}
                           >
-                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+                            {resendCooldown > 0 ? `${t.resendIn} ${resendCooldown}s` : t.resendOtp}
                           </button>
                         </div>
                       </div>
@@ -997,9 +1002,9 @@ export default function Register() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {otpSent ? 'Verifying OTP...' : 'Sending OTP...'}
+                        {otpSent ? t.verifyingOtpBtn : t.sendingOtpBtn}
                       </span>
-                    ) : otpSent ? 'Verify OTP & Create Account' : 'Send OTP'}
+                    ) : otpSent ? t.verifyOtpBtn : t.sendOtpBtn}
                   </button>
 
                   {signupError && !otpSent && <p className="text-red-400 text-xs mt-3 text-center">{signupError}</p>}
@@ -1009,7 +1014,7 @@ export default function Register() {
                 <form onSubmit={handleLoginSubmit}>
                   {/* Username Input for Login */}
                   <div className="mb-4">
-                    <label htmlFor="loginUsername" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Username</label>
+                    <label htmlFor="loginUsername" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">{t.usernameLabel}</label>
                     <div className="flex items-stretch bg-[#222424] overflow-hidden hover:border-gray-600 transition-colors">
                       <div className="flex items-center px-3 rounded-l border-r border-gray-700">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1023,7 +1028,7 @@ export default function Register() {
                           value={loginUsername}
                           onChange={(e) => setLoginUsername(e.target.value)}
                           className="w-full py-2 md:py-3.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
-                          placeholder="Enter your username"
+                          placeholder={t.enterYourUsername}
                           disabled={isLoading}
                         />
                       </div>
@@ -1032,7 +1037,7 @@ export default function Register() {
 
                   {/* Password Input for Login */}
                   <div className="mb-4">
-                    <label htmlFor="loginPassword" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">Password</label>
+                    <label htmlFor="loginPassword" className="block text-sm md:text-sm text-gray-200 mb-2 font-[300]">{t.passwordLabel}</label>
                     <div className="flex items-stretch bg-[#222424] overflow-hidden hover:border-gray-600 transition-colors">
                       <div className="flex items-center px-3 rounded-l border-r border-gray-700">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1046,7 +1051,7 @@ export default function Register() {
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           className="w-full py-2 md:py-3.5 bg-transparent font-[400] text-white font-[300] focus:outline-none placeholder-gray-500 text-sm md:text-base"
-                          placeholder="Enter your password"
+                          placeholder={t.enterYourPassword}
                           disabled={isLoading}
                         />
                       </div>
@@ -1070,21 +1075,21 @@ export default function Register() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Logging in...
+                        {t.loggingInBtn}
                       </span>
-                    ) : 'Login'}
+                    ) : t.loginBtn}
                   </button>
 
                   {/* Forgot Password Link */}
                   <div className="mt-4 text-right">
                     <NavLink to="/forgot-password" className="text-xs md:text-sm text-green-400 hover:text-green-300 hover:underline transition-colors">
-                      Forgot password?
+                      {t.forgotPassword}
                     </NavLink>
                   </div>
 
                   <div className="mt-4 text-center">
                     <p className="text-gray-400 text-xs">
-                      Don't have an account?{' '}
+                      {t.noAccount}{' '}
                       <button
                         type="button"
                         onClick={() => {
@@ -1097,7 +1102,7 @@ export default function Register() {
                         }}
                         className="text-green-400 hover:text-green-300 font-medium hover:underline transition-colors"
                       >
-                        Sign up here
+                        {t.signUpHere}
                       </button>
                     </p>
                   </div>

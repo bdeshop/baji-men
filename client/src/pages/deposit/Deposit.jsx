@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Header } from "../../components/header/Header";
 import Sidebar from "../../components/sidebar/Sidebar";
 import Footer from "../../components/footer/Footer";
 import axios from "axios";
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
+import { LanguageContext } from "../../context/LanguageContext"; // Adjust path as needed
 
 const Deposit = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +27,9 @@ const Deposit = () => {
   const [bonusLoading, setBonusLoading] = useState(false);
   const [selectedBonus, setSelectedBonus] = useState(null);
   const navigate = useNavigate();
+  
+  // Get translation function from context
+  const { t } = useContext(LanguageContext);
 
   const quickAmounts = [300, 500, 1000, 2000, 5000];
 
@@ -43,14 +47,14 @@ const Deposit = () => {
         }
       } catch (err) {
         console.error("Error fetching deposit methods:", err);
-        setError("Failed to load deposit methods");
+        setError(t.failedToFetchDepositMethods || "Failed to load deposit methods");
       } finally {
         setLoadingMethods(false);
       }
     };
 
     fetchDepositMethods();
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, t]);
 
   // Fetch user data
   useEffect(() => {
@@ -72,7 +76,7 @@ const Deposit = () => {
           setError(response.data.message);
         }
       } catch (err) {
-        setError("Failed to fetch user data");
+        setError(t.failedToFetchUserData || "Failed to fetch user data");
         console.error("Error fetching user data:", err);
       } finally {
         setLoading(false);
@@ -80,7 +84,7 @@ const Deposit = () => {
     };
 
     fetchUserData();
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, t]);
 
   // Fetch available bonuses
   useEffect(() => {
@@ -185,18 +189,18 @@ const Deposit = () => {
     // Validate form
     const errors = {};
     if (!activeMethod) {
-      errors.method = "Please select a payment method";
+      errors.method = t.pleaseSelectPaymentMethod || "Please select a payment method";
     }
     if (!amount) {
-      errors.amount = "Amount is required";
+      errors.amount = t.amountRequired || "Amount is required";
     } else if (parseFloat(amount) < 5) {
-      errors.amount = "Minimum deposit amount is ৳5";
+      errors.amount = t.minDepositAmount || "Minimum deposit amount is ৳5";
     } else if (!/^\d+$/.test(amount)) {
-      errors.amount = "Amount must be a whole number";
+      errors.amount = t.amountMustBeWholeNumber || "Amount must be a whole number";
     } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 5)) {
-      errors.amount = `Minimum deposit amount is ৳${activeMethod?.minAmount || 5}`;
+      errors.amount = `${t.minDepositAmount || "Minimum deposit amount is"} ৳${activeMethod?.minAmount || 5}`;
     } else if (parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 50000)) {
-      errors.amount = `Maximum deposit amount is ৳${activeMethod?.maxAmount || 50000}`;
+      errors.amount = `${t.maxDepositAmount || "Maximum deposit amount is"} ৳${activeMethod?.maxAmount || 50000}`;
     }
 
     setFormErrors(errors);
@@ -321,7 +325,7 @@ const Deposit = () => {
         // Show success message
         setTransactionStatus({
           success: true,
-          message: "Redirecting to payment page..."
+          message: t.redirectingToPaymentPage || "Redirecting to payment page..."
         });
 
         // Redirect to OraclePay payment page
@@ -330,20 +334,20 @@ const Deposit = () => {
         }, 1500);
 
       } else {
-        throw new Error(oraclePayResponse.data.message || "Failed to generate payment");
+        throw new Error(oraclePayResponse.data.message || t.failedToGeneratePayment || "Failed to generate payment");
       }
       
     } catch (err) {
       console.error("OraclePay payment generation error:", err);
       
-      let errorMessage = "Payment generation failed. Please try again.";
+      let errorMessage = t.paymentGenerationFailed || "Payment generation failed. Please try again.";
       
       if (err.response?.status === 400) {
-        errorMessage = err.response.data?.message || "Invalid payment request. Please check your input.";
+        errorMessage = err.response.data?.message || t.invalidPaymentRequest || "Invalid payment request. Please check your input.";
       } else if (err.response?.status === 401) {
-        errorMessage = "Invalid API token. Please contact support.";
+        errorMessage = t.invalidApiToken || "Invalid API token. Please contact support.";
       } else if (err.response?.status === 403) {
-        errorMessage = "Access denied. Please contact support.";
+        errorMessage = t.accessDenied || "Access denied. Please contact support.";
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -383,7 +387,7 @@ const Deposit = () => {
       const token = localStorage.getItem("usertoken");
 
       if (!token) {
-        setError("Authentication token not found");
+        setError(t.authenticationTokenNotFound || "Authentication token not found");
         return;
       }
 
@@ -400,13 +404,13 @@ const Deposit = () => {
         setUserData(response.data.data);
         setTransactionStatus({
           success: true,
-          message: "Balance updated successfully!"
+          message: t.balanceUpdatedSuccessfully || "Balance updated successfully!"
         });
         setTimeout(() => setTransactionStatus(null), 3000);
       }
     } catch (err) {
       console.error("Error refreshing balance:", err);
-      setError("Failed to refresh balance");
+      setError(t.failedToRefreshBalance || "Failed to refresh balance");
     }
   };
 
@@ -438,7 +442,7 @@ const Deposit = () => {
   // Format date
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(t.dateFormatLocale || 'en-US', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -453,10 +457,10 @@ const Deposit = () => {
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
     
-    if (diffInSeconds < 60) return 'just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-    return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    if (diffInSeconds < 60) return t.justNow || 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} ${t.minutesAgo || 'minutes ago'}`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ${t.hoursAgo || 'hours ago'}`;
+    return `${Math.floor(diffInSeconds / 86400)} ${t.daysAgo || 'days ago'}`;
   };
 
   // Calculate total with selected bonus
@@ -482,13 +486,13 @@ const Deposit = () => {
               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <p className="text-lg font-medium mb-2">Error</p>
+          <p className="text-lg font-medium mb-2">{t.error || "Error"}</p>
           <p>{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 bg-[#2a5c45] hover:bg-[#3a6c55] px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            Try Again
+            {t.tryAgain || "Try Again"}
           </button>
         </div>
       </div>
@@ -513,10 +517,10 @@ const Deposit = () => {
           <div className="max-w-6xl mx-auto py-4 md:py-8 p-3 md:p-6">
             <div className="mb-6 md:mb-8">
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold mb-2 text-white">
-                Deposit Funds
+                {t.depositFunds || "Deposit Funds"}
               </h1>
               <p className="text-sm md:text-base text-[#8a9ba8]">
-                Add money to your account using OraclePay secure payment gateway
+                {t.depositDescription || "Add money to your account using OraclePay secure payment gateway"}
               </p>
             </div>
 
@@ -524,23 +528,23 @@ const Deposit = () => {
             {userData && (
               <div className="bg-[#1a1f1f] rounded-[2px] p-4 md:p-6 mb-6 md:mb-8 border border-[#2a2f2f] shadow-lg">
                 <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 text-white">
-                  Account Information
+                  {t.accountInformation || "Account Information"}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                   <div>
-                    <p className="text-xs md:text-sm text-[#8a9ba8]">Player ID</p>
+                    <p className="text-xs md:text-sm text-[#8a9ba8]">{t.playerId || "Player ID"}</p>
                     <p className="text-sm md:text-base font-medium text-white">
                       {userData.player_id}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs md:text-sm text-[#8a9ba8]">Username</p>
+                    <p className="text-xs md:text-sm text-[#8a9ba8]">{t.username || "Username"}</p>
                     <p className="text-sm md:text-base font-medium text-white">
                       {userData.username}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs md:text-sm text-[#8a9ba8]">Phone</p>
+                    <p className="text-xs md:text-sm text-[#8a9ba8]">{t.phone || "Phone"}</p>
                     <p className="text-sm md:text-base font-medium text-white">
                       {userData.phone}
                     </p>
@@ -554,14 +558,14 @@ const Deposit = () => {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0">
                 <div>
                   <p className="text-xs md:text-sm text-[#a8b9c6]">
-                    Current Balance
+                    {t.currentBalance || "Current Balance"}
                   </p>
                   <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white">
                     ৳ {userData ? userData.balance?.toLocaleString() : "0.00"}
                   </h2>
                   {userData?.bonusBalance > 0 && (
                     <p className="text-sm text-[#3a8a6f] mt-1">
-                      Bonus Balance: ৳{userData.bonusBalance?.toLocaleString()}
+                      {t.bonusBalance || "Bonus Balance"}: ৳{userData.bonusBalance?.toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -583,7 +587,7 @@ const Deposit = () => {
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
-                  Refresh Balance
+                  {t.refreshBalance || "Refresh Balance"}
                 </button>
               </div>
             </div>
@@ -597,7 +601,7 @@ const Deposit = () => {
                     <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent rounded-full border-t-[#3a8a6f] animate-spin"></div>
                   </div>
                   <div>
-                    <p className="text-[#8a9ba8] font-medium">Loading Deposit methods</p>
+                    <p className="text-[#8a9ba8] font-medium">{t.loadingDepositMethods || "Loading Deposit methods"}</p>
                   </div>
                 </div>
               </div>
@@ -617,7 +621,7 @@ const Deposit = () => {
                     d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <p className="text-[#8a9ba8]">No deposit methods available at the moment.</p>
+                <p className="text-[#8a9ba8]">{t.noDepositMethodsAvailable || "No deposit methods available at the moment."}</p>
               </div>
             ) : (
               /* Payment Methods and Form */
@@ -634,7 +638,7 @@ const Deposit = () => {
                         {/* Amount Field */}
                         <div className="mb-4 md:mb-6">
                           <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                            Amount (৳)
+                            {t.amountCurrency || "Amount (৳)"}
                             <span className="text-[#ff6b6b] ml-1">*</span>
                           </label>
                           <input
@@ -644,7 +648,7 @@ const Deposit = () => {
                                 ? "border-[#ff6b6b]"
                                 : "border-[#2a2f2f]"
                             }`}
-                            placeholder="Enter deposit amount (minimum ৳5)"
+                            placeholder={t.enterDepositAmount || "Enter deposit amount (minimum ৳5)"}
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             required
@@ -678,13 +682,13 @@ const Deposit = () => {
                         {/* Dynamic Bonus Selection */}
                         <div className="mb-4 md:mb-6">
                           <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                            Select Bonus (Optional)
+                            {t.selectBonusOptional || "Select Bonus (Optional)"}
                           </label>
                           
                           {bonusLoading ? (
                             <div className="text-center py-4">
                               <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-[#3a8a6f] border-r-transparent"></div>
-                              <p className="text-xs text-[#8a9ba8] mt-2">Loading bonuses...</p>
+                              <p className="text-xs text-[#8a9ba8] mt-2">{t.loadingBonuses || "Loading bonuses..."}</p>
                             </div>
                           ) : availableBonuses.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -699,10 +703,10 @@ const Deposit = () => {
                                 onClick={() => setSelectedBonus(null)}
                               >
                                 <span className="text-sm md:text-base font-medium">
-                                  No Bonus
+                                  {t.noBonus || "No Bonus"}
                                 </span>
                                 <span className="text-xs text-[#8a9ba8]">
-                                  Proceed without bonus
+                                  {t.proceedWithoutBonus || "Proceed without bonus"}
                                 </span>
                               </button>
 
@@ -734,7 +738,7 @@ const Deposit = () => {
                                       )}
                                     </div>
                                     <span className="text-xs text-[#8a9ba8] text-left w-full mt-1">
-                                      Code: {bonus.bonusCode}
+                                      {t.bonusCode || "Code"}: {bonus.bonusCode}
                                     </span>
                                     <span className="text-xs text-[#3a8a6f] text-left w-full">
                                       {bonus.description}
@@ -745,23 +749,23 @@ const Deposit = () => {
                             </div>
                           ) : (
                             <div className="text-center py-4 border border-[#2a2f2f] rounded-lg">
-                              <p className="text-sm text-[#8a9ba8]">No bonuses available at the moment.</p>
+                              <p className="text-sm text-[#8a9ba8]">{t.noBonusesAvailable || "No bonuses available at the moment."}</p>
                             </div>
                           )}
                         </div>
 
                         {/* Summary Section */}
                         <div className="mb-4 md:mb-6 p-4 bg-[#1a2a2a] rounded-lg border border-[#2a3535]">
-                          <h4 className="text-sm font-medium mb-3 text-white">Transaction Summary</h4>
+                          <h4 className="text-sm font-medium mb-3 text-white">{t.transactionSummary || "Transaction Summary"}</h4>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-[#8a9ba8]">Deposit Amount:</span>
+                              <span className="text-[#8a9ba8]">{t.depositAmount || "Deposit Amount"}:</span>
                               <span className="text-white">৳{parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             
                             {selectedBonus && amount && !isNaN(parseFloat(amount)) && (
                               <div className="flex justify-between">
-                                <span className="text-[#8a9ba8]">Bonus ({selectedBonus.name}):</span>
+                                <span className="text-[#8a9ba8]">{t.bonus || "Bonus"} ({selectedBonus.name}):</span>
                                 <span className="text-[#3a8a6f]">
                                   +৳{calculateBonusAmount(selectedBonus).toFixed(2)}
                                 </span>
@@ -770,7 +774,7 @@ const Deposit = () => {
                             
                             <div className="pt-2 border-t border-[#2a3535]">
                               <div className="flex justify-between font-medium">
-                                <span className="text-white">Total Credit:</span>
+                                <span className="text-white">{t.totalCredit || "Total Credit"}:</span>
                                 <span className="text-[#3a8a6f]">
                                   ৳{totalWithBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
@@ -808,10 +812,10 @@ const Deposit = () => {
                                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                   ></path>
                                 </svg>
-                                Processing...
+                                {t.processing || "Processing..."}
                               </>
                             ) : (
-                              `Proceed to ${activeMethod.gatewayName} Payment`
+                              `${t.proceedTo || "Proceed to"} ${activeMethod.gatewayName} ${t.payment || "Payment"}`
                             )}
                           </button>
                         </div>
@@ -893,17 +897,17 @@ const Deposit = () => {
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  How to deposit with OraclePay
+                  {t.howToDepositWithOraclePay || "How to deposit with OraclePay"}
                 </h3>
                 <ol className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3 list-decimal list-inside">
-                  <li>Select your preferred payment method</li>
-                  <li>Enter the amount you want to deposit (minimum ৳5)</li>
-                  <li>Select a bonus option if available (optional)</li>
-                  <li>Click "Proceed to [Payment Method] Payment"</li>
-                  <li>You will be redirected to OraclePay secure payment page</li>
-                  <li>Complete the payment using your chosen method</li>
-                  <li>After successful payment, you'll be redirected back</li>
-                  <li>Your balance will be updated automatically</li>
+                  <li>{t.selectPaymentMethod || "Select your preferred payment method"}</li>
+                  <li>{t.enterDepositAmountInstruction || "Enter the amount you want to deposit (minimum ৳5)"}</li>
+                  <li>{t.selectBonusIfAvailable || "Select a bonus option if available (optional)"}</li>
+                  <li>{t.clickProceedToPayment || `Click "Proceed to [Payment Method] Payment"`}</li>
+                  <li>{t.redirectedToOraclePay || "You will be redirected to OraclePay secure payment page"}</li>
+                  <li>{t.completePayment || "Complete the payment using your chosen method"}</li>
+                  <li>{t.redirectedBack || "After successful payment, you'll be redirected back"}</li>
+                  <li>{t.balanceUpdated || "Your balance will be updated automatically"}</li>
                 </ol>
               </div>
             )}
@@ -912,13 +916,13 @@ const Deposit = () => {
             <div className="bg-[#1a1f1f] rounded-[2px] overflow-hidden border border-[#2a2f2f]">
               <div className="p-4 md:p-6 border-b border-[#2a2f2f] flex justify-between items-center">
                 <h3 className="text-base md:text-lg font-semibold text-white">
-                  Recent Transactions
+                  {t.recentTransactions || "Recent Transactions"}
                 </h3>
                 <button 
                   onClick={() => navigate("/transactions")}
                   className="text-[#3a8a6f] text-xs md:text-sm hover:text-[#4a9a7f] transition-colors cursor-pointer"
                 >
-                  View All
+                  {t.viewAll || "View All"}
                 </button>
               </div>
               <div className="p-3 md:p-4">
@@ -998,7 +1002,7 @@ const Deposit = () => {
                                       ? "bg-yellow-900/30 text-yellow-400"
                                       : "bg-red-900/30 text-red-400"
                                   }`}>
-                                    {transaction.status}
+                                    {t[transaction.status] || transaction.status}
                                   </span>
                                 </div>
                                 <p className="text-xs text-[#8a9ba8] mt-1">
@@ -1006,12 +1010,12 @@ const Deposit = () => {
                                 </p>
                                 {transaction.transactionId && (
                                   <p className="text-xs text-[#5a6b78] mt-1">
-                                    ID: {transaction.transactionId}
+                                    {t.transactionId || "ID"}: {transaction.transactionId}
                                   </p>
                                 )}
                                 {transaction.oraclePaySessionCode && (
                                   <p className="text-xs text-[#3a8a6f] mt-1">
-                                    Session: {transaction.oraclePaySessionCode}
+                                    {t.session || "Session"}: {transaction.oraclePaySessionCode}
                                   </p>
                                 )}
                               </div>
@@ -1022,7 +1026,7 @@ const Deposit = () => {
                               </div>
                               {transaction.bonusAmount > 0 && (
                                 <div className="text-sm text-[#3a8a6f] font-medium mt-1">
-                                  +৳{transaction.bonusAmount?.toLocaleString()} Bonus
+                                  +৳{transaction.bonusAmount?.toLocaleString()} {t.bonus || "Bonus"}
                                 </div>
                               )}
                             </div>
@@ -1047,24 +1051,24 @@ const Deposit = () => {
                                   d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                 />
                               </svg>
-                              Bonus Details
+                              {t.bonusDetails || "Bonus Details"}
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
                               <div className="bg-[#1f2525] p-3 rounded">
-                                <p className="text-xs text-[#8a9ba8]">Bonus Type</p>
+                                <p className="text-xs text-[#8a9ba8]">{t.bonusType || "Bonus Type"}</p>
                                 <p className="text-sm font-medium text-white capitalize">
-                                  {transaction.bonusType || 'Standard Bonus'}
+                                  {transaction.bonusType || t.standardBonus || 'Standard Bonus'}
                                 </p>
                               </div>
                               <div className="bg-[#1f2525] p-3 rounded">
-                                <p className="text-xs text-[#8a9ba8]">Bonus Amount</p>
+                                <p className="text-xs text-[#8a9ba8]">{t.bonusAmount || "Bonus Amount"}</p>
                                 <p className="text-sm font-medium text-[#3a8a6f]">
                                   ৳{transaction.bonusAmount?.toLocaleString() || '0'}
                                 </p>
                               </div>
                               {transaction.wageringRequirement > 0 && (
                                 <div className="bg-[#1f2525] p-3 rounded">
-                                  <p className="text-xs text-[#8a9ba8]">Wagering Requirement</p>
+                                  <p className="text-xs text-[#8a9ba8]">{t.wageringRequirement || "Wagering Requirement"}</p>
                                   <p className="text-sm font-medium text-[#e6db74]">
                                     {transaction.wageringRequirement}x
                                   </p>
@@ -1073,7 +1077,7 @@ const Deposit = () => {
                             </div>
                             {transaction.bonusCode && (
                               <div className="mt-2 bg-[#1f2525] p-3 rounded">
-                                <p className="text-xs text-[#8a9ba8]">Bonus Code</p>
+                                <p className="text-xs text-[#8a9ba8]">{t.bonusCode || "Bonus Code"}</p>
                                 <p className="text-sm font-medium text-white">
                                   {transaction.bonusCode}
                                 </p>
@@ -1086,13 +1090,13 @@ const Deposit = () => {
                         <div className="p-4">
                           <div className="flex justify-between items-center">
                             <div>
-                              <p className="text-sm text-[#8a9ba8]">Total Credit</p>
+                              <p className="text-sm text-[#8a9ba8]">{t.totalCredit || "Total Credit"}</p>
                               <p className="text-lg font-bold text-[#3a8a6f]">
                                 ৳{(transaction.amount + (transaction.bonusAmount || 0)).toLocaleString()}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm text-[#8a9ba8]">Before Balance</p>
+                              <p className="text-sm text-[#8a9ba8]">{t.beforeBalance || "Before Balance"}</p>
                               <p className="text-sm font-medium text-white">
                                 ৳{transaction.playerbalance?.toLocaleString() || 'N/A'}
                               </p>
@@ -1101,7 +1105,7 @@ const Deposit = () => {
                           {transaction.completedAt && (
                             <div className="mt-3 pt-3 border-t border-[#2a2f2f]">
                               <p className="text-xs text-[#8a9ba8]">
-                                Completed: {formatDate(transaction.completedAt)}
+                                {t.completedAt || "Completed"}: {formatDate(transaction.completedAt)}
                               </p>
                             </div>
                           )}
@@ -1115,16 +1119,16 @@ const Deposit = () => {
                       <FaBangladeshiTakaSign className="text-2xl text-[#5a6b78]" />
                     </div>
                     <p className="text-base md:text-lg font-medium mb-2">
-                      No Recent Transactions
+                      {t.noRecentTransactions || "No Recent Transactions"}
                     </p>
                     <p className="text-sm text-[#5a6b78] max-w-md">
-                      Your deposit history will appear here once you make your first deposit.
+                      {t.depositHistoryWillAppear || "Your deposit history will appear here once you make your first deposit."}
                     </p>
                     <button
                       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                       className="mt-4 bg-[#2a5c45] hover:bg-[#3a6c55] px-6 py-2 rounded-lg text-sm font-medium transition-colors"
                     >
-                      Make Your First Deposit
+                      {t.makeFirstDeposit || "Make Your First Deposit"}
                     </button>
                   </div>
                 )}

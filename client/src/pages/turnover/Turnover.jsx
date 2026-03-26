@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
@@ -6,6 +6,7 @@ import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaCoins, FaRunning, F
 import { GiCash } from "react-icons/gi";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { LanguageContext } from "../../context/LanguageContext";
 
 const Turnover = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -19,6 +20,9 @@ const Turnover = () => {
     isCompleted: true,
     progress: 0
   });
+  
+  // Get language context
+  const { language, t } = useContext(LanguageContext);
   
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const token = localStorage.getItem('usertoken');
@@ -55,7 +59,7 @@ const Turnover = () => {
   // Fetch user data
   const fetchUserData = async () => {
     if (!token) {
-      setError("Please login to view your profile");
+      setError(t?.pleaseLoginToViewProfile || "Please login to view your profile");
       setLoading(false);
       navigate("/login");
       return;
@@ -87,7 +91,7 @@ const Turnover = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError("Failed to fetch user data");
+      setError(t?.failedToFetchUserData || "Failed to fetch user data");
       console.error("Error fetching data:", err);
       if (err.response?.status === 401) {
         navigate("/login");
@@ -107,7 +111,7 @@ const Turnover = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(language.code === 'bn' ? 'bn-BD' : 'en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount || 0);
@@ -132,9 +136,9 @@ const Turnover = () => {
             {/* Title */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold mb-1">Turnover Requirement</h2>
+                <h2 className="text-2xl font-bold mb-1">{t?.turnoverRequirement || "Turnover Requirement"}</h2>
                 <p className="text-gray-400 text-sm">
-                  Complete wagering requirements to enable withdrawals
+                  {t?.turnoverDescription || "Complete wagering requirements to enable withdrawals"}
                 </p>
               </div>
               
@@ -143,7 +147,7 @@ const Turnover = () => {
                 className="flex-shrink-0 px-4 py-2 bg-[#2a5c45] hover:bg-[#3a6c55] rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 mt-4 md:mt-0"
               >
                 <FaRunning className="text-xs" />
-                <span>Refresh</span>
+                <span>{t?.refresh || "Refresh"}</span>
               </button>
             </div>
 
@@ -156,7 +160,7 @@ const Turnover = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-medium bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-transparent">
-                    Loading turnover data
+                    {t?.loadingTurnoverData || "Loading turnover data"}
                   </p>
                 </div>
               </div>
@@ -168,7 +172,7 @@ const Turnover = () => {
                     onClick={fetchUserData}
                     className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm"
                   >
-                    Try Again
+                    {t?.tryAgain || "Try Again"}
                   </button>
                 </div>
               </div>
@@ -176,12 +180,12 @@ const Turnover = () => {
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-8 max-w-md">
                   <FaCheckCircle className="text-5xl text-green-500 mb-4 mx-auto" />
-                  <h3 className="text-xl font-semibold text-white mb-2">No Turnover Requirement</h3>
+                  <h3 className="text-xl font-semibold text-white mb-2">{t?.noTurnoverRequirement || "No Turnover Requirement"}</h3>
                   <p className="text-gray-400 mb-4">
-                    You don't have any wagering requirements at the moment.
+                    {t?.noTurnoverRequirementDesc || "You don't have any wagering requirements at the moment."}
                   </p>
                   <p className="text-gray-500 text-sm">
-                    You can withdraw freely as there are no turnover restrictions.
+                    {t?.freeWithdrawalMessage || "You can withdraw freely as there are no turnover restrictions."}
                   </p>
                 </div>
               </div>
@@ -195,9 +199,9 @@ const Turnover = () => {
                         <GiCash className="text-white text-2xl" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold">Wagering Requirement</h3>
+                        <h3 className="text-xl font-semibold">{t?.wageringRequirement || "Wagering Requirement"}</h3>
                         <p className="text-gray-400 text-sm">
-                          Bet {userData.waigeringneed}x your deposit amount
+                          {t?.betDepositMultiplier || `Bet ${userData.waigeringneed}x your deposit amount`}
                         </p>
                       </div>
                     </div>
@@ -206,14 +210,14 @@ const Turnover = () => {
                         ? 'bg-green-900/30 text-green-400 border border-green-700' 
                         : 'bg-blue-900/30 text-blue-400 border border-blue-700'
                     }`}>
-                      {wageringInfo.isCompleted ? 'Completed' : 'In Progress'}
+                      {wageringInfo.isCompleted ? (t?.completed || 'Completed') : (t?.inProgress || 'In Progress')}
                     </div>
                   </div>
 
                   {/* Progress Section */}
                   <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-gray-400 text-sm">Progress</span>
+                      <span className="text-gray-400 text-sm">{t?.progress || "Progress"}</span>
                       <span className="text-white font-medium text-lg">
                         {wageringInfo.progress.toFixed(1)}%
                       </span>
@@ -230,7 +234,7 @@ const Turnover = () => {
                     </div>
                     <div className="flex justify-between text-xs text-gray-400 mt-1">
                       <span>0</span>
-                      <span>{formatCurrency(wageringInfo.required)}</span>
+                      <span>{t?.currencySymbol || "৳"}{formatCurrency(wageringInfo.required)}</span>
                     </div>
                   </div>
 
@@ -239,33 +243,33 @@ const Turnover = () => {
                     <div className="bg-gray-700/50 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         <FaCoins className="text-green-400" />
-                        <span className="text-gray-400 text-sm">Deposit Amount</span>
+                        <span className="text-gray-400 text-sm">{t?.depositAmount || "Deposit Amount"}</span>
                       </div>
                       <p className="text-white font-semibold text-lg">
-                        ৳{formatCurrency(userData.depositamount)}
+                        {t?.currencySymbol || "৳"}{formatCurrency(userData.depositamount)}
                       </p>
                     </div>
 
                     <div className="bg-gray-700/50 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         <FaTrophy className="text-blue-400" />
-                        <span className="text-gray-400 text-sm">Required Turnover</span>
+                        <span className="text-gray-400 text-sm">{t?.requiredTurnover || "Required Turnover"}</span>
                       </div>
                       <p className="text-white font-semibold text-lg">
-                        ৳{formatCurrency(wageringInfo.required)}
+                        {t?.currencySymbol || "৳"}{formatCurrency(wageringInfo.required)}
                       </p>
                       <p className="text-gray-400 text-xs mt-1">
-                        ({userData.waigeringneed}x deposit)
+                        ({userData.waigeringneed}x {t?.deposit || "deposit"})
                       </p>
                     </div>
 
                     <div className="bg-gray-700/50 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center space-x-2 mb-2">
                         <FaRunning className="text-cyan-400" />
-                        <span className="text-gray-400 text-sm">Completed Wagering</span>
+                        <span className="text-gray-400 text-sm">{t?.completedWagering || "Completed Wagering"}</span>
                       </div>
                       <p className="text-white font-semibold text-lg">
-                        ৳{formatCurrency(wageringInfo.completed)}
+                        {t?.currencySymbol || "৳"}{formatCurrency(wageringInfo.completed)}
                       </p>
                     </div>
 
@@ -280,12 +284,12 @@ const Turnover = () => {
                         ) : (
                           <FaExclamationCircle className="text-blue-400" />
                         )}
-                        <span className="text-gray-400 text-sm">Remaining</span>
+                        <span className="text-gray-400 text-sm">{t?.remaining || "Remaining"}</span>
                       </div>
                       <p className={`font-semibold text-lg ${
                         wageringInfo.isCompleted ? 'text-green-400' : 'text-blue-400'
                       }`}>
-                        ৳{formatCurrency(wageringInfo.remaining)}
+                        {t?.currencySymbol || "৳"}{formatCurrency(wageringInfo.remaining)}
                       </p>
                     </div>
                   </div>
@@ -295,9 +299,9 @@ const Turnover = () => {
                     <div className="mt-6 p-4 bg-green-900/20 border border-green-700 rounded-lg flex items-center space-x-4">
                       <FaCheckCircle className="text-green-400 text-2xl flex-shrink-0" />
                       <div>
-                        <p className="text-green-400 font-medium text-lg">Wagering Requirement Completed!</p>
+                        <p className="text-green-400 font-medium text-lg">{t?.wageringCompleted || "Wagering Requirement Completed!"}</p>
                         <p className="text-green-300 text-sm">
-                          You have successfully completed the wagering requirement. You can now make withdrawals.
+                          {t?.wageringCompletedDesc || "You have successfully completed the wagering requirement. You can now make withdrawals."}
                         </p>
                       </div>
                     </div>
@@ -307,14 +311,14 @@ const Turnover = () => {
                         <div className="flex items-center space-x-3">
                           <FaExclamationCircle className="text-blue-400 text-xl flex-shrink-0" />
                           <div>
-                            <p className="text-blue-400 font-medium">Wagering Requirement Pending</p>
+                            <p className="text-blue-400 font-medium">{t?.wageringPending || "Wagering Requirement Pending"}</p>
                             <p className="text-blue-300 text-sm">
-                              You need to bet ৳{formatCurrency(wageringInfo.remaining)} more to complete the requirement.
+                              {t?.wageringPendingDesc || `You need to bet ৳${formatCurrency(wageringInfo.remaining)} more to complete the requirement.`}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-gray-400 text-sm">Current Progress</p>
+                          <p className="text-gray-400 text-sm">{t?.currentProgress || "Current Progress"}</p>
                           <p className="text-white font-semibold text-xl">{wageringInfo.progress.toFixed(1)}%</p>
                         </div>
                       </div>
@@ -326,7 +330,7 @@ const Turnover = () => {
                 <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
                   <h4 className="text-lg font-semibold mb-4 flex items-center space-x-2">
                     <FaInfoCircle className="text-blue-400" />
-                    <span>How Turnover Works</span>
+                    <span>{t?.howTurnoverWorks || "How Turnover Works"}</span>
                   </h4>
                   <div className="text-gray-400 text-sm space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -335,8 +339,8 @@ const Turnover = () => {
                           <GiCash className="text-white" />
                         </div>
                         <div>
-                          <p className="font-medium text-white mb-1">Deposit Turnover</p>
-                          <p>You need to bet {userData.waigeringneed} times your deposit amount ({formatCurrency(userData.depositamount)}) before making withdrawals.</p>
+                          <p className="font-medium text-white mb-1">{t?.depositTurnover || "Deposit Turnover"}</p>
+                          <p>{t?.depositTurnoverDesc || `You need to bet ${userData.waigeringneed} times your deposit amount (${t?.currencySymbol || "৳"}${formatCurrency(userData.depositamount)}) before making withdrawals.`}</p>
                         </div>
                       </div>
                       <div className="flex items-start space-x-3">
@@ -344,8 +348,8 @@ const Turnover = () => {
                           <FaRunning className="text-white" />
                         </div>
                         <div>
-                          <p className="font-medium text-white mb-1">Wagering Progress</p>
-                          <p>Your current betting amount is ৳{formatCurrency(wageringInfo.completed)} out of required ৳{formatCurrency(wageringInfo.required)}.</p>
+                          <p className="font-medium text-white mb-1">{t?.wageringProgress || "Wagering Progress"}</p>
+                          <p>{t?.wageringProgressDesc || `Your current betting amount is ${t?.currencySymbol || "৳"}${formatCurrency(wageringInfo.completed)} out of required ${t?.currencySymbol || "৳"}${formatCurrency(wageringInfo.required)}.`}</p>
                         </div>
                       </div>
                     </div>
@@ -353,24 +357,24 @@ const Turnover = () => {
                     <div className="mt-4 p-3 bg-gray-700/30 rounded-lg">
                       <h5 className="font-medium text-white mb-2 flex items-center space-x-2">
                         <FaExclamationCircle className="text-yellow-400" />
-                        <span>Important Notes</span>
+                        <span>{t?.importantNotes || "Important Notes"}</span>
                       </h5>
                       <ul className="space-y-2 text-sm">
                         <li className="flex items-start">
                           <span className="text-yellow-400 mr-2">•</span>
-                          <span>You must complete wagering requirements before making withdrawals</span>
+                          <span>{t?.importantNote1 || "You must complete wagering requirements before making withdrawals"}</span>
                         </li>
                         <li className="flex items-start">
                           <span className="text-yellow-400 mr-2">•</span>
-                          <span>Only settled bets count towards wagering requirements</span>
+                          <span>{t?.importantNote2 || "Only settled bets count towards wagering requirements"}</span>
                         </li>
                         <li className="flex items-start">
                           <span className="text-yellow-400 mr-2">•</span>
-                          <span>Required turnover: {userData.waigeringneed} × ৳{formatCurrency(userData.depositamount)} = ৳{formatCurrency(wageringInfo.required)}</span>
+                          <span>{t?.importantNote3 || `Required turnover: ${userData.waigeringneed} × ${t?.currencySymbol || "৳"}${formatCurrency(userData.depositamount)} = ${t?.currencySymbol || "৳"}${formatCurrency(wageringInfo.required)}`}</span>
                         </li>
                         <li className="flex items-start">
                           <span className="text-yellow-400 mr-2">•</span>
-                          <span>Withdrawals are restricted until wagering is completed</span>
+                          <span>{t?.importantNote4 || "Withdrawals are restricted until wagering is completed"}</span>
                         </li>
                       </ul>
                     </div>
@@ -378,23 +382,23 @@ const Turnover = () => {
                     {/* Quick Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                       <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                        <p className="text-gray-400 text-xs">Current Balance</p>
-                        <p className="text-white font-semibold">৳{formatCurrency(userData.balance)}</p>
+                        <p className="text-gray-400 text-xs">{t?.currentBalance || "Current Balance"}</p>
+                        <p className="text-white font-semibold">{t?.currencySymbol || "৳"}{formatCurrency(userData.balance)}</p>
                       </div>
                       <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                        <p className="text-gray-400 text-xs">Total Deposit</p>
-                        <p className="text-white font-semibold">৳{formatCurrency(userData.total_deposit)}</p>
+                        <p className="text-gray-400 text-xs">{t?.totalDeposit || "Total Deposit"}</p>
+                        <p className="text-white font-semibold">{t?.currencySymbol || "৳"}{formatCurrency(userData.total_deposit)}</p>
                       </div>
                       <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                        <p className="text-gray-400 text-xs">Total Bet</p>
-                        <p className="text-white font-semibold">৳{formatCurrency(userData.total_bet)}</p>
+                        <p className="text-gray-400 text-xs">{t?.totalBet || "Total Bet"}</p>
+                        <p className="text-white font-semibold">{t?.currencySymbol || "৳"}{formatCurrency(userData.total_bet)}</p>
                       </div>
                       <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                        <p className="text-gray-400 text-xs">Turnover Status</p>
+                        <p className="text-gray-400 text-xs">{t?.turnoverStatus || "Turnover Status"}</p>
                         <p className={`font-semibold ${
                           wageringInfo.isCompleted ? 'text-green-400' : 'text-yellow-400'
                         }`}>
-                          {wageringInfo.isCompleted ? 'Complete' : 'Pending'}
+                          {wageringInfo.isCompleted ? (t?.complete || 'Complete') : (t?.pending || 'Pending')}
                         </p>
                       </div>
                     </div>

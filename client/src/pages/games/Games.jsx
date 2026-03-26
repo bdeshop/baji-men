@@ -165,12 +165,12 @@ const AllGamesContent = () => {
     if (!game) return logo;
     
     // Check for different possible image fields
-    const imageField = game.portraitImage || game.image || game.coverImage;
+    const imageField = game.portraitImage || game.image || game.coverImage || game.defaultImage;
     
     if (!imageField) return logo;
     
-    // If it's already a full URL (default image from provider)
-    if (imageField.startsWith('http')) {
+    // If it's already a full URL (from CDN)
+    if (imageField.startsWith('http://') || imageField.startsWith('https://')) {
       return imageField;
     }
     
@@ -250,30 +250,31 @@ const AllGamesContent = () => {
   }, [isPaused, isDragging, providers.length]);
 
   // Get category from query parameter and fetch providers
-useEffect(() => {
-  const fetchData = async () => {
-    const categoryFromQuery = searchParams.get('category');
-    
-    if (categoryFromQuery) {
-      const decodedCategory = decodeURIComponent(categoryFromQuery);
-      setSelectedCategory(decodedCategory);
-      setCategoryName(decodedCategory);
+  useEffect(() => {
+    const fetchData = async () => {
+      const categoryFromQuery = searchParams.get('category');
       
-      // Always reset provider - All Games active by default
-      window.history.replaceState({}, '', `/games?category=${encodeURIComponent(decodedCategory)}`);
-      setSelectedProvider(null);
-      
-      await fetchProvidersByCategory(decodedCategory);
-      await fetchGamesByCategory(decodedCategory);
-    } else {
-      await fetchCategories();
-      await fetchAllGames();
-    }
-    setInitialLoadComplete(true);
-  };
+      if (categoryFromQuery) {
+        const decodedCategory = decodeURIComponent(categoryFromQuery);
+        setSelectedCategory(decodedCategory);
+        setCategoryName(decodedCategory);
+        
+        // Always reset provider - All Games active by default
+        window.history.replaceState({}, '', `/games?category=${encodeURIComponent(decodedCategory)}`);
+        setSelectedProvider(null);
+        
+        await fetchProvidersByCategory(decodedCategory);
+        await fetchGamesByCategory(decodedCategory);
+      } else {
+        await fetchCategories();
+        await fetchAllGames();
+      }
+      setInitialLoadComplete(true);
+    };
 
-  fetchData();
-}, [searchParams]);
+    fetchData();
+  }, [searchParams]);
+
   // Handle provider click - WITHOUT navigation to prevent page reload
   const handleProviderClick = async (provider) => {
     // Set loading state
@@ -329,47 +330,59 @@ useEffect(() => {
   };
 
   // Fetch games by category
-const fetchGamesByCategory = async (category) => {
-  try {
-    setIsLoading(true); // add this
-    const response = await axios.get(`${base_url}/api/all-games`);
-    if (response.data.success) {
-      const filteredByCategory = response.data.data.filter(game => 
-        game.category?.toLowerCase() === category.toLowerCase()
-      );
-      setAllGames(filteredByCategory);
-      setGames(filteredByCategory);
-      setFilteredGames(filteredByCategory);
+  const fetchGamesByCategory = async (category) => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${base_url}/api/all-games`);
+      if (response.data.success) {
+        const filteredByCategory = response.data.data.filter(game => {
+          // Check if game.category is an array
+          if (Array.isArray(game.category)) {
+            return game.category.some(cat => cat.toLowerCase() === category.toLowerCase());
+          }
+          // If it's a string, compare directly
+          return game.category?.toLowerCase() === category.toLowerCase();
+        });
+        setAllGames(filteredByCategory);
+        setGames(filteredByCategory);
+        setFilteredGames(filteredByCategory);
+      }
+    } catch (error) {
+      console.error('Error fetching games by category:', error);
+      toast.error('Error loading games');
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching games by category:', error);
-    toast.error('Error loading games');
-  } finally {
-    setIsLoading(false); // add this
-  }
-};
+  };
 
   // Fetch games by category and provider
-const fetchGamesByCategoryAndProvider = async (category, provider) => {
-  try {
-    setIsLoading(true); // add this
-    const response = await axios.get(`${base_url}/api/all-games`);
-    if (response.data.success) {
-      const filteredByCategoryAndProvider = response.data.data.filter(game => 
-        game.category?.toLowerCase() === category.toLowerCase() &&
-        game.provider?.toLowerCase() === provider.toLowerCase()
-      );
-      setAllGames(filteredByCategoryAndProvider);
-      setGames(filteredByCategoryAndProvider);
-      setFilteredGames(filteredByCategoryAndProvider);
+  const fetchGamesByCategoryAndProvider = async (category, provider) => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${base_url}/api/all-games`);
+      if (response.data.success) {
+        const filteredByCategoryAndProvider = response.data.data.filter(game => {
+          // Check if game.category is an array
+          let categoryMatches = false;
+          if (Array.isArray(game.category)) {
+            categoryMatches = game.category.some(cat => cat.toLowerCase() === category.toLowerCase());
+          } else {
+            categoryMatches = game.category?.toLowerCase() === category.toLowerCase();
+          }
+          
+          return categoryMatches && game.provider?.toLowerCase() === provider.toLowerCase();
+        });
+        setAllGames(filteredByCategoryAndProvider);
+        setGames(filteredByCategoryAndProvider);
+        setFilteredGames(filteredByCategoryAndProvider);
+      }
+    } catch (error) {
+      console.error('Error fetching games by category and provider:', error);
+      toast.error('Error loading games');
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching games by category and provider:', error);
-    toast.error('Error loading games');
-  } finally {
-    setIsLoading(false); // add this
-  }
-};
+  };
 
   // Fetch branding data for dynamic logo
   const fetchBrandingData = async () => {
@@ -472,9 +485,14 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
   const handleCategoryFilter = () => {
     let filtered = allGames;
     if (selectedCategory !== 'all') {
-      filtered = allGames.filter(game => 
-        game.category?.toLowerCase() === selectedCategory
-      );
+      filtered = allGames.filter(game => {
+        // Check if game.category is an array
+        if (Array.isArray(game.category)) {
+          return game.category.some(cat => cat.toLowerCase() === selectedCategory);
+        }
+        // If it's a string, compare directly
+        return game.category?.toLowerCase() === selectedCategory;
+      });
     }
     setGames(filtered);
     setFilteredGames(filtered);
@@ -547,9 +565,14 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
     
     // Apply category filter
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(game => 
-        game.category?.toLowerCase() === selectedCategory
-      );
+      filtered = filtered.filter(game => {
+        // Check if game.category is an array
+        if (Array.isArray(game.category)) {
+          return game.category.some(cat => cat.toLowerCase() === selectedCategory);
+        }
+        // If it's a string, compare directly
+        return game.category?.toLowerCase() === selectedCategory;
+      });
     }
     
     // Apply provider filter (if selected from sidebar)
@@ -596,7 +619,7 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
         filtered.sort((a, b) => b.name.localeCompare(a.name));
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0));
+        filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         break;
       case 'popularity':
         filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
@@ -606,7 +629,7 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
     }
     
     setFilteredGames(filtered);
-    setVisibleGamesCount(16);
+    setVisibleGamesCount(21);
   }, [
     searchTerm, 
     selectedProviders, 
@@ -626,7 +649,7 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
   const loadMoreGames = () => {
     setIsLoadingMore(true);
     setTimeout(() => {
-      setVisibleGamesCount(prevCount => prevCount + 16);
+      setVisibleGamesCount(prevCount => prevCount + 21);
       setIsLoadingMore(false);
     }, 800);
   };
@@ -698,8 +721,18 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
         throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
 
+      // Get category - handle both array and string
+      let categoryValue = 'slots';
+      if (game.category) {
+        if (Array.isArray(game.category)) {
+          categoryValue = game.category[0] || 'slots';
+        } else {
+          categoryValue = game.category;
+        }
+      }
+
       // Navigate with provider and category as query parameters
-      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(game.category || 'slots')}`);
+      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`);
     } catch (err) {
       console.error("Error:", err);
       toast.error("Error connecting to game server");
@@ -932,7 +965,6 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
                   <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                     {visibleGames.map(game => {
                       const imageUrl = getImageUrl(game);
-                      const isDefaultImage = game.portraitImage?.startsWith('http') || game.image?.startsWith('http');
                       
                       return (
                         <div 
@@ -940,47 +972,31 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
                           className="group relative bg-gradient-to-br from-[#1a1a1a] to-[#222] rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
                           onClick={() => handleGameClick(game)}
                         >
-                          <div className="relative overflow-hidden">
-                            <img 
-                              src={imageUrl} 
-                              alt={game.name} 
-                              className="w-full h-[175px] sm:h-[200px] md:h-[220px] object-cover transition-transform duration-500 group-hover:scale-110" 
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = logo;
-                              }}
-                            />
-                            
-                            {/* Default Image Badge */}
-                            {isDefaultImage && (
-                              <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 opacity-70">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="8"
-                                  height="8"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                  <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                                <span>Default</span>
-                              </div>
-                            )}
+                          {/* ── Image container with glow sweep and proper aspect ratio ── */}
+                          <div className="games-game-image-container relative overflow-hidden w-full">
+                            <div className="relative w-full pb-[133.33%] overflow-hidden bg-[#1a1a1a]">
+                              <img 
+                                src={imageUrl} 
+                                alt={game.name} 
+                                className="absolute top-0 left-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = logo;
+                                }}
+                              />
+                            </div>
+
+                            {/* Glow Sweep Animation */}
+                            <div className="games-glow-sweep"></div>
                             
                             {game.featured && (
-                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">
+                              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md z-10">
                                 NEW
                               </div>
                             )}
                             
                             {/* Game Name Overlay on Hover */}
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10">
                               <p className="text-white text-xs font-medium truncate">{game.name}</p>
                               <p className="text-gray-300 text-[10px] truncate">{game.provider}</p>
                             </div>
@@ -1066,7 +1082,6 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
               {showProvidersDropdown && (
                 <div className="mt-2 pl-4 max-h-48 overflow-y-auto space-y-3">
                   {/* Provider filter options would go here */}
-                  {/* This would need to be populated with actual provider data */}
                 </div>
               )}
             </div>
@@ -1307,6 +1322,50 @@ const fetchGamesByCategoryAndProvider = async (category, provider) => {
       )}
 
       <style jsx>{`
+        /* ── Portrait-ratio container for consistent game card sizing ── */
+        .games-game-image-container {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+        }
+
+        /* ── Glow Sweep Animation ── */
+        .games-glow-sweep {
+          position: absolute;
+          top: 0;
+          left: -200%;
+          width: 250%;
+          height: 100%;
+          background: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.02) 20%,
+            rgba(255, 255, 255, 0.35) 50%,
+            rgba(255, 255, 255, 0.02) 80%,
+            transparent 100%
+          );
+          transform: skewX(-25deg);
+          animation: gamesSweepWide 5s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        @keyframes gamesSweepWide {
+          0%   { left: -250%; opacity: 0; }
+          10%  { opacity: 1; }
+          60%  { left: 150%; opacity: 1; }
+          70%  { opacity: 0; }
+          100% { left: 150%; opacity: 0; }
+        }
+
+        /* Stagger delays so cards don't all flash at once */
+        .group:nth-child(2n) .games-glow-sweep { animation-delay: 0.7s; }
+        .group:nth-child(3n) .games-glow-sweep { animation-delay: 1.4s; }
+        .group:nth-child(4n) .games-glow-sweep { animation-delay: 2.1s; }
+        .group:nth-child(5n) .games-glow-sweep { animation-delay: 2.8s; }
+        .group:nth-child(6n) .games-glow-sweep { animation-delay: 3.5s; }
+        .group:nth-child(7n) .games-glow-sweep { animation-delay: 4.2s; }
+
         ::-webkit-scrollbar {
           width: 8px;
         }

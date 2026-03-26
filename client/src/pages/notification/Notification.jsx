@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
 import { FiChevronDown, FiBell, FiExternalLink, FiClock } from "react-icons/fi";
 import axios from "axios";
-import logo from "../../assets/logo.png"
+import logo from "../../assets/logo.png";
+import { LanguageContext } from "../../context/LanguageContext";
+
 const Notification = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openDropdowns, setOpenDropdowns] = useState({});
@@ -18,6 +20,9 @@ const Notification = () => {
     limit: 10
   });
   
+  // Get language context
+  const { language, t } = useContext(LanguageContext);
+  
   // Get user and token from localStorage
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const token = localStorage.getItem('usertoken');
@@ -28,7 +33,7 @@ const Notification = () => {
   const fetchNotifications = async (page = 1, limit = 10) => {
     try {
       if (!token) {
-        setError("Please login to view notifications");
+        setError(t?.pleaseLoginToViewNotifications || "Please login to view notifications");
         setLoading(false);
         return;
       }
@@ -71,10 +76,10 @@ const Notification = () => {
           setNotifications(responseData || []);
         }
       } else {
-        setError(response.data.message || "Failed to fetch notifications");
+        setError(response.data.message || (t?.failedToFetchNotifications || "Failed to fetch notifications"));
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || "Failed to fetch notifications";
+      const errorMessage = err.response?.data?.message || (t?.failedToFetchNotifications || "Failed to fetch notifications");
       setError(errorMessage);
       console.error("Error fetching notifications:", err);
     } finally {
@@ -96,7 +101,7 @@ const Notification = () => {
       fetchNotifications();
     } else {
       setLoading(false);
-      setError("Please login to view notifications");
+      setError(t?.pleaseLoginToViewNotifications || "Please login to view notifications");
     }
   }, [token]);
 
@@ -109,23 +114,23 @@ const Notification = () => {
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
       if (diffDays === 0) {
-        return 'Today at ' + date.toLocaleTimeString('en-US', {
+        return (t?.todayAt || 'Today at') + ' ' + date.toLocaleTimeString(language?.code === 'bn' ? 'bn-BD' : 'en-US', {
           hour: '2-digit',
           minute: '2-digit'
         });
       } else if (diffDays === 1) {
-        return 'Yesterday at ' + date.toLocaleTimeString('en-US', {
+        return (t?.yesterdayAt || 'Yesterday at') + ' ' + date.toLocaleTimeString(language?.code === 'bn' ? 'bn-BD' : 'en-US', {
           hour: '2-digit',
           minute: '2-digit'
         });
       } else if (diffDays < 7) {
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString(language?.code === 'bn' ? 'bn-BD' : 'en-US', {
           weekday: 'short',
           hour: '2-digit',
           minute: '2-digit'
         });
       } else {
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString(language?.code === 'bn' ? 'bn-BD' : 'en-US', {
           month: 'short',
           day: 'numeric',
           hour: '2-digit',
@@ -133,7 +138,7 @@ const Notification = () => {
         });
       }
     } catch (error) {
-      return "Invalid date";
+      return t?.invalidDate || "Invalid date";
     }
   };
 
@@ -178,13 +183,13 @@ const Notification = () => {
         <div className="flex h-[calc(100vh-48px)] sm:h-[calc(100vh-56px)]">
           <Sidebar sidebarOpen={sidebarOpen} />
           <div className="w-full overflow-y-auto flex items-center justify-center">
-               <div className='w-full p-[20px] flex justify-center items-center'>
-                         <div className="relative w-24 h-24 flex justify-center items-center">
-                           <div className="absolute w-full h-full rounded-full border-4 border-transparent border-t-green-500 border-r-green-500 animate-spin"></div>
-                           <div className="w-20 h-20 rounded-full flex justify-center items-center font-bold text-lg">
-                           </div>
-                         </div>
-                       </div>
+            <div className='w-full p-[20px] flex justify-center items-center'>
+              <div className="relative w-24 h-24 flex justify-center items-center">
+                <div className="absolute w-full h-full rounded-full border-4 border-transparent border-t-green-500 border-r-green-500 animate-spin"></div>
+                <div className="w-20 h-20 rounded-full flex justify-center items-center font-bold text-lg">
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -203,12 +208,12 @@ const Notification = () => {
 
         <div className="flex-1 overflow-auto w-full transition-all duration-300">
           {/* Main Content Area */}
-          <div className="mx-auto overflow-y-auto pb-[100px]   w-full max-w-screen-xl px-4 md:px-[50px] py-6">
+          <div className="mx-auto overflow-y-auto pb-[100px] w-full max-w-screen-xl px-4 md:px-[50px] py-6">
             {/* Header Section */}
-            <div className="flex flex-col  pt-[25px] lg:pt-[50px] sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+            <div className="flex flex-col pt-[25px] lg:pt-[50px] sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
               <div>
                 <h1 className="text-[18px] md:text-xl sm:text-[22px] font-[600] text-white">
-                  Notifications
+                  {t?.notifications || "Notifications"}
                 </h1>
               </div>
             </div>
@@ -218,22 +223,22 @@ const Notification = () => {
                 <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#222] mb-3 sm:mb-4">
                   <FiBell className="text-lg sm:text-xl text-gray-500" />
                 </div>
-                <h3 className="text-base sm:text-lg font-medium mb-2">Authentication Required</h3>
-                <p className="text-gray-400 mb-3 sm:mb-4 text-xs sm:text-sm">Please log in to view your notifications</p>
+                <h3 className="text-base sm:text-lg font-medium mb-2">{t?.authenticationRequired || "Authentication Required"}</h3>
+                <p className="text-gray-400 mb-3 sm:mb-4 text-xs sm:text-sm">{t?.pleaseLoginToViewNotifications || "Please log in to view your notifications"}</p>
                 <a 
                   href="/login" 
                   className="inline-block px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-lg transition-all duration-300 shadow-lg shadow-blue-500/20 text-xs sm:text-sm"
                 >
-                  Sign In
+                  {t?.signIn || "Sign In"}
                 </a>
               </div>
             ) : notifications.length === 0 ? (
-              <div className=" p-4 sm:p-6 text-center max-w-sm sm:max-w-md mx-auto">
+              <div className="p-4 sm:p-6 text-center max-w-sm sm:max-w-md mx-auto">
                 <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#222] mb-3 sm:mb-4">
                   <FiBell className="text-lg sm:text-xl text-gray-500" />
                 </div>
-                <h3 className="text-base sm:text-lg font-medium mb-2">No notifications yet</h3>
-                <p className="text-gray-400 text-xs sm:text-sm">We'll notify you when something important happens.</p>
+                <h3 className="text-base sm:text-lg font-medium mb-2">{t?.noNotificationsYet || "No notifications yet"}</h3>
+                <p className="text-gray-400 text-xs sm:text-sm">{t?.weWillNotifyYou || "We'll notify you when something important happens."}</p>
               </div>
             ) : (
               <>
@@ -270,7 +275,7 @@ const Notification = () => {
                 {pagination.totalPages > 1 && (
                   <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
                     <p className="text-gray-400 text-[10px] sm:text-xs">
-                      Showing {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} notifications
+                      {t?.showing || "Showing"} {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} {t?.of || "of"} {pagination.total} {t?.notifications || "notifications"}
                     </p>
                     
                     <div className="flex space-x-2">
@@ -279,7 +284,7 @@ const Notification = () => {
                         disabled={pagination.page === 1}
                         className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] hover:bg-[#222] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm"
                       >
-                        Previous
+                        {t?.previous || "Previous"}
                       </button>
                       
                       <button
@@ -287,7 +292,7 @@ const Notification = () => {
                         disabled={pagination.page === pagination.totalPages}
                         className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] hover:bg-[#222] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm"
                       >
-                        Next
+                        {t?.next || "Next"}
                       </button>
                     </div>
                   </div>

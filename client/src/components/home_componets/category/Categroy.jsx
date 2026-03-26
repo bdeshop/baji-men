@@ -11,6 +11,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import logo from "../../../assets/logo.png";
+import { LanguageContext } from "../../../context/LanguageContext"; // adjust path if needed
 
 // --- PROFESSIONAL SKELETON COMPONENT ---
 const SkeletonItem = ({ type }) => {
@@ -102,6 +103,7 @@ const CategoryContent = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useContext(LanguageContext); // ── Translation hook ──
 
   const [categories, setCategories] = useState([]);
   const [providers, setProviders] = useState([]);
@@ -124,6 +126,13 @@ const CategoryContent = () => {
     containScroll: "trimSnaps",
     dragFree: true,
   });
+
+  // ── Translate category name using translation keys ──
+  const translateCategoryName = (name) => {
+    if (!name) return name;
+    const key = name.toLowerCase();
+    return t[key] || name; // fallback to original name if no translation found
+  };
 
   // Fetch branding data for dynamic logo with caching
   const fetchBrandingData = async () => {
@@ -490,6 +499,8 @@ const CategoryContent = () => {
                     alt={game.name || game.gameName}
                     className="game-image rounded-[6px] transition-transform duration-300 group-hover:scale-105"
                   />
+                  {/* Glowing Sweep Animation Overlay */}
+                  <div className="glow-sweep"></div>
                 </div>
               </div>
             ))}
@@ -546,41 +557,56 @@ const CategoryContent = () => {
     <>
       <style>
         {`
-          /* Force consistent image size and aspect ratio - Portrait 3:4 */
           .game-image-container {
             position: relative;
             width: 100%;
-            height: 0;
-            padding-bottom: 133.33%; /* 3:4 aspect ratio (portrait) */
+            padding-bottom: 133.33%;
             overflow: hidden;
-            border-radius: 6px;
+            border-radius: 8px;
+            background: #1a1a1a;
           }
           
           .game-image {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             object-fit: cover;
           }
 
-          /* Custom scrollbar hide for mobile */
-          .hidescrollbar::-webkit-scrollbar {
-            display: none;
-          }
-          .hidescrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+          /* MATCHING THE IMAGE: WIDE GLOW & SLOW HIDE */
+          .glow-sweep {
+            position: absolute;
+            top: 0;
+            left: -200%;
+            width: 250%; /* Very wide beam as seen in reference */
+            height: 100%;
+            background: linear-gradient(
+              to right,
+              transparent 0%,
+              rgba(255, 255, 255, 0.02) 20%,
+              rgba(255, 255, 255, 0.35) 50%, /* Strong central light */
+              rgba(255, 255, 255, 0.02) 80%,
+              transparent 100%
+            );
+            transform: skewX(-25deg);
+            /* 5s cycle: ~3s sweep + 2s hidden pause */
+            animation: sweepWide 5s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 1;
           }
 
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+          @keyframes sweepWide {
+            0% { left: -250%; opacity: 0; }
+            10% { opacity: 1; }
+            60% { left: 150%; opacity: 1; }
+            70% { opacity: 0; }
+            100% { left: 150%; opacity: 0; }
           }
-          .animate-pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          }
+
+          .hidescrollbar::-webkit-scrollbar { display: none; }
+          .hidescrollbar { scrollbar-width: none; }
+          .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         `}
       </style>
 
@@ -621,7 +647,7 @@ const CategoryContent = () => {
                           : "text-gray-400"
                       }`}
                     >
-                      {category.name}
+                      {translateCategoryName(category.name)}
                     </span>
                   </div>
                 ))}
@@ -653,7 +679,7 @@ const CategoryContent = () => {
                       : "text-gray-400"
                   }`}
                 >
-                  {category.name}
+                  {translateCategoryName(category.name)}
                 </span>
               </div>
             ))}

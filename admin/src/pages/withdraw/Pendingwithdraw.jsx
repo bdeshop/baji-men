@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaMoneyBill, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaSync, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaSync, FaEdit, FaTrash, FaSpinner } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import { FaSpinner } from 'react-icons/fa';
 
 const Pendingwithdraw = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -18,13 +17,13 @@ const Pendingwithdraw = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('');
   const [updateTransactionId, setUpdateTransactionId] = useState('');
+  const [updateAdminNote, setUpdateAdminNote] = useState('');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
-    completed: 0,
     pending: 0,
     totalAmount: 0,
     completedAmount: 0
@@ -36,13 +35,43 @@ const Pendingwithdraw = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const statuses = ['pending', 'processing', 'completed', 'failed', 'cancelled'];
-  const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank_transfer'];
+  const methods = ['all', 'bkash', 'rocket', 'nagad', 'bank'];
+
+  // Helper function to get account details from withdrawal
+  const getAccountDetails = (withdrawal) => {
+    if (!withdrawal) return { accountNumber: 'N/A', fullDetails: 'N/A' };
+    
+    if (withdrawal.method === 'bkash' || withdrawal.method === 'rocket' || withdrawal.method === 'nagad') {
+      if (withdrawal.mobileBankingDetails) {
+        return {
+          accountNumber: withdrawal.mobileBankingDetails.phoneNumber,
+          accountType: withdrawal.mobileBankingDetails.accountType,
+          fullDetails: `${withdrawal.mobileBankingDetails.phoneNumber}${withdrawal.mobileBankingDetails.accountType ? ` (${withdrawal.mobileBankingDetails.accountType})` : ''}`
+        };
+      }
+      return { accountNumber: withdrawal.phoneNumber || 'N/A', fullDetails: withdrawal.phoneNumber || 'N/A' };
+    } else if (withdrawal.method === 'bank') {
+      if (withdrawal.bankDetails) {
+        return {
+          accountNumber: withdrawal.bankDetails.accountNumber,
+          bankName: withdrawal.bankDetails.bankName,
+          accountHolderName: withdrawal.bankDetails.accountHolderName,
+          branchName: withdrawal.bankDetails.branchName,
+          district: withdrawal.bankDetails.district,
+          routingNumber: withdrawal.bankDetails.routingNumber,
+          fullDetails: `${withdrawal.bankDetails.bankName} - ${withdrawal.bankDetails.accountNumber}`
+        };
+      }
+      return { accountNumber: 'N/A', fullDetails: 'N/A' };
+    }
+    return { accountNumber: 'N/A', fullDetails: 'N/A' };
+  };
 
   // Fetch pending withdrawals from API
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -50,7 +79,7 @@ const Pendingwithdraw = () => {
         params: {
           page: currentPage,
           limit: itemsPerPage,
-          status:'pending', // Only fetch pending and processing withdrawals
+          status: 'pending', // Only fetch pending withdrawals
           method: methodFilter !== 'all' ? methodFilter : undefined,
           search: searchTerm || undefined,
           startDate: dateRange.start || undefined,
@@ -61,95 +90,90 @@ const Pendingwithdraw = () => {
       });
 
       if (response.data) {
-        setWithdrawals(response.data.withdrawals);
+        const withdrawalsData = response.data.withdrawals || response.data.data || [];
+        setWithdrawals(withdrawalsData);
 
         // Calculate statistics
-        const totalWithdrawals = response.data.total;
-        const completedWithdrawals = response.data.statusCounts?.find(s => s._id === 'completed')?.count || 0;
-        const pendingWithdrawals = response.data.statusCounts?.filter(s => 
-          ['pending', 'processing'].includes(s._id)
-        ).reduce((sum, s) => sum + s.count, 0) || 0;
-        const totalAmount = response.data.totalAmount || 0;
-        const completedAmount = response.data.statusCounts?.find(s => s._id === 'completed')?.amount || 0;
+        const totalWithdrawals = withdrawalsData.length;
+        const pendingCount = withdrawalsData.filter(w => w.status === 'pending').length;
+        const totalAmount = withdrawalsData.reduce((sum, w) => sum + (w.amount || 0), 0);
+        const completedAmount = withdrawalsData
+          .filter(w => w.status === 'completed')
+          .reduce((sum, w) => sum + (w.amount || 0), 0);
 
         setStats({
           total: totalWithdrawals,
-          completed: completedWithdrawals,
-          pending: pendingWithdrawals,
-          totalAmount,
-          completedAmount
+          pending: pendingCount,
+          totalAmount: totalAmount,
+          completedAmount: completedAmount
         });
       }
     } catch (err) {
       console.error('Error fetching withdrawals:', err);
       setError('Failed to load pending withdrawals. Please try again.');
-
+      
       // Fallback to sample data if API fails
-      setWithdrawals([
+      const sampleData = [
         {
-          _id: "68ae24b8c2b1c27dfe6572d2",
-          userId: { username: "johndoe", player_id: "PID507955" },
-          amount: 8000,
-          method: "bank_transfer",
-          phoneNumber: "1234567890",
-          transactionId: "TXW987654321",
+          _id: "69c4c57a9763d121d14b47c0",
+          userId: { _id: "69c4c4629763d121d14b418a", username: "testuser", player_id: "PID123456" },
+          method: "bkash",
+          mobileBankingDetails: {
+            phoneNumber: "01655585555",
+            accountType: "personal"
+          },
+          bankDetails: null,
+          amount: 500,
           status: "pending",
-          createdAt: "2025-08-27T10:15:30.904Z",
-          adminNotes: "Waiting for approval"
+          transactionId: null,
+          processedAt: null,
+          rejectionReason: null,
+          adminNote: null,
+          createdAt: "2026-03-26T05:34:50.687Z",
+          updatedAt: "2026-03-26T05:34:50.687Z"
         },
         {
-          _id: "68ae24b8c2b1c27dfe6572d5",
-          userId: { username: "abusaid", player_id: "PID507954" },
-          amount: 4500,
-          method: "bkash",
-          phoneNumber: "015*****123",
-          transactionId: "TXW159753468",
-          status: "processing",
-          createdAt: "2025-08-28T09:30:12.904Z",
-          adminNotes: "Under review"
+          _id: "69c4c5be9763d121d14b4803",
+          userId: { _id: "69c4c4629763d121d14b418a", username: "testuser", player_id: "PID123456" },
+          method: "bank",
+          mobileBankingDetails: null,
+          bankDetails: {
+            bankName: "Dutch Bangla Bank",
+            accountHolderName: "John Doe",
+            accountNumber: "435345345345",
+            branchName: "Main Branch",
+            district: "Dhaka",
+            routingNumber: "123456789"
+          },
+          amount: 500,
+          status: "pending",
+          transactionId: null,
+          processedAt: null,
+          rejectionReason: null,
+          adminNote: null,
+          createdAt: "2026-03-26T05:35:58.042Z",
+          updatedAt: "2026-03-26T05:35:58.042Z"
         }
-      ]);
+      ];
+      setWithdrawals(sampleData);
+      setStats({
+        total: sampleData.length,
+        pending: sampleData.length,
+        totalAmount: sampleData.reduce((sum, w) => sum + w.amount, 0),
+        completedAmount: 0
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch withdrawal statistics
-  const fetchStats = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals-stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          status: ['pending', 'processing'] // Focus on pending and processing stats
-        }
-      });
-
-      if (response.data.success) {
-        setStats({
-          total: response.data.total?.totalCount || 0,
-          completed: response.data.byStatus?.find(s => s._id === 'completed')?.count || 0,
-          pending: response.data.byStatus?.filter(s => 
-            ['pending', 'processing'].includes(s._id)
-          ).reduce((sum, s) => sum + s.count, 0) || 0,
-          totalAmount: response.data.total?.totalAmount || 0,
-          completedAmount: response.data.byStatus?.find(s => s._id === 'completed')?.amount || 0
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    }
-  };
-
   // Update withdrawal status
-  const updateWithdrawalStatus = async (withdrawalId, status, transactionId = null) => {
+  const updateWithdrawalStatus = async (withdrawalId, status, transactionId = null, adminNote = null) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.put(
         `${API_BASE_URL}/api/admin/withdrawals/${withdrawalId}/status`,
-        { status, transactionId },
+        { status, transactionId, adminNote },
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -160,13 +184,12 @@ const Pendingwithdraw = () => {
       if (response.data) {
         toast.success('Withdrawal status updated successfully!');
         fetchWithdrawals();
-        fetchStats();
         return true;
       }
       return false;
     } catch (err) {
       console.error('Error updating withdrawal status:', err);
-      toast.error('Failed to update withdrawal status. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to update withdrawal status');
       return false;
     }
   };
@@ -174,7 +197,7 @@ const Pendingwithdraw = () => {
   // Delete withdrawal
   const deleteWithdrawal = async (withdrawalId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.delete(
         `${API_BASE_URL}/api/admin/withdrawals/${withdrawalId}`,
         {
@@ -187,38 +210,42 @@ const Pendingwithdraw = () => {
       if (response.data.success) {
         toast.success('Withdrawal deleted successfully!');
         fetchWithdrawals();
-        fetchStats();
         return true;
       }
       return false;
     } catch (err) {
       console.error('Error deleting withdrawal:', err);
-      toast.error('Failed to delete withdrawal. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to delete withdrawal');
       return false;
     }
   };
 
   // Export to CSV
-  const exportToCSV = async () => {
+  const exportToCSV = () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals/export`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          status: ['pending', 'processing'] // Export only pending and processing withdrawals
-        },
-        responseType: 'blob'
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const headers = ['Date', 'Player ID', 'Username', 'Method', 'Amount', 'Account Details', 'Status', 'Transaction ID'];
+      const csvData = withdrawals.map(w => [
+        formatDate(w.createdAt),
+        w.userId?.player_id || 'N/A',
+        w.userId?.username || 'N/A',
+        getMethodName(w.method),
+        w.amount,
+        getAccountDetails(w).fullDetails,
+        w.status,
+        w.transactionId || 'N/A'
+      ]);
+      
+      const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `pending_withdrawals_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('CSV exported successfully!');
     } catch (err) {
       console.error('Error exporting CSV:', err);
       toast.error('Failed to export data. Please try again.');
@@ -227,7 +254,6 @@ const Pendingwithdraw = () => {
 
   useEffect(() => {
     fetchWithdrawals();
-    fetchStats();
   }, [currentPage, methodFilter, searchTerm, dateRange, sortConfig]);
 
   // Sort withdrawals
@@ -260,7 +286,6 @@ const Pendingwithdraw = () => {
     return sortableItems;
   }, [withdrawals, sortConfig]);
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -269,49 +294,50 @@ const Pendingwithdraw = () => {
     setSortConfig({ key, direction });
   };
 
-  // Get sort icon
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
     if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
     return <FaSortDown className="text-orange-500" />;
   };
 
-  // View withdrawal details
   const viewWithdrawalDetails = (withdrawal) => {
     setSelectedWithdrawal(withdrawal);
     setShowWithdrawalDetails(true);
   };
 
-  // Close withdrawal details modal
   const closeWithdrawalDetails = () => {
     setShowWithdrawalDetails(false);
     setSelectedWithdrawal(null);
   };
 
-  // Open update modal
   const openUpdateModal = (withdrawal) => {
+    // Close any other open modals first
+    if (showWithdrawalDetails) closeWithdrawalDetails();
+    if (showDeleteModal) closeDeleteModal();
+    
     setSelectedWithdrawal(withdrawal);
     setUpdateStatus(withdrawal.status);
     setUpdateTransactionId(withdrawal.transactionId || '');
+    setUpdateAdminNote(withdrawal.adminNote || '');
     setShowUpdateModal(true);
   };
 
-  // Close update modal
   const closeUpdateModal = () => {
     setShowUpdateModal(false);
     setSelectedWithdrawal(null);
     setUpdateStatus('');
     setUpdateTransactionId('');
+    setUpdateAdminNote('');
   };
 
-  // Handle update submission
   const handleUpdateSubmit = async () => {
     if (!selectedWithdrawal) return;
 
     const success = await updateWithdrawalStatus(
       selectedWithdrawal._id,
       updateStatus,
-      updateTransactionId || undefined
+      updateTransactionId || undefined,
+      updateAdminNote || undefined
     );
 
     if (success) {
@@ -319,19 +345,20 @@ const Pendingwithdraw = () => {
     }
   };
 
-  // Open delete modal
   const openDeleteModal = (withdrawal) => {
+    // Close any other open modals first
+    if (showWithdrawalDetails) closeWithdrawalDetails();
+    if (showUpdateModal) closeUpdateModal();
+    
     setSelectedWithdrawal(withdrawal);
     setShowDeleteModal(true);
   };
 
-  // Close delete modal
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setSelectedWithdrawal(null);
   };
 
-  // Handle delete submission
   const handleDeleteSubmit = async () => {
     if (!selectedWithdrawal) return;
 
@@ -342,7 +369,6 @@ const Pendingwithdraw = () => {
     }
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-BD', {
@@ -354,7 +380,6 @@ const Pendingwithdraw = () => {
     });
   };
 
-  // Format currency (BDT)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-BD', {
       style: 'currency',
@@ -363,7 +388,6 @@ const Pendingwithdraw = () => {
     }).format(amount || 0);
   };
 
-  // Get status icon and color
   const getStatusInfo = (status) => {
     switch(status) {
       case 'completed':
@@ -381,19 +405,16 @@ const Pendingwithdraw = () => {
     }
   };
 
-  // Get method display name
   const getMethodName = (method) => {
     switch(method) {
       case 'bkash': return 'bKash';
       case 'nagad': return 'Nagad';
       case 'rocket': return 'Rocket';
-      case 'upay': return 'Upay';
-      case 'bank_transfer': return 'Bank Transfer';
+      case 'bank': return 'Bank Transfer';
       default: return method;
     }
   };
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, methodFilter, dateRange]);
@@ -401,7 +422,7 @@ const Pendingwithdraw = () => {
   return (
     <section className="font-nunito h-screen">
       <Header toggleSidebar={toggleSidebar} />
-      <Toaster />
+      <Toaster position="top-right" />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
 
@@ -415,7 +436,7 @@ const Pendingwithdraw = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Pending Withdrawals</h1>
-                <p className="text-sm text-gray-600 mt-1">Manage pending and processing withdrawal transactions</p>
+                <p className="text-sm text-gray-600 mt-1">Manage pending withdrawal transactions</p>
               </div>
               <div className="flex gap-2">
                 <button 
@@ -437,10 +458,10 @@ const Pendingwithdraw = () => {
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Total Pending</h3>
-                <p className="text-2xl font-bold text-gray-800">{stats.pending}</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
               </div>
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Total Amount</h3>
@@ -448,7 +469,7 @@ const Pendingwithdraw = () => {
               </div>
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Completed Amount</h3>
-                <p className="text-2xl font-bold text-gray-800">{formatCurrency(stats.completedAmount)}</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.completedAmount)}</p>
               </div>
             </div>
             
@@ -471,8 +492,7 @@ const Pendingwithdraw = () => {
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Search Input */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FaSearch className="text-gray-400" />
@@ -482,11 +502,10 @@ const Pendingwithdraw = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Search username, ID, account or transaction..."
+                    placeholder="Search username, ID, account..."
                   />
                 </div>
                 
-                {/* Method Filter */}
                 <div>
                   <select
                     value={methodFilter}
@@ -500,7 +519,6 @@ const Pendingwithdraw = () => {
                   </select>
                 </div>
                 
-                {/* Sort by */}
                 <div>
                   <select 
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -515,7 +533,6 @@ const Pendingwithdraw = () => {
                 </div>
               </div>
               
-              {/* Date Range Filter */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
@@ -543,17 +560,14 @@ const Pendingwithdraw = () => {
               <p className="text-gray-600">
                 Showing {withdrawals.length} of {stats.total} pending withdrawals
               </p>
-              <p className="text-green-600 font-medium">
-                Completed Amount: {formatCurrency(stats.completedAmount)}
-              </p>
             </div>
             
             {/* Loading State */}
             {loading && (
               <div className="bg-white rounded-lg p-8 text-center mb-6">
-                    <div className="flex justify-center items-center py-8">
-                                                           <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                                                         </div>
+                <div className="flex justify-center items-center py-8">
+                  <FaSpinner className="animate-spin text-orange-500 text-2xl" />
+                </div>
                 <p className="text-gray-600 mt-4">Loading pending withdrawals...</p>
               </div>
             )}
@@ -578,20 +592,29 @@ const Pendingwithdraw = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
                       <tr>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Date & Time
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('createdAt')}>
+                          <div className="flex items-center gap-2">
+                            Date & Time
+                            {getSortIcon('createdAt')}
+                          </div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Player ID / Username
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('userId')}>
+                          <div className="flex items-center gap-2">
+                            Player ID / Username
+                            {getSortIcon('userId')}
+                          </div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                           Method
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Amount
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('amount')}>
+                          <div className="flex items-center gap-2">
+                            Amount
+                            {getSortIcon('amount')}
+                          </div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Account Number
+                          Account Details
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                           Status
@@ -602,9 +625,10 @@ const Pendingwithdraw = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {withdrawals.length > 0 ? (
-                        withdrawals.map((withdrawal) => {
+                      {sortedWithdrawals.length > 0 ? (
+                        sortedWithdrawals.map((withdrawal) => {
                           const statusInfo = getStatusInfo(withdrawal.status);
+                          const accountDetails = getAccountDetails(withdrawal);
                           return (
                             <tr key={withdrawal._id} className="hover:bg-gray-50 transition-colors duration-150">
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -620,9 +644,9 @@ const Pendingwithdraw = () => {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-bold text-gray-900">{formatCurrency(withdrawal.amount)}</div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                                  {withdrawal.phoneNumber || 'N/A'}
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 max-w-xs truncate" title={accountDetails.fullDetails}>
+                                  {accountDetails.fullDetails}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -706,18 +730,18 @@ const Pendingwithdraw = () => {
                       {Array.from({ length: Math.ceil(stats.total / itemsPerPage) }, (_, i) => i + 1)
                         .slice(Math.max(0, currentPage - 3), Math.min(Math.ceil(stats.total / itemsPerPage), currentPage + 2))
                         .map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-orange-500 text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(stats.total / itemsPerPage)))}
@@ -795,30 +819,81 @@ const Pendingwithdraw = () => {
               
               <div className="bg-gray-50 p-4 rounded-md mb-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Amount Details</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Amount:</span>
-                    <span className="text-lg font-bold text-gray-900">{formatCurrency(selectedWithdrawal.amount)}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-gray-200 pt-2">
-                    <span className="text-sm font-medium text-gray-700">Net Amount:</span>
-                    <span className="text-lg font-bold text-green-600">{formatCurrency(selectedWithdrawal.amount)}</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Amount:</span>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(selectedWithdrawal.amount)}</span>
                 </div>
               </div>
               
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Payment Details</h4>
-                <dl className="space-y-2 bg-gray-50 p-3 rounded-md">
+                <div className="bg-gray-50 p-3 rounded-md space-y-2">
                   <div className="flex justify-between">
                     <dt className="text-sm text-gray-600">Method:</dt>
                     <dd className="text-sm text-gray-900">{getMethodName(selectedWithdrawal.method)}</dd>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-sm text-gray-600">Account Number:</dt>
-                    <dd className="text-sm font-medium text-gray-900">{selectedWithdrawal.phoneNumber || 'N/A'}</dd>
-                  </div>
-                </dl>
+                  {(() => {
+                    if (selectedWithdrawal.method === 'bkash' || selectedWithdrawal.method === 'rocket' || selectedWithdrawal.method === 'nagad') {
+                      const details = selectedWithdrawal.mobileBankingDetails;
+                      if (details) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Phone Number:</dt>
+                              <dd className="text-sm font-medium text-gray-900">{details.phoneNumber}</dd>
+                            </div>
+                            {details.accountType && (
+                              <div className="flex justify-between">
+                                <dt className="text-sm text-gray-600">Account Type:</dt>
+                                <dd className="text-sm text-gray-900 capitalize">{details.accountType}</dd>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } else if (selectedWithdrawal.phoneNumber) {
+                        return (
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-600">Phone Number:</dt>
+                            <dd className="text-sm font-medium text-gray-900">{selectedWithdrawal.phoneNumber}</dd>
+                          </div>
+                        );
+                      }
+                    } else if (selectedWithdrawal.method === 'bank') {
+                      const details = selectedWithdrawal.bankDetails;
+                      if (details) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Bank Name:</dt>
+                              <dd className="text-sm text-gray-900">{details.bankName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Account Holder:</dt>
+                              <dd className="text-sm text-gray-900">{details.accountHolderName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Account Number:</dt>
+                              <dd className="text-sm font-mono text-gray-900">{details.accountNumber}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Branch:</dt>
+                              <dd className="text-sm text-gray-900">{details.branchName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">District:</dt>
+                              <dd className="text-sm text-gray-900">{details.district}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Routing Number:</dt>
+                              <dd className="text-sm text-gray-900">{details.routingNumber}</dd>
+                            </div>
+                          </>
+                        );
+                      }
+                    }
+                    return <p className="text-sm text-gray-500">No additional details available</p>;
+                  })()}
+                </div>
               </div>
               
               <div className="mb-6">
@@ -834,10 +909,10 @@ const Pendingwithdraw = () => {
                 })()}
               </div>
 
-              {selectedWithdrawal.adminNotes && (
+              {selectedWithdrawal.adminNote && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Admin Notes</h4>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedWithdrawal.adminNotes}</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedWithdrawal.adminNote}</p>
                 </div>
               )}
             </div>
@@ -892,8 +967,10 @@ const Pendingwithdraw = () => {
               </div>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
-                <div className="text-sm text-gray-900">{selectedWithdrawal.phoneNumber || 'N/A'}</div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Details</label>
+                <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                  {getAccountDetails(selectedWithdrawal).fullDetails}
+                </div>
               </div>
               
               <div className="mb-4">
@@ -917,6 +994,17 @@ const Pendingwithdraw = () => {
                   onChange={(e) => setUpdateTransactionId(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Enter transaction ID if applicable"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Admin Note (Optional)</label>
+                <textarea
+                  value={updateAdminNote}
+                  onChange={(e) => setUpdateAdminNote(e.target.value)}
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Add any notes about this withdrawal..."
                 />
               </div>
             </div>
@@ -961,10 +1049,11 @@ const Pendingwithdraw = () => {
               
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
                 <h4 className="text-sm font-medium text-red-800 mb-2">Withdrawal Details</h4>
-                <div className="text-sm text-red-700">
+                <div className="text-sm text-red-700 space-y-1">
                   <p>Amount: {formatCurrency(selectedWithdrawal.amount)}</p>
                   <p>User: {selectedWithdrawal.userId?.username || 'Unknown'} ({selectedWithdrawal.userId?.player_id || 'N/A'})</p>
                   <p>Method: {getMethodName(selectedWithdrawal.method)}</p>
+                  <p>Account: {getAccountDetails(selectedWithdrawal).fullDetails}</p>
                   <p>Status: {selectedWithdrawal.status}</p>
                 </div>
               </div>

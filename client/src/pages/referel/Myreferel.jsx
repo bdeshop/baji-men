@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
@@ -7,6 +7,8 @@ import QRCode from "react-qr-code";
 import { Slider } from "../../components/home_componets/Slider";
 import axios from "axios";
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
+import { LanguageContext } from "../../context/LanguageContext";
+
 const Myreferel = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("detail");
@@ -14,6 +16,10 @@ const Myreferel = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  
+  // Get language context
+  const { language, t } = useContext(LanguageContext);
+  
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
   useEffect(() => {
@@ -26,7 +32,7 @@ const Myreferel = () => {
       const userinfo = JSON.parse(localStorage.getItem("user"));
       
       if (!token) {
-        setError("Authentication required. Please log in again.");
+        setError(t?.authenticationRequired || "Authentication required. Please log in again.");
         setLoading(false);
         return;
       }
@@ -40,11 +46,11 @@ const Myreferel = () => {
       if (response.data.success) {
         setUserData(response.data.data);
       } else {
-        setError(response.data.message || "Failed to fetch user data");
+        setError(response.data.message || (t?.failedToFetchUserData || "Failed to fetch user data"));
       }
     } catch (err) {
       console.error("Error fetching user data:", err);
-      setError(err.response?.data?.message || "Internal server error");
+      setError(err.response?.data?.message || (t?.internalServerError || "Internal server error"));
     } finally {
       setLoading(false);
     }
@@ -58,18 +64,68 @@ const Myreferel = () => {
     }
   };
 
+  const copyLinkToClipboard = () => {
+    const link = `https://bajiman.com/register?ref=${userData?.referralCode || ""}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareReferral = async () => {
+    const shareData = {
+      title: t?.joinMe || 'Join me!',
+      text: t?.useMyReferralCode || 'Use my referral code to sign up',
+      url: `https://bajiman.com/register?ref=${userData?.referralCode || ""}`
+    };
+    
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        copyLinkToClipboard();
+      }
+    } else {
+      copyLinkToClipboard();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen overflow-hidden font-poppins bg-[#141515] text-white">
+        <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <div className="flex h-[calc(100vh-56px)]">
+          <Sidebar sidebarOpen={sidebarOpen} />
+          <div className="flex-1 overflow-auto w-full flex items-center justify-center">
+            <div className='w-full p-[20px] flex justify-center items-center'>
+              <div className="relative w-24 h-24 flex justify-center items-center">
+                <div className="absolute w-full h-full rounded-full border-4 border-transparent border-t-green-500 border-r-green-500 animate-spin"></div>
+                <div className="w-20 h-20 rounded-full flex justify-center items-center font-bold text-lg"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div className="h-screen overflow-hidden font-poppins bg-gray-50 text-gray-900 flex items-center justify-center">
-        <div className="text-red-500 text-center p-4">
-          <p className="text-lg mb-2">Error</p>
-          <p>{error}</p>
-          <button 
-            onClick={fetchUserData}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md text-sm text-white"
-          >
-            Try Again
-          </button>
+      <div className="h-screen overflow-hidden font-poppins bg-[#141515] text-white">
+        <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <div className="flex h-[calc(100vh-56px)]">
+          <Sidebar sidebarOpen={sidebarOpen} />
+          <div className="flex-1 overflow-auto w-full flex items-center justify-center">
+            <div className="text-red-500 text-center p-4">
+              <p className="text-lg mb-2">{t?.error || "Error"}</p>
+              <p>{error}</p>
+              <button 
+                onClick={fetchUserData}
+                className="mt-4 bg-theme_color hover:bg-opacity-90 px-4 py-2 rounded-md text-sm text-white"
+              >
+                {t?.tryAgain || "Try Again"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -84,11 +140,11 @@ const Myreferel = () => {
       <div className="flex h-[calc(100vh-56px)]">
         <Sidebar sidebarOpen={sidebarOpen} />
 
-    <div className="flex-1 overflow-auto w-full transition-all duration-300">
+        <div className="flex-1 overflow-auto w-full transition-all duration-300">
           <Slider/>
 
           {/* Content */}
-          <div className="mx-auto overflow-y-auto  w-full max-w-screen-xl px-4 md:px-[50px] py-6">
+          <div className="mx-auto overflow-y-auto w-full max-w-screen-xl px-4 md:px-[50px] py-6">
             {/* Tabs */}
             <div className="flex space-x-6 mb-6 border-b-[1px] border-gray-600">
               <button
@@ -99,7 +155,7 @@ const Myreferel = () => {
                     : "text-gray-200 hover:text-gray-700"
                 }`}
               >
-                Info
+                {t?.info || "Info"}
               </button>
               <button
                 onClick={() => setActiveTab("info")}
@@ -109,7 +165,7 @@ const Myreferel = () => {
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                Details
+                {t?.details || "Details"}
               </button>
             </div>
 
@@ -117,71 +173,59 @@ const Myreferel = () => {
             {activeTab === "detail" ? (
               <>
                 {/* Referral Box */}
-                <div className=" sm:py-6 rounded-lg shadow-sm  flex md:flex-row   md:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div className="sm:py-6 rounded-lg shadow-sm flex md:flex-row md:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
                   {/* QR */}
-                  <div className="w-[200px] sm:w-[200px] sm:h-[200px] bg-white p-2  border border-gray-200 flex items-center justify-center">
+                  <div className="w-[200px] sm:w-[200px] sm:h-[200px] bg-white p-2 border border-gray-200 flex items-center justify-center">
                     <QRCode 
                       value={`https://bajiman.com/register?ref=${userData?.referralCode || ""}`} 
-                      size={70}
+                      size={180}
                       className="w-full h-full"
                     />
                   </div>
 
                   {/* Code & Copy */}
-                  <div className="flex flex-col items-center  md:items-start flex-1">
-                    <div className="text-xs sm:text-sm text-gray-500 mb-1">Your referral code</div>
-                    <div className="flex items-center gap-2 font-bold text-lg sm:text-xl text-gray-900">
-                      <span className="text-white">{userData?.referralCode || "N/A"}</span>
+                  <div className="flex flex-col items-center md:items-start flex-1">
+                    <div className="text-xs sm:text-sm text-gray-400 mb-1">{t?.yourReferralCode || "Your referral code"}</div>
+                    <div className="flex items-center gap-2 font-bold text-lg sm:text-xl text-white">
+                      <span>{userData?.referralCode || "N/A"}</span>
                       <button 
                         onClick={copyToClipboard}
                         className="p-1 hover:bg-gray-700 rounded-full transition-colors"
-                        aria-label="Copy referral code"
+                        aria-label={t?.copyReferralCode || "Copy referral code"}
                       >
-                        <FiCopy className="text-gray-400 hover:text-blue-600" />
+                        <FiCopy className="text-gray-400 hover:text-theme_color" />
                       </button>
-                      {copied && <span className="text-xs sm:text-sm text-green-600 ml-1">Copied!</span>}
+                      {copied && <span className="text-xs sm:text-sm text-green-400 ml-1">{t?.copied || "Copied!"}</span>}
                     </div>
                     <div className="text-xs text-gray-400 mt-1 text-center md:text-left">
-                      Share this code with friends to earn rewards
+                      {t?.shareCodeMessage || "Share this code with friends to earn rewards"}
                     </div>
                     <div className="grid pt-[10px] grid-cols-2 gap-2">
-                           <button 
-                      className="bg-theme_color px-3 sm:px-4 py-2.5 text-xs sm:text-sm  text-white flex items-center justify-center gap-2 whitespace-nowrap transition-colors"
-                      onClick={() => {
-                        navigator.share?.({
-                          title: 'Join me!',
-                          text: 'Use my referral code to sign up',
-                          url: `https://bajiman.com/register?ref=${userData?.referralCode || ""}`
-                        }).catch(() => copyToClipboard());
-                      }}
-                    >
-                      <FiShare2 size={12} className="sm:size-[14px]" />
-                      Copy Link
-                    </button>
-                           <button 
-                      className="bg-theme_color px-3 sm:px-4 py-2.5 text-xs sm:text-sm  text-white flex items-center justify-center gap-2 whitespace-nowrap transition-colors"
-                      onClick={() => {
-                        navigator.share?.({
-                          title: 'Join me!',
-                          text: 'Use my referral code to sign up',
-                        url: `https://bajiman.com/register?ref=${userData?.referralCode || ""}`
-                        }).catch(() => copyToClipboard());
-                      }}
-                    >
-                      <FiShare2 size={12} className="sm:size-[14px]" />
-                      Share
-                    </button>
+                      <button 
+                        className="bg-theme_color px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-white flex items-center justify-center gap-2 whitespace-nowrap transition-colors hover:bg-opacity-90"
+                        onClick={copyLinkToClipboard}
+                      >
+                        <FiShare2 size={12} className="sm:size-[14px]" />
+                        {t?.copyLink || "Copy Link"}
+                      </button>
+                      <button 
+                        className="bg-theme_color px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-white flex items-center justify-center gap-2 whitespace-nowrap transition-colors hover:bg-opacity-90"
+                        onClick={shareReferral}
+                      >
+                        <FiShare2 size={12} className="sm:size-[14px]" />
+                        {t?.share || "Share"}
+                      </button>
                     </div>
                   </div>
-           
                 </div>
 
                 {/* Stats Section */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 bg-[#22A27B] p-[20px]">
                   {/* Active Downlines */}
-                  <div className="bg-[#222424] p-4 sm:p-5  shadow-sm border border-gray-700 flex flex-col">
+                  <div className="bg-[#222424] p-4 sm:p-5 shadow-sm border border-gray-700 flex flex-col">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="text-xs sm:text-sm text-gray-400">Active downlines</div>
+                      <FiUsers className="text-theme_color" />
+                      <div className="text-xs sm:text-sm text-gray-400">{t?.activeDownlines || "Active downlines"}</div>
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-white">
                       {userData?.referralUsers?.length || 0}
@@ -189,60 +233,63 @@ const Myreferel = () => {
                   </div>
 
                   {/* Lifetime Cash Rewards */}
-                  <div className="bg-[#222424] p-4 sm:p-5  shadow-sm border border-gray-700 flex flex-col">
+                  <div className="bg-[#222424] p-4 sm:p-5 shadow-sm border border-gray-700 flex flex-col">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="text-xs sm:text-sm text-gray-400">Lifetime rewards</div>
+                      <FiDollarSign className="text-theme_color" />
+                      <div className="text-xs sm:text-sm text-gray-400">{t?.lifetimeRewards || "Lifetime rewards"}</div>
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-white">
-                     ৳{userData?.referralEarnings || 0}
+                      {t?.currencySymbol || "৳"}{userData?.referralEarnings || 0}
                     </div>
                   </div>
 
                   {/* Referral Turnover */}
-                  <div className="bg-[#222424] p-4 sm:p-5  shadow-sm border border-gray-700 flex flex-col">
+                  <div className="bg-[#222424] p-4 sm:p-5 shadow-sm border border-gray-700 flex flex-col">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="text-xs sm:text-sm text-gray-400">Referral turnover</div>
+                      <FiTrendingUp className="text-theme_color" />
+                      <div className="text-xs sm:text-sm text-gray-400">{t?.referralTurnover || "Referral turnover"}</div>
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-white">
-                      ৳{userData?.referralEarnings || 0}
+                      {t?.currencySymbol || "৳"}{userData?.referralEarnings || 0}
                     </div>
                   </div>
 
                   {/* Cash Rewards */}
                   <div className="bg-[#222424] p-4 sm:p-5 shadow-sm border border-gray-700 flex flex-col">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="text-xs sm:text-sm text-gray-400">Cash rewards</div>
+                      <FiAward className="text-theme_color" />
+                      <div className="text-xs sm:text-sm text-gray-400">{t?.cashRewards || "Cash rewards"}</div>
                     </div>
                     <div className="text-xl sm:text-2xl font-bold text-white">
-                     ৳{userData?.referralEarnings || 0}
+                      {t?.currencySymbol || "৳"}{userData?.referralEarnings || 0}
                     </div>
                   </div>
                 </div>
 
                 {/* Referred Users Table */}
                 {userData?.referralUsers?.length > 0 ? (
-                  <div className="bg-[#23AA81] p-4 sm:p-6  shadow-sm border text-white border-green-500 mb-6">
-                    <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">Referred Users</h3>
+                  <div className="bg-[#23AA81] p-4 sm:p-6 shadow-sm border text-white border-green-500 mb-6">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">{t?.referredUsers || "Referred Users"}</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs sm:text-sm">
                         <thead>
-                          <tr className="border-b border-green-500 border-gray-700">
-                            <th className="text-left py-3 px-2 sm:px-4  text-white font-medium">User ID</th>
-                            <th className="text-left py-3 px-2 sm:px-4 text-white font-medium">Joined Date</th>
-                            <th className="text-right py-3 px-2 sm:px-4 text-white font-medium">Earned Amount</th>
-                          </tr>
+                          <tr className="border-b border-green-500">
+                            <th className="text-left py-3 px-2 sm:px-4 text-white font-medium">{t?.userId || "User ID"}</th>
+                            <th className="text-left py-3 px-2 sm:px-4 text-white font-medium">{t?.joinedDate || "Joined Date"}</th>
+                            <th className="text-right py-3 px-2 sm:px-4 text-white font-medium">{t?.earnedAmount || "Earned Amount"}</th>
+                           </tr>
                         </thead>
                         <tbody>
                           {userData.referralUsers.map((ref, index) => (
                             <tr key={index} className="border-b border-green-500 hover:bg-gray-700/50">
-                              <td className="py-3 px-2 sm:px-4 ">
+                              <td className="py-3 px-2 sm:px-4">
                                 {ref.username || "N/A"}
                               </td>
                               <td className="py-3 px-2 sm:px-4 text-gray-300">
-                                {new Date(ref.joinedAt).toLocaleDateString()}
+                                {new Date(ref.joinedAt).toLocaleDateString(language.code === 'bn' ? 'bn-BD' : 'en-US')}
                               </td>
                               <td className="py-3 px-2 sm:px-4 text-right font-medium text-white">
-                                {ref.earnedAmount || 0} TK
+                                {ref.earnedAmount || 0} {t?.currencySymbol || "৳"}
                               </td>
                             </tr>
                           ))}
@@ -251,9 +298,9 @@ const Myreferel = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-[#23AA81] p-6  shadow-sm border border-gray-700 mb-6 text-center">
-                    <h3 className="text-base sm:text-lg font-medium text-yellow-300 mb-1">No referrals yet</h3>
-                    <p className="text-gray-300 text-xs sm:text-sm">Share your referral code to start earning rewards</p>
+                  <div className="bg-[#23AA81] p-6 shadow-sm border border-gray-700 mb-6 text-center">
+                    <h3 className="text-base sm:text-lg font-medium text-yellow-300 mb-1">{t?.noReferralsYet || "No referrals yet"}</h3>
+                    <p className="text-gray-300 text-xs sm:text-sm">{t?.shareReferralMessage || "Share your referral code to start earning rewards"}</p>
                   </div>
                 )}
 
@@ -261,40 +308,40 @@ const Myreferel = () => {
             ) : (
               // Info Tab Content
               <div className="bg-[#222424] p-4 sm:p-6 shadow-sm border border-gray-700 text-gray-300">
-                <h2 className="text-[18px] sm:text-[20px] font-[500] text-white mb-4 sm:mb-6">How Our Referral Program Works</h2>
+                <h2 className="text-[18px] sm:text-[20px] font-[500] text-white mb-4 sm:mb-6">{t?.howReferralWorks || "How Our Referral Program Works"}</h2>
                 
                 <div className="space-y-3 sm:space-y-4">
-                  <div className="py-2 rounded-lg ">
+                  <div className="py-2 rounded-lg">
                     <h3 className="font-medium text-yellow-400 mb-2 flex items-center gap-2">
                       <span className="bg-blue-900/30 h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center text-xs sm:text-sm">1</span>
-                      Share Your Code
+                      {t?.shareYourCode || "Share Your Code"}
                     </h3>
-                    <p className="text-xs sm:text-sm">Share your unique referral code with friends. They'll use it when signing up for your app.</p>
+                    <p className="text-xs sm:text-sm">{t?.shareCodeDesc || "Share your unique referral code with friends. They'll use it when signing up for your app."}</p>
                   </div>
                   
-                  <div className=" py-2 rounded-lg">
+                  <div className="py-2 rounded-lg">
                     <h3 className="font-medium text-yellow-400 mb-2 flex items-center gap-2">
                       <span className="bg-blue-900/30 h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center text-xs sm:text-sm">2</span>
-                      Earn Rewards
+                      {t?.earnRewards || "Earn Rewards"}
                     </h3>
-                    <p className="text-xs sm:text-sm">When your friend makes their first deposit or completes qualifying activities, you'll earn rewards.</p>
+                    <p className="text-xs sm:text-sm">{t?.earnRewardsDesc || "When your friend makes their first deposit or completes qualifying activities, you'll earn rewards."}</p>
                   </div>
                   
-                  <div className=" py-2 ">
+                  <div className="py-2">
                     <h3 className="font-medium text-yellow-400 mb-2 flex items-center gap-2">
                       <span className="bg-blue-900/30 h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center text-xs sm:text-sm">3</span>
-                      Track Your Earnings
+                      {t?.trackEarnings || "Track Your Earnings"}
                     </h3>
-                    <p className="text-xs sm:text-sm">Monitor your referral earnings and statistics in real-time on this dashboard.</p>
+                    <p className="text-xs sm:text-sm">{t?.trackEarningsDesc || "Monitor your referral earnings and statistics in real-time on this dashboard."}</p>
                   </div>
                   
-                  <div className=" py-2 rounded-lg">
-                    <h3 className="font-medium text-yellow-400 mb-2">Terms & Conditions</h3>
+                  <div className="py-2 rounded-lg">
+                    <h3 className="font-medium text-yellow-400 mb-2">{t?.termsConditions || "Terms & Conditions"}</h3>
                     <ul className="list-disc pl-4 sm:pl-5 mt-2 space-y-1 text-xs sm:text-sm">
-                      <li>Referral rewards are subject to terms and conditions</li>
-                      <li>Abuse of the referral system may result in account suspension</li>
-                      <li>Rewards may take up to 24 hours to appear in your account</li>
-                      <li>Minimum withdrawal limits may apply to referral earnings</li>
+                      <li>{t?.term1 || "Referral rewards are subject to terms and conditions"}</li>
+                      <li>{t?.term2 || "Abuse of the referral system may result in account suspension"}</li>
+                      <li>{t?.term3 || "Rewards may take up to 24 hours to appear in your account"}</li>
+                      <li>{t?.term4 || "Minimum withdrawal limits may apply to referral earnings"}</li>
                     </ul>
                   </div>
                 </div>
@@ -302,9 +349,7 @@ const Myreferel = () => {
             )}
           </div>
           <Footer />
-
         </div>
-        
       </div>
     </div>
   );

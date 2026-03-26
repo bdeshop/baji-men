@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaMoneyBill, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaSync, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaSync, FaEdit, FaTrash, FaSpinner } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
-import { FaSpinner } from 'react-icons/fa';
 
 const Rejectedwithdraw = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -18,13 +17,13 @@ const Rejectedwithdraw = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('');
   const [updateTransactionId, setUpdateTransactionId] = useState('');
+  const [updateAdminNote, setUpdateAdminNote] = useState('');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
-    completed: 0,
     rejected: 0,
     totalAmount: 0,
     rejectedAmount: 0
@@ -35,14 +34,44 @@ const Rejectedwithdraw = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  const statuses = ['pending', 'processing', 'completed', 'rejected', 'cancelled'];
-  const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank_transfer'];
+  const statuses = ['pending', 'processing', 'completed', 'failed', 'cancelled', 'rejected'];
+  const methods = ['all', 'bkash', 'rocket', 'nagad', 'bank'];
+
+  // Helper function to get account details from withdrawal
+  const getAccountDetails = (withdrawal) => {
+    if (!withdrawal) return { accountNumber: 'N/A', fullDetails: 'N/A' };
+    
+    if (withdrawal.method === 'bkash' || withdrawal.method === 'rocket' || withdrawal.method === 'nagad') {
+      if (withdrawal.mobileBankingDetails) {
+        return {
+          accountNumber: withdrawal.mobileBankingDetails.phoneNumber,
+          accountType: withdrawal.mobileBankingDetails.accountType,
+          fullDetails: `${withdrawal.mobileBankingDetails.phoneNumber}${withdrawal.mobileBankingDetails.accountType ? ` (${withdrawal.mobileBankingDetails.accountType})` : ''}`
+        };
+      }
+      return { accountNumber: withdrawal.phoneNumber || 'N/A', fullDetails: withdrawal.phoneNumber || 'N/A' };
+    } else if (withdrawal.method === 'bank') {
+      if (withdrawal.bankDetails) {
+        return {
+          accountNumber: withdrawal.bankDetails.accountNumber,
+          bankName: withdrawal.bankDetails.bankName,
+          accountHolderName: withdrawal.bankDetails.accountHolderName,
+          branchName: withdrawal.bankDetails.branchName,
+          district: withdrawal.bankDetails.district,
+          routingNumber: withdrawal.bankDetails.routingNumber,
+          fullDetails: `${withdrawal.bankDetails.bankName} - ${withdrawal.bankDetails.accountNumber}`
+        };
+      }
+      return { accountNumber: 'N/A', fullDetails: 'N/A' };
+    }
+    return { accountNumber: 'N/A', fullDetails: 'N/A' };
+  };
 
   // Fetch rejected withdrawals from API
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -50,7 +79,7 @@ const Rejectedwithdraw = () => {
         params: {
           page: currentPage,
           limit: itemsPerPage,
-          status:'rejected', // Only fetch rejected withdrawals
+          status: 'cancelled', // Only fetch rejected withdrawals
           method: methodFilter !== 'all' ? methodFilter : undefined,
           search: searchTerm || undefined,
           startDate: dateRange.start || undefined,
@@ -61,21 +90,22 @@ const Rejectedwithdraw = () => {
       });
 
       if (response.data) {
-        setWithdrawals(response.data.withdrawals);
+        const withdrawalsData = response.data.withdrawals || response.data.data || [];
+        setWithdrawals(withdrawalsData);
 
         // Calculate statistics
-        const totalWithdrawals = response.data.total;
-        const completedWithdrawals = response.data.statusCounts?.find(s => s._id === 'completed')?.count || 0;
-        const rejectedWithdrawals = response.data.statusCounts?.find(s => s._id === 'rejected')?.count || 0;
-        const totalAmount = response.data.totalAmount || 0;
-        const rejectedAmount = response.data.statusCounts?.find(s => s._id === 'rejected')?.amount || 0;
+        const totalWithdrawals = withdrawalsData.length;
+        const rejectedCount = withdrawalsData.filter(w => w.status === 'rejected').length;
+        const totalAmount = withdrawalsData.reduce((sum, w) => sum + (w.amount || 0), 0);
+        const rejectedAmount = withdrawalsData
+          .filter(w => w.status === 'rejected')
+          .reduce((sum, w) => sum + (w.amount || 0), 0);
 
         setStats({
           total: totalWithdrawals,
-          completed: completedWithdrawals,
-          rejected: rejectedWithdrawals,
-          totalAmount,
-          rejectedAmount
+          rejected: rejectedCount,
+          totalAmount: totalAmount,
+          rejectedAmount: rejectedAmount
         });
       }
     } catch (err) {
@@ -83,61 +113,67 @@ const Rejectedwithdraw = () => {
       setError('Failed to load rejected withdrawals. Please try again.');
 
       // Fallback to sample data if API fails
-      setWithdrawals([
+      const sampleData = [
         {
-          _id: "68ae24b8c2b1c27dfe6572d4",
-          userId: { username: "mikejones", player_id: "PID507957" },
-          amount: 5000,
-          method: "rocket",
-          phoneNumber: "018*****789",
-          transactionId: "TXW456123789",
+          _id: "69c4c57a9763d121d14b47c0",
+          userId: { _id: "69c4c4629763d121d14b418a", username: "testuser", player_id: "PID123456" },
+          method: "bkash",
+          mobileBankingDetails: {
+            phoneNumber: "01655585555",
+            accountType: "personal"
+          },
+          bankDetails: null,
+          amount: 500,
           status: "rejected",
-          createdAt: "2025-08-27T14:15:45.904Z",
-          processedAt: "2025-08-27T14:30:45.904Z",
-          adminNotes: "Insufficient documentation",
-          fee: 0,
-          netAmount: 0
+          transactionId: null,
+          processedAt: "2026-03-26T06:34:50.687Z",
+          createdAt: "2026-03-26T05:34:50.687Z",
+          rejectionReason: "Insufficient balance",
+          adminNote: "User did not have sufficient balance for withdrawal",
+          updatedAt: "2026-03-26T06:34:50.687Z"
+        },
+        {
+          _id: "69c4c5be9763d121d14b4803",
+          userId: { _id: "69c4c4629763d121d14b418a", username: "testuser", player_id: "PID123456" },
+          method: "bank",
+          mobileBankingDetails: null,
+          bankDetails: {
+            bankName: "Dutch Bangla Bank",
+            accountHolderName: "John Doe",
+            accountNumber: "435345345345",
+            branchName: "Main Branch",
+            district: "Dhaka",
+            routingNumber: "123456789"
+          },
+          amount: 500,
+          status: "rejected",
+          transactionId: null,
+          processedAt: "2026-03-26T06:35:58.042Z",
+          createdAt: "2026-03-26T05:35:58.042Z",
+          rejectionReason: "Invalid account details",
+          adminNote: "Bank account number verification failed",
+          updatedAt: "2026-03-26T06:35:58.042Z"
         }
-      ]);
+      ];
+      setWithdrawals(sampleData);
+      setStats({
+        total: sampleData.length,
+        rejected: sampleData.length,
+        totalAmount: sampleData.reduce((sum, w) => sum + w.amount, 0),
+        rejectedAmount: sampleData.reduce((sum, w) => sum + w.amount, 0)
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch withdrawal statistics
-  const fetchStats = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals-stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          status: ['rejected'] // Focus on rejected stats
-        }
-      });
-
-      if (response.data.success) {
-        setStats({
-          total: response.data.total?.totalCount || 0,
-          completed: response.data.byStatus?.find(s => s._id === 'completed')?.count || 0,
-          rejected: response.data.byStatus?.find(s => s._id === 'rejected')?.count || 0,
-          totalAmount: response.data.total?.totalAmount || 0,
-          rejectedAmount: response.data.byStatus?.find(s => s._id === 'rejected')?.amount || 0
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    }
-  };
-
   // Update withdrawal status
-  const updateWithdrawalStatus = async (withdrawalId, status, transactionId = null) => {
+  const updateWithdrawalStatus = async (withdrawalId, status, transactionId = null, adminNote = null) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.put(
         `${API_BASE_URL}/api/admin/withdrawals/${withdrawalId}/status`,
-        { status, transactionId },
+        { status, transactionId, adminNote },
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -148,13 +184,12 @@ const Rejectedwithdraw = () => {
       if (response.data) {
         toast.success('Withdrawal status updated successfully!');
         fetchWithdrawals();
-        fetchStats();
         return true;
       }
       return false;
     } catch (err) {
       console.error('Error updating withdrawal status:', err);
-      toast.error('Failed to update withdrawal status. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to update withdrawal status');
       return false;
     }
   };
@@ -162,7 +197,7 @@ const Rejectedwithdraw = () => {
   // Delete withdrawal
   const deleteWithdrawal = async (withdrawalId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
       const response = await axios.delete(
         `${API_BASE_URL}/api/admin/withdrawals/${withdrawalId}`,
         {
@@ -175,38 +210,44 @@ const Rejectedwithdraw = () => {
       if (response.data.success) {
         toast.success('Withdrawal deleted successfully!');
         fetchWithdrawals();
-        fetchStats();
         return true;
       }
       return false;
     } catch (err) {
       console.error('Error deleting withdrawal:', err);
-      toast.error('Failed to delete withdrawal. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to delete withdrawal');
       return false;
     }
   };
 
   // Export to CSV
-  const exportToCSV = async () => {
+  const exportToCSV = () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/admin/withdrawals/export`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        params: {
-          status: ['rejected'] // Export only rejected withdrawals
-        },
-        responseType: 'blob'
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const headers = ['Date', 'Processed Date', 'Player ID', 'Username', 'Method', 'Amount', 'Account Details', 'Status', 'Rejection Reason', 'Admin Notes'];
+      const csvData = withdrawals.map(w => [
+        formatDate(w.createdAt),
+        formatDate(w.processedAt),
+        w.userId?.player_id || 'N/A',
+        w.userId?.username || 'N/A',
+        getMethodName(w.method),
+        w.amount,
+        getAccountDetails(w).fullDetails,
+        w.status,
+        w.rejectionReason || '',
+        w.adminNote || ''
+      ]);
+      
+      const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `rejected_withdrawals_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('CSV exported successfully!');
     } catch (err) {
       console.error('Error exporting CSV:', err);
       toast.error('Failed to export data. Please try again.');
@@ -215,7 +256,6 @@ const Rejectedwithdraw = () => {
 
   useEffect(() => {
     fetchWithdrawals();
-    fetchStats();
   }, [currentPage, methodFilter, searchTerm, dateRange, sortConfig]);
 
   // Sort withdrawals
@@ -248,7 +288,6 @@ const Rejectedwithdraw = () => {
     return sortableItems;
   }, [withdrawals, sortConfig]);
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -257,49 +296,50 @@ const Rejectedwithdraw = () => {
     setSortConfig({ key, direction });
   };
 
-  // Get sort icon
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
     if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
     return <FaSortDown className="text-orange-500" />;
   };
 
-  // View withdrawal details
   const viewWithdrawalDetails = (withdrawal) => {
     setSelectedWithdrawal(withdrawal);
     setShowWithdrawalDetails(true);
   };
 
-  // Close withdrawal details modal
   const closeWithdrawalDetails = () => {
     setShowWithdrawalDetails(false);
     setSelectedWithdrawal(null);
   };
 
-  // Open update modal
   const openUpdateModal = (withdrawal) => {
+    // Close any other open modals first
+    if (showWithdrawalDetails) closeWithdrawalDetails();
+    if (showDeleteModal) closeDeleteModal();
+    
     setSelectedWithdrawal(withdrawal);
     setUpdateStatus(withdrawal.status);
     setUpdateTransactionId(withdrawal.transactionId || '');
+    setUpdateAdminNote(withdrawal.adminNote || '');
     setShowUpdateModal(true);
   };
 
-  // Close update modal
   const closeUpdateModal = () => {
     setShowUpdateModal(false);
     setSelectedWithdrawal(null);
     setUpdateStatus('');
     setUpdateTransactionId('');
+    setUpdateAdminNote('');
   };
 
-  // Handle update submission
   const handleUpdateSubmit = async () => {
     if (!selectedWithdrawal) return;
 
     const success = await updateWithdrawalStatus(
       selectedWithdrawal._id,
       updateStatus,
-      updateTransactionId || undefined
+      updateTransactionId || undefined,
+      updateAdminNote || undefined
     );
 
     if (success) {
@@ -307,19 +347,20 @@ const Rejectedwithdraw = () => {
     }
   };
 
-  // Open delete modal
   const openDeleteModal = (withdrawal) => {
+    // Close any other open modals first
+    if (showWithdrawalDetails) closeWithdrawalDetails();
+    if (showUpdateModal) closeUpdateModal();
+    
     setSelectedWithdrawal(withdrawal);
     setShowDeleteModal(true);
   };
 
-  // Close delete modal
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setSelectedWithdrawal(null);
   };
 
-  // Handle delete submission
   const handleDeleteSubmit = async () => {
     if (!selectedWithdrawal) return;
 
@@ -330,7 +371,6 @@ const Rejectedwithdraw = () => {
     }
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-BD', {
@@ -342,7 +382,6 @@ const Rejectedwithdraw = () => {
     });
   };
 
-  // Format currency (BDT)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-BD', {
       style: 'currency',
@@ -351,7 +390,6 @@ const Rejectedwithdraw = () => {
     }).format(amount || 0);
   };
 
-  // Get status icon and color
   const getStatusInfo = (status) => {
     switch(status) {
       case 'completed':
@@ -361,6 +399,7 @@ const Rejectedwithdraw = () => {
       case 'processing':
         return { icon: <FaClock className="text-blue-500" />, color: 'bg-blue-100 text-blue-800 border-blue-200' };
       case 'rejected':
+      case 'failed':
       case 'cancelled':
         return { icon: <FaTimesCircle className="text-red-500" />, color: 'bg-red-100 text-red-800 border-red-200' };
       default:
@@ -368,19 +407,16 @@ const Rejectedwithdraw = () => {
     }
   };
 
-  // Get method display name
   const getMethodName = (method) => {
     switch(method) {
       case 'bkash': return 'bKash';
       case 'nagad': return 'Nagad';
       case 'rocket': return 'Rocket';
-      case 'upay': return 'Upay';
-      case 'bank_transfer': return 'Bank Transfer';
+      case 'bank': return 'Bank Transfer';
       default: return method;
     }
   };
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, methodFilter, dateRange]);
@@ -388,7 +424,7 @@ const Rejectedwithdraw = () => {
   return (
     <section className="font-nunito h-screen">
       <Header toggleSidebar={toggleSidebar} />
-      <Toaster />
+      <Toaster position="top-right" />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
 
@@ -424,10 +460,10 @@ const Rejectedwithdraw = () => {
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Total Rejected</h3>
-                <p className="text-2xl font-bold text-gray-800">{stats.rejected}</p>
+                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
               </div>
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Total Amount</h3>
@@ -435,7 +471,7 @@ const Rejectedwithdraw = () => {
               </div>
               <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
                 <h3 className="text-sm font-medium text-gray-600">Rejected Amount</h3>
-                <p className="text-2xl font-bold text-gray-800">{formatCurrency(stats.rejectedAmount)}</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.rejectedAmount)}</p>
               </div>
             </div>
             
@@ -458,8 +494,7 @@ const Rejectedwithdraw = () => {
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Search Input */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FaSearch className="text-gray-400" />
@@ -469,11 +504,10 @@ const Rejectedwithdraw = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Search username, ID, account or transaction..."
+                    placeholder="Search username, ID, account..."
                   />
                 </div>
                 
-                {/* Method Filter */}
                 <div>
                   <select
                     value={methodFilter}
@@ -487,7 +521,6 @@ const Rejectedwithdraw = () => {
                   </select>
                 </div>
                 
-                {/* Sort by */}
                 <div>
                   <select 
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -502,7 +535,6 @@ const Rejectedwithdraw = () => {
                 </div>
               </div>
               
-              {/* Date Range Filter */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
@@ -530,7 +562,7 @@ const Rejectedwithdraw = () => {
               <p className="text-gray-600">
                 Showing {withdrawals.length} of {stats.total} rejected withdrawals
               </p>
-              <p className="text-green-600 font-medium">
+              <p className="text-red-600 font-medium">
                 Rejected Amount: {formatCurrency(stats.rejectedAmount)}
               </p>
             </div>
@@ -538,9 +570,9 @@ const Rejectedwithdraw = () => {
             {/* Loading State */}
             {loading && (
               <div className="bg-white rounded-lg p-8 text-center mb-6">
-                    <div className="flex justify-center items-center py-8">
-                                                           <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                                                         </div>
+                <div className="flex justify-center items-center py-8">
+                  <FaSpinner className="animate-spin text-orange-500 text-2xl" />
+                </div>
                 <p className="text-gray-600 mt-4">Loading rejected withdrawals...</p>
               </div>
             )}
@@ -563,22 +595,31 @@ const Rejectedwithdraw = () => {
               <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
+                    <thead className="bg-gradient-to-r from-red-500 to-red-600">
                       <tr>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Date & Time
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('createdAt')}>
+                          <div className="flex items-center gap-2">
+                            Date & Time
+                            {getSortIcon('createdAt')}
+                          </div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Player ID / Username
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('userId')}>
+                          <div className="flex items-center gap-2">
+                            Player ID / Username
+                            {getSortIcon('userId')}
+                          </div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                           Method
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Amount
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('amount')}>
+                          <div className="flex items-center gap-2">
+                            Amount
+                            {getSortIcon('amount')}
+                          </div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Account Number
+                          Account Details
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
                           Status
@@ -589,13 +630,17 @@ const Rejectedwithdraw = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {withdrawals.length > 0 ? (
-                        withdrawals.map((withdrawal) => {
+                      {sortedWithdrawals.length > 0 ? (
+                        sortedWithdrawals.map((withdrawal) => {
                           const statusInfo = getStatusInfo(withdrawal.status);
+                          const accountDetails = getAccountDetails(withdrawal);
                           return (
                             <tr key={withdrawal._id} className="hover:bg-gray-50 transition-colors duration-150">
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-gray-700">{formatDate(withdrawal.createdAt)}</div>
+                                {withdrawal.processedAt && (
+                                  <div className="text-xs text-red-500">Rejected: {formatDate(withdrawal.processedAt)}</div>
+                                )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-semibold text-gray-700 font-mono">{withdrawal.userId?.player_id || 'N/A'}</div>
@@ -603,16 +648,13 @@ const Rejectedwithdraw = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-gray-700">{getMethodName(withdrawal.method)}</div>
-                                {withdrawal.bankName && (
-                                  <div className="text-xs text-gray-500">{withdrawal.bankName}</div>
-                                )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-bold text-gray-900">{formatCurrency(withdrawal.amount)}</div>
+                                <div className="text-sm font-bold text-red-600">{formatCurrency(withdrawal.amount)}</div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                                  {withdrawal.phoneNumber || withdrawal.accountNumber || 'N/A'}
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 max-w-xs truncate" title={accountDetails.fullDetails}>
+                                  {accountDetails.fullDetails}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -630,20 +672,13 @@ const Rejectedwithdraw = () => {
                                   >
                                     <FaEye />
                                   </button>
-                                  <button 
-                                    className="p-2 px-[8px] py-[7px] bg-green-600 text-white rounded-[3px] text-[16px] hover:bg-green-700"
-                                    title="Edit status"
-                                    onClick={() => openUpdateModal(withdrawal)}
-                                  >
-                                    <FaEdit />
-                                  </button>
-                                  <button 
+                                  {/* <button 
                                     className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700"
                                     title="Delete withdrawal"
                                     onClick={() => openDeleteModal(withdrawal)}
                                   >
                                     <FaTrash />
-                                  </button>
+                                  </button> */}
                                 </div>
                               </td>
                             </tr>
@@ -696,18 +731,18 @@ const Rejectedwithdraw = () => {
                       {Array.from({ length: Math.ceil(stats.total / itemsPerPage) }, (_, i) => i + 1)
                         .slice(Math.max(0, currentPage - 3), Math.min(Math.ceil(stats.total / itemsPerPage), currentPage + 2))
                         .map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-red-500 text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(stats.total / itemsPerPage)))}
@@ -756,15 +791,13 @@ const Rejectedwithdraw = () => {
                       <dd className="text-sm text-gray-900">{formatDate(selectedWithdrawal.createdAt)}</dd>
                     </div>
                     <div className="flex justify-between">
+                      <dt className="text-sm text-gray-600">Rejected At:</dt>
+                      <dd className="text-sm text-gray-900">{formatDate(selectedWithdrawal.processedAt)}</dd>
+                    </div>
+                    <div className="flex justify-between">
                       <dt className="text-sm text-gray-600">Payment Method:</dt>
                       <dd className="text-sm text-gray-900">{getMethodName(selectedWithdrawal.method)}</dd>
                     </div>
-                    {selectedWithdrawal.processedAt && (
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">Processed At:</dt>
-                        <dd className="text-sm text-gray-900">{formatDate(selectedWithdrawal.processedAt)}</dd>
-                      </div>
-                    )}
                   </dl>
                 </div>
                 
@@ -783,42 +816,83 @@ const Rejectedwithdraw = () => {
                 </div>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-md mb-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Amount Details</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Amount:</span>
-                    <span className="text-lg font-bold text-gray-900">{formatCurrency(selectedWithdrawal.amount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Processing Fee:</span>
-                    <span className="text-sm text-gray-900">{formatCurrency(selectedWithdrawal.fee || 0)}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-gray-200 pt-2">
-                    <span className="text-sm font-medium text-gray-700">Net Amount:</span>
-                    <span className="text-lg font-bold text-green-600">{formatCurrency(selectedWithdrawal.netAmount || 0)}</span>
-                  </div>
+              <div className="bg-red-50 p-4 rounded-md mb-6">
+                <h4 className="text-sm font-medium text-red-700 mb-3">Amount Details</h4>
+                <div className="flex justify-between">
+                  <span className="text-sm text-red-600">Amount:</span>
+                  <span className="text-lg font-bold text-red-900">{formatCurrency(selectedWithdrawal.amount)}</span>
                 </div>
               </div>
               
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Payment Details</h4>
-                <dl className="space-y-2 bg-gray-50 p-3 rounded-md">
+                <div className="bg-gray-50 p-3 rounded-md space-y-2">
                   <div className="flex justify-between">
                     <dt className="text-sm text-gray-600">Method:</dt>
                     <dd className="text-sm text-gray-900">{getMethodName(selectedWithdrawal.method)}</dd>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-sm text-gray-600">Account Number:</dt>
-                    <dd className="text-sm font-medium text-gray-900">{selectedWithdrawal.phoneNumber || selectedWithdrawal.accountNumber || 'N/A'}</dd>
-                  </div>
-                  {selectedWithdrawal.bankName && (
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Bank Name:</dt>
-                      <dd className="text-sm text-gray-900">{selectedWithdrawal.bankName}</dd>
-                    </div>
-                  )}
-                </dl>
+                  {(() => {
+                    if (selectedWithdrawal.method === 'bkash' || selectedWithdrawal.method === 'rocket' || selectedWithdrawal.method === 'nagad') {
+                      const details = selectedWithdrawal.mobileBankingDetails;
+                      if (details) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Phone Number:</dt>
+                              <dd className="text-sm font-medium text-gray-900">{details.phoneNumber}</dd>
+                            </div>
+                            {details.accountType && (
+                              <div className="flex justify-between">
+                                <dt className="text-sm text-gray-600">Account Type:</dt>
+                                <dd className="text-sm text-gray-900 capitalize">{details.accountType}</dd>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } else if (selectedWithdrawal.phoneNumber) {
+                        return (
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-600">Phone Number:</dt>
+                            <dd className="text-sm font-medium text-gray-900">{selectedWithdrawal.phoneNumber}</dd>
+                          </div>
+                        );
+                      }
+                    } else if (selectedWithdrawal.method === 'bank') {
+                      const details = selectedWithdrawal.bankDetails;
+                      if (details) {
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Bank Name:</dt>
+                              <dd className="text-sm text-gray-900">{details.bankName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Account Holder:</dt>
+                              <dd className="text-sm text-gray-900">{details.accountHolderName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Account Number:</dt>
+                              <dd className="text-sm font-mono text-gray-900">{details.accountNumber}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Branch:</dt>
+                              <dd className="text-sm text-gray-900">{details.branchName}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">District:</dt>
+                              <dd className="text-sm text-gray-900">{details.district}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Routing Number:</dt>
+                              <dd className="text-sm text-gray-900">{details.routingNumber}</dd>
+                            </div>
+                          </>
+                        );
+                      }
+                    }
+                    return <p className="text-sm text-gray-500">No additional details available</p>;
+                  })()}
+                </div>
               </div>
               
               <div className="mb-6">
@@ -834,21 +908,24 @@ const Rejectedwithdraw = () => {
                 })()}
               </div>
 
-              {selectedWithdrawal.adminNotes && (
+              {selectedWithdrawal.rejectionReason && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-red-700 mb-2">Rejection Reason</h4>
+                  <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
+                    {selectedWithdrawal.rejectionReason}
+                  </p>
+                </div>
+              )}
+
+              {selectedWithdrawal.adminNote && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Admin Notes</h4>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedWithdrawal.adminNotes}</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedWithdrawal.adminNote}</p>
                 </div>
               )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
-              <button
-                onClick={() => openUpdateModal(selectedWithdrawal)}
-                className="px-4 py-2 bg-orange-500 text-white rounded-md text-sm font-medium hover:bg-orange-600 focus:outline-none"
-              >
-                Update Status
-              </button>
               <button
                 onClick={closeWithdrawalDetails}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-400 focus:outline-none"
@@ -892,8 +969,10 @@ const Rejectedwithdraw = () => {
               </div>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
-                <div className="text-sm text-gray-900">{selectedWithdrawal.phoneNumber || selectedWithdrawal.accountNumber || 'N/A'}</div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account Details</label>
+                <div className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                  {getAccountDetails(selectedWithdrawal).fullDetails}
+                </div>
               </div>
               
               <div className="mb-4">
@@ -917,6 +996,17 @@ const Rejectedwithdraw = () => {
                   onChange={(e) => setUpdateTransactionId(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Enter transaction ID if applicable"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Admin Note (Optional)</label>
+                <textarea
+                  value={updateAdminNote}
+                  onChange={(e) => setUpdateAdminNote(e.target.value)}
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Add any notes about this withdrawal..."
                 />
               </div>
             </div>
@@ -961,11 +1051,15 @@ const Rejectedwithdraw = () => {
               
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
                 <h4 className="text-sm font-medium text-red-800 mb-2">Withdrawal Details</h4>
-                <div className="text-sm text-red-700">
+                <div className="text-sm text-red-700 space-y-1">
                   <p>Amount: {formatCurrency(selectedWithdrawal.amount)}</p>
                   <p>User: {selectedWithdrawal.userId?.username || 'Unknown'} ({selectedWithdrawal.userId?.player_id || 'N/A'})</p>
                   <p>Method: {getMethodName(selectedWithdrawal.method)}</p>
+                  <p>Account: {getAccountDetails(selectedWithdrawal).fullDetails}</p>
                   <p>Status: {selectedWithdrawal.status}</p>
+                  {selectedWithdrawal.rejectionReason && (
+                    <p>Reason: {selectedWithdrawal.rejectionReason}</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -41,7 +41,6 @@ const BettingHistorySchema = new Schema({
     serial_number: {
         type: String,
         required: true,
-        unique: true
     },
     currency_code: {
         type: String,
@@ -93,8 +92,6 @@ const BettingHistorySchema = new Schema({
 
 // Indexes for better query performance
 BettingHistorySchema.index({ user_id: 1, transaction_time: -1 });
-BettingHistorySchema.index({ member_account: 1, serial_number: 1 });
-BettingHistorySchema.index({ serial_number: 1 }, { unique: true });
 BettingHistorySchema.index({ transaction_time: -1 });
 BettingHistorySchema.index({ status: 1, transaction_time: -1 });
 
