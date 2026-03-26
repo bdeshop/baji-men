@@ -22,7 +22,6 @@ const menuGameSchema = new mongoose.Schema({
     gameId: {
         type: String,
         required: true,
-        unique: true,
         trim: true
     },
     provider: {

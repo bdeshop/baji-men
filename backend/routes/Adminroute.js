@@ -10365,19 +10365,6 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
             });
         }
 
-        // Check if gameId already exists
-        const existingGame = await MenuGame.findOne({ name });
-        if (existingGame) {
-            // Delete uploaded file if gameId already exists
-            if (req.file) {
-                const filePath = path.join(__dirname, "..", "public", "uploads", "menu-games", req.file.filename);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-            }
-            return res.status(400).json({ error: "Game ID already exists" });
-        }
-
         const gameData = {
             image: `/uploads/menu-games/${req.file.filename}`,
             category,
@@ -10406,9 +10393,6 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
-        }
-        if (error.code === 11000) {
-            return res.status(400).json({ error: "Game ID already exists" });
         }
         res.status(500).json({ error: "Failed to create menu game" });
     }
@@ -10442,25 +10426,6 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
             game.image = `/uploads/menu-games/${req.file.filename}`;
         }
 
-        // Check if gameId is being changed and if it already exists
-        if (gameId && gameId !== game.gameId) {
-            const existingGame = await MenuGame.findOne({
-                gameId,
-                _id: { $ne: req.params.id }
-            });
-            if (existingGame) {
-                // Clean up new uploaded file if gameId exists
-                if (req.file) {
-                    const newFilePath = path.join(__dirname, "..", "public", "uploads", "menu-games", req.file.filename);
-                    if (fs.existsSync(newFilePath)) {
-                        fs.unlinkSync(newFilePath);
-                    }
-                }
-                return res.status(400).json({ error: "Game ID already exists" });
-            }
-            game.gameId = gameId;
-        }
-
         await game.save();
 
         // Delete old image file if new image was uploaded
@@ -10483,9 +10448,6 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
-        }
-        if (error.code === 11000) {
-            return res.status(400).json({ error: "Game ID already exists" });
         }
         res.status(500).json({ error: "Failed to update menu game" });
     }
