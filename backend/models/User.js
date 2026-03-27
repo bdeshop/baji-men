@@ -191,7 +191,6 @@ email: {
 fullName: {
     type: String,
     trim: true,
-    required: function() { return !this.isOneClickUser; } // Required for non-one-click users
 },
 dateOfBirth: {
     type: Date,

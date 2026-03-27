@@ -14,6 +14,7 @@ const Allgames = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [providerFilter, setProviderFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [featuredFilter, setFeaturedFilter] = useState('all'); // NEW
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -38,22 +39,19 @@ const Allgames = () => {
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   
-  // Fetch categories and providers once
   useEffect(() => {
     fetchCategories();
     fetchProviders();
   }, []);
 
-  // Fetch games when dependencies change
   useEffect(() => {
     fetchGames();
-  }, [currentPage, searchTerm, categoryFilter, providerFilter, statusFilter]);
+  }, [currentPage, searchTerm, categoryFilter, providerFilter, statusFilter, featuredFilter]); // Added featuredFilter
 
   const fetchGames = async () => {
     try {
       setLoading(true);
       
-      // Build params object - only include filters that are not 'all'
       const params = {
         page: currentPage,
         limit: itemsPerPage,
@@ -70,16 +68,18 @@ const Allgames = () => {
       if (providerFilter !== 'all') {
         params.provider = providerFilter;
       }
+
+      // NEW: Add featured filter param
+      if (featuredFilter !== 'all') {
+        params.featured = featuredFilter;
+      }
       
       if (searchTerm) {
         params.search = searchTerm;
       }
       
-      console.log("Fetching games with params:", params);
-      
       const response = await axios.get(`${base_url}/api/admin/games`, { params });
       
-      // Handle both response formats
       if (response.data.games) {
         setGames(response.data.games);
         setTotalGames(response.data.total);
@@ -115,7 +115,6 @@ const Allgames = () => {
   const fetchProviders = async () => {
     try {
       const response = await axios.get(`${base_url}/api/admin/game-providers`);
-      console.log("Providers response:", response.data);
       setProviders(response.data);
     } catch (error) {
       console.error('Error fetching providers:', error);
@@ -123,7 +122,6 @@ const Allgames = () => {
     }
   };
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -132,7 +130,6 @@ const Allgames = () => {
     setSortConfig({ key, direction });
   };
 
-  // Sort games based on sortConfig
   const sortedGames = useMemo(() => {
     if (!sortConfig.key) return games;
     
@@ -140,36 +137,28 @@ const Allgames = () => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
       
-      // Handle boolean values
       if (typeof aVal === 'boolean') {
         aVal = aVal ? 1 : 0;
         bVal = bVal ? 1 : 0;
       }
       
-      // Handle date strings
       if (sortConfig.key === 'createdAt' || sortConfig.key === 'updatedAt') {
         aVal = new Date(aVal).getTime();
         bVal = new Date(bVal).getTime();
       }
       
-      if (aVal < bVal) {
-        return sortConfig.direction === 'ascending' ? -1 : 1;
-      }
-      if (aVal > bVal) {
-        return sortConfig.direction === 'ascending' ? 1 : -1;
-      }
+      if (aVal < bVal) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'ascending' ? 1 : -1;
       return 0;
     });
   }, [games, sortConfig]);
 
-  // Get sort icon
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
     if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
     return <FaSortDown className="text-orange-500" />;
   };
 
-  // Handle game deletion with SweetAlert
   const handleDelete = (game) => {
     Swal.fire({
       title: 'Delete Game?',
@@ -204,7 +193,6 @@ const Allgames = () => {
             }
           });
         } catch (error) {
-          console.error('Error deleting game:', error);
           Swal.fire({
             title: 'Error!',
             text: error.response?.data?.error || error.response?.data?.message || 'Failed to delete game',
@@ -221,78 +209,56 @@ const Allgames = () => {
     });
   };
 
-  // Handle game status toggle
   const toggleStatus = async (id) => {
     try {
       const game = games.find(g => g._id === id);
       const newStatus = !game.status;
-      
-      await axios.put(`${base_url}/api/admin/games/${id}`, {
-        status: newStatus
-      });
-      
+      await axios.put(`${base_url}/api/admin/games/${id}`, { status: newStatus });
       fetchGames();
       toast.success(`${game.name} is now ${newStatus ? 'Active' : 'Inactive'}`);
     } catch (error) {
-      console.error('Error updating game status:', error);
       toast.error('Failed to update game status');
     }
   };
 
-  // Handle game featured toggle
   const toggleFeatured = async (id) => {
     try {
       const game = games.find(g => g._id === id);
       const newFeatured = !game.featured;
-      
-      await axios.put(`${base_url}/api/admin/games/${id}`, {
-        featured: newFeatured
-      });
-      
+      await axios.put(`${base_url}/api/admin/games/${id}`, { featured: newFeatured });
       fetchGames();
       toast.success(`${game.name} is now ${newFeatured ? 'Featured' : 'Not Featured'}`);
     } catch (error) {
-      console.error('Error updating game featured status:', error);
       toast.error('Failed to update game featured status');
     }
   };
 
-  // Get image URL helper
   const getImageUrl = (imagePath) => {
     if (!imagePath) return 'https://via.placeholder.com/300x200?text=No+Image';
     if (imagePath.startsWith('http')) return imagePath;
     return `${base_url}${imagePath}`;
   };
 
-  // Format categories display (handle array or string)
   const formatCategories = (categories) => {
     if (!categories) return 'Uncategorized';
-    if (Array.isArray(categories)) {
-      return categories.join(', ');
-    }
-    if (typeof categories === 'string') {
-      return categories;
-    }
+    if (Array.isArray(categories)) return categories.join(', ');
+    if (typeof categories === 'string') return categories;
     return 'Uncategorized';
   };
 
-  // Open view modal
   const openView = (game) => {
     setSelectedGame(game);
     setShowViewModal(true);
   };
 
-  // Open edit modal
   const openEdit = (game) => {
     setSelectedGame(game);
     
-    // Parse categories to array if needed
     let categoriesArray = [];
     if (game.category) {
       if (Array.isArray(game.category)) {
         categoriesArray = game.category;
       } else if (typeof game.category === 'string') {
-        // Handle comma-separated string
         categoriesArray = game.category.split(',').map(c => c.trim());
       }
     }
@@ -321,7 +287,6 @@ const Allgames = () => {
     setShowEditModal(true);
   };
 
-  // Handle category toggle in edit form
   const toggleCategory = (categoryId) => {
     const categoryName = categories.find(c => c._id === categoryId)?.name;
     if (!categoryName) return;
@@ -336,15 +301,12 @@ const Allgames = () => {
     });
   };
 
-  // Handle image file selection
   const handlePortraitChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setPortraitFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPortraitPreview(reader.result);
-      };
+      reader.onloadend = () => setPortraitPreview(reader.result);
       reader.readAsDataURL(file);
       setUseDefaultImages(false);
     }
@@ -355,15 +317,12 @@ const Allgames = () => {
     if (file) {
       setLandscapeFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setLandscapePreview(reader.result);
-      };
+      reader.onloadend = () => setLandscapePreview(reader.result);
       reader.readAsDataURL(file);
       setUseDefaultImages(false);
     }
   };
 
-  // Toggle default images
   const toggleDefaultImages = () => {
     setUseDefaultImages(!useDefaultImages);
     if (!useDefaultImages) {
@@ -374,29 +333,24 @@ const Allgames = () => {
     }
   };
 
-  // Handle edit submit
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation
     if (!editForm.categories || editForm.categories.length === 0) {
       toast.error("Please select at least one category");
       return;
     }
 
     const formData = new FormData();
-    
-    // Append all form fields
     formData.append('name', editForm.name);
     formData.append('gameApiID', editForm.gameId);
     formData.append('provider', editForm.provider);
-    formData.append('category', editForm.categories.join(',')); // Send as comma-separated string
+    formData.append('category', editForm.categories.join(','));
     formData.append('featured', editForm.featured ? 'true' : 'false');
     formData.append('status', editForm.status ? 'true' : 'false');
     formData.append('fullScreen', editForm.fullScreen ? 'true' : 'false');
     formData.append('order', editForm.order || 0);
     
-    // Handle images
     if (useDefaultImages && editForm.defaultImage) {
       formData.append('defaultImage', editForm.defaultImage);
     } else {
@@ -408,26 +362,24 @@ const Allgames = () => {
       await axios.put(`${base_url}/api/admin/games/${selectedGame._id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
       fetchGames();
       setShowEditModal(false);
       toast.success('Game updated successfully');
     } catch (error) {
-      console.error('Error updating game:', error);
       toast.error(error.response?.data?.error || 'Failed to update game');
     }
   };
 
-  // Reset filters
+  // NEW: Added featuredFilter reset
   const resetFilters = () => {
     setSearchTerm('');
     setCategoryFilter('all');
     setProviderFilter('all');
     setStatusFilter('all');
+    setFeaturedFilter('all');
     setCurrentPage(1);
   };
 
-  // Generate pagination items with ellipsis
   const getPaginationItems = () => {
     const delta = 2;
     const range = [];
@@ -442,11 +394,8 @@ const Allgames = () => {
 
     range.forEach((i) => {
       if (l) {
-        if (i - l === 2) {
-          rangeWithDots.push(l + 1);
-        } else if (i - l !== 1) {
-          rangeWithDots.push('...');
-        }
+        if (i - l === 2) rangeWithDots.push(l + 1);
+        else if (i - l !== 1) rangeWithDots.push('...');
       }
       rangeWithDots.push(i);
       l = i;
@@ -456,7 +405,7 @@ const Allgames = () => {
   };
 
   return (
-    <section className="font-nunito h-screen ">
+    <section className="font-nunito h-screen">
       <Header toggleSidebar={toggleSidebar} />
 
       <div className="flex pt-[10vh]">
@@ -464,7 +413,7 @@ const Allgames = () => {
 
         <main
           className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
+            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
           <div className="w-full mx-auto">
@@ -515,7 +464,8 @@ const Allgames = () => {
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* ── now a 5-column grid to fit the new filter ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Search Input */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -575,6 +525,19 @@ const Allgames = () => {
                     <option value="false">Inactive</option>
                   </select>
                 </div>
+
+                {/* ── NEW: Featured Filter ── */}
+                <div>
+                  <select
+                    value={featuredFilter}
+                    onChange={(e) => setFeaturedFilter(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="all">All Featured</option>
+                    <option value="true">Featured</option>
+                    <option value="false">Not Featured</option>
+                  </select>
+                </div>
               </div>
             </div>
             
@@ -614,61 +577,23 @@ const Allgames = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
                       <tr>
-                        <th 
-                          scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
-                          onClick={() => requestSort('name')}
-                        >
-                          <div className="flex items-center">
-                            Game
-                            {getSortIcon('name')}
-                          </div>
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700" onClick={() => requestSort('name')}>
+                          <div className="flex items-center">Game {getSortIcon('name')}</div>
+                        </th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">ID</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700" onClick={() => requestSort('provider')}>
+                          <div className="flex items-center">Provider {getSortIcon('provider')}</div>
                         </th>
                         <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          ID
+                          <div className="flex items-center"><FaTags className="mr-1" />Categories</div>
                         </th>
-                        <th 
-                          scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
-                          onClick={() => requestSort('provider')}
-                        >
-                          <div className="flex items-center">
-                            Provider
-                            {getSortIcon('provider')}
-                          </div>
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700" onClick={() => requestSort('status')}>
+                          <div className="flex items-center">Status {getSortIcon('status')}</div>
                         </th>
-                        <th 
-                          scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider"
-                        >
-                          <div className="flex items-center">
-                            <FaTags className="mr-1" />
-                            Categories
-                          </div>
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700" onClick={() => requestSort('featured')}>
+                          <div className="flex items-center">Featured {getSortIcon('featured')}</div>
                         </th>
-                        <th 
-                          scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
-                          onClick={() => requestSort('status')}
-                        >
-                          <div className="flex items-center">
-                            Status
-                            {getSortIcon('status')}
-                          </div>
-                        </th>
-                        <th 
-                          scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
-                          onClick={() => requestSort('featured')}
-                        >
-                          <div className="flex items-center">
-                            Featured
-                            {getSortIcon('featured')}
-                          </div>
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                          Actions
-                        </th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -684,9 +609,7 @@ const Allgames = () => {
                                       className="h-12 w-12 rounded-md object-cover shadow-sm border border-gray-200" 
                                       src={getImageUrl(game.portraitImage)} 
                                       alt={game.name} 
-                                      onError={(e) => {
-                                        e.target.src = 'https://via.placeholder.com/48x48?text=No+Image';
-                                      }}
+                                      onError={(e) => { e.target.src = 'https://via.placeholder.com/48x48?text=No+Image'; }}
                                     />
                                     {hasDefaultImage && (
                                       <span className="absolute -top-1 -right-1 bg-blue-500 text-white rounded-full p-0.5">
@@ -710,9 +633,7 @@ const Allgames = () => {
                                 <div className="flex flex-wrap gap-1">
                                   {Array.isArray(game.category) ? (
                                     game.category.map((cat, idx) => (
-                                      <span key={idx} className="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
-                                        {cat}
-                                      </span>
+                                      <span key={idx} className="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">{cat}</span>
                                     ))
                                   ) : (
                                     <span className="px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
@@ -723,49 +644,21 @@ const Allgames = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <label className="inline-flex items-center cursor-pointer">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={game.status} 
-                                    onChange={() => toggleStatus(game._id)} 
-                                    className="sr-only peer" 
-                                  />
+                                  <input type="checkbox" checked={game.status} onChange={() => toggleStatus(game._id)} className="sr-only peer" />
                                   <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-green-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                                 </label>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <label className="inline-flex items-center cursor-pointer">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={game.featured} 
-                                    onChange={() => toggleFeatured(game._id)} 
-                                    className="sr-only peer" 
-                                  />
+                                  <input type="checkbox" checked={game.featured} onChange={() => toggleFeatured(game._id)} className="sr-only peer" />
                                   <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-orange-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
                                 </label>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => openView(game)}
-                                    className="p-2 px-[8px] py-[7px] bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700"
-                                    title="View details"
-                                  >
-                                    <FaEye />
-                                  </button>
-                                  <button
-                                    onClick={() => openEdit(game)}
-                                    className="p-2 px-[8px] py-[7px] bg-orange-600 text-white rounded-[3px] text-[16px] hover:bg-orange-700"
-                                    title="Edit game"
-                                  >
-                                    <FaEdit />
-                                  </button>
-                                  <button 
-                                    className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700"
-                                    onClick={() => handleDelete(game)}
-                                    title="Delete game"
-                                  >
-                                    <FaTrash />
-                                  </button>
+                                  <button onClick={() => openView(game)} className="p-2 px-[8px] py-[7px] bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700" title="View details"><FaEye /></button>
+                                  <button onClick={() => openEdit(game)} className="p-2 px-[8px] py-[7px] bg-orange-600 text-white rounded-[3px] text-[16px] hover:bg-orange-700" title="Edit game"><FaEdit /></button>
+                                  <button className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700" onClick={() => handleDelete(game)} title="Delete game"><FaTrash /></button>
                                 </div>
                               </td>
                             </tr>
@@ -788,16 +681,14 @@ const Allgames = () => {
               </div>
             )}
             
-            {/* Pagination with Ellipsis */}
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 px-4 py-3">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-gray-700">
                       Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">
-                        {Math.min(currentPage * itemsPerPage, totalGames)}
-                      </span> of{' '}
+                      <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalGames)}</span> of{' '}
                       <span className="font-medium">{totalGames}</span> results
                     </p>
                   </div>
@@ -806,32 +697,19 @@ const Allgames = () => {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                          currentPage === 1 
-                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${currentPage === 1 ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                       >
                         Previous
                       </button>
                       
                       {getPaginationItems().map((page, index) => (
                         page === '...' ? (
-                          <span
-                            key={`dots-${index}`}
-                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-                          >
-                            ...
-                          </span>
+                          <span key={`dots-${index}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
                         ) : (
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
-                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              currentPage === page
-                                ? 'z-10 bg-orange-500 border-orange-500 text-white'
-                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                            }`}
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page ? 'z-10 bg-orange-500 border-orange-500 text-white' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                           >
                             {page}
                           </button>
@@ -841,11 +719,7 @@ const Allgames = () => {
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                          currentPage === totalPages
-                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${currentPage === totalPages ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                       >
                         Next
                       </button>
@@ -879,9 +753,7 @@ const Allgames = () => {
                 <div className="flex flex-wrap gap-1 mb-2">
                   {Array.isArray(selectedGame.category) ? (
                     selectedGame.category.map((cat, idx) => (
-                      <span key={idx} className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
-                        {cat}
-                      </span>
+                      <span key={idx} className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">{cat}</span>
                     ))
                   ) : (
                     <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
@@ -889,12 +761,12 @@ const Allgames = () => {
                     </span>
                   )}
                 </div>
-                <p className="mb-2"><strong>Status:</strong> 
+                <p className="mb-2"><strong>Status:</strong>
                   <span className={`ml-2 px-2 py-1 rounded-full text-xs ${selectedGame.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                     {selectedGame.status ? 'Active' : 'Inactive'}
                   </span>
                 </p>
-                <p className="mb-2"><strong>Featured:</strong> 
+                <p className="mb-2"><strong>Featured:</strong>
                   <span className={`ml-2 px-2 py-1 rounded-full text-xs ${selectedGame.featured ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
                     {selectedGame.featured ? 'Yes' : 'No'}
                   </span>
@@ -906,19 +778,9 @@ const Allgames = () => {
               </div>
               <div>
                 <p className="mb-2"><strong>Portrait Image:</strong></p>
-                <img 
-                  src={getImageUrl(selectedGame.portraitImage)} 
-                  alt="Portrait" 
-                  className="max-w-full h-auto rounded mb-4 border border-gray-200" 
-                  onError={(e) => e.target.src = 'https://via.placeholder.com/300x200?text=No+Image'} 
-                />
+                <img src={getImageUrl(selectedGame.portraitImage)} alt="Portrait" className="max-w-full h-auto rounded mb-4 border border-gray-200" onError={(e) => e.target.src = 'https://via.placeholder.com/300x200?text=No+Image'} />
                 <p className="mb-2"><strong>Landscape Image:</strong></p>
-                <img 
-                  src={getImageUrl(selectedGame.landscapeImage)} 
-                  alt="Landscape" 
-                  className="max-w-full h-auto rounded border border-gray-200" 
-                  onError={(e) => e.target.src = 'https://via.placeholder.com/300x200?text=No+Image'} 
-                />
+                <img src={getImageUrl(selectedGame.landscapeImage)} alt="Landscape" className="max-w-full h-auto rounded border border-gray-200" onError={(e) => e.target.src = 'https://via.placeholder.com/300x200?text=No+Image'} />
                 {selectedGame.portraitImage?.startsWith('http') && (
                   <p className="mt-2 text-xs text-blue-600 flex items-center">
                     <FaImage className="mr-1" /> Using default image from provider
@@ -927,15 +789,13 @@ const Allgames = () => {
               </div>
             </div>
             <div className="mt-6 flex justify-end">
-              <button onClick={() => setShowViewModal(false)} className="px-4 py-2 cursor-pointer bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
-                Close
-              </button>
+              <button onClick={() => setShowViewModal(false)} className="px-4 py-2 cursor-pointer bg-gray-300 text-gray-800 rounded hover:bg-gray-400">Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Edit Modal with Multi-Category Support */}
+      {/* Edit Modal */}
       {showEditModal && selectedGame && (
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
           <div className="bg-white rounded-[2px] shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -948,7 +808,6 @@ const Allgames = () => {
               </button>
             </div>
             
-            {/* Default Image Toggle */}
             {editForm.defaultImage && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center justify-between">
@@ -957,12 +816,7 @@ const Allgames = () => {
                     <span className="text-sm text-blue-700">Use default image from provider</span>
                   </div>
                   <label className="inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={useDefaultImages} 
-                      onChange={toggleDefaultImages} 
-                      className="sr-only peer" 
-                    />
+                    <input type="checkbox" checked={useDefaultImages} onChange={toggleDefaultImages} className="sr-only peer" />
                     <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
@@ -973,228 +827,125 @@ const Allgames = () => {
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Name</label>
-                  <input 
-                    type="text" 
-                    value={editForm.name} 
-                    onChange={(e) => setEditForm({...editForm, name: e.target.value})} 
-                    className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color" 
-                    required 
-                  />
+                  <input type="text" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color" required />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Game ID</label>
-                  <input 
-                    type="text" 
-                    value={editForm.gameId} 
-                    onChange={(e) => setEditForm({...editForm, gameId: e.target.value})} 
-                    className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color" 
-                    required 
-                  />
+                  <input type="text" value={editForm.gameId} onChange={(e) => setEditForm({...editForm, gameId: e.target.value})} className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color" required />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Provider</label>
-                  <select 
-                    value={editForm.provider} 
-                    onChange={(e) => setEditForm({...editForm, provider: e.target.value})} 
-                    className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color"
-                    required
-                  >
+                  <select value={editForm.provider} onChange={(e) => setEditForm({...editForm, provider: e.target.value})} className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color" required>
                     <option value="">Select Provider</option>
                     {providers.map((provider) => (
-                      <option key={provider._id} value={provider.name || provider.providercode}>
-                        {provider.name || provider.providercode}
-                      </option>
+                      <option key={provider._id} value={provider.name || provider.providercode}>{provider.name || provider.providercode}</option>
                     ))}
                   </select>
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Categories <span className="text-red-500">*</span>
                     <span className="text-xs text-gray-500 ml-2">(Select multiple)</span>
                   </label>
                   <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border border-gray-300 rounded-md bg-gray-50">
-                    {categories
-                      .filter(cat => cat.status !== false)
-                      .map((category) => (
-                        <button
-                          key={category._id}
-                          type="button"
-                          onClick={() => toggleCategory(category._id)}
-                          className={`px-3 py-1.5 text-sm rounded-full border transition-all duration-200 ${
-                            (editForm.categories || []).includes(category.name)
-                              ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
-                          }`}
-                        >
-                          {category.name}
-                        </button>
-                      ))}
+                    {categories.filter(cat => cat.status !== false).map((category) => (
+                      <button
+                        key={category._id}
+                        type="button"
+                        onClick={() => toggleCategory(category._id)}
+                        className={`px-3 py-1.5 text-sm rounded-full border transition-all duration-200 ${
+                          (editForm.categories || []).includes(category.name)
+                            ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
                   </div>
                   {(editForm.categories || []).length === 0 && (
                     <p className="text-xs text-red-500 mt-1">Please select at least one category</p>
                   )}
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Order</label>
-                  <input 
-                    type="number" 
-                    value={editForm.order || 0} 
-                    onChange={(e) => setEditForm({...editForm, order: parseInt(e.target.value)})} 
-                    className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color"
-                  />
+                  <input type="number" value={editForm.order || 0} onChange={(e) => setEditForm({...editForm, order: parseInt(e.target.value)})} className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-md outline-theme_color" />
                 </div>
-                
                 <div className="flex items-center space-x-6">
                   <div className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      checked={editForm.status} 
-                      onChange={(e) => setEditForm({...editForm, status: e.target.checked})} 
-                      className="h-4 w-4 text-orange-600 border-gray-300 rounded outline-theme_color" 
-                    />
+                    <input type="checkbox" checked={editForm.status} onChange={(e) => setEditForm({...editForm, status: e.target.checked})} className="h-4 w-4 text-orange-600 border-gray-300 rounded outline-theme_color" />
                     <label className="ml-2 block text-sm text-gray-900">Active</label>
                   </div>
-                  
                   <div className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      checked={editForm.featured} 
-                      onChange={(e) => setEditForm({...editForm, featured: e.target.checked})} 
-                      className="h-4 w-4 text-orange-600 border-gray-300 rounded" 
-                    />
+                    <input type="checkbox" checked={editForm.featured} onChange={(e) => setEditForm({...editForm, featured: e.target.checked})} className="h-4 w-4 text-orange-600 border-gray-300 rounded" />
                     <label className="ml-2 block text-sm text-gray-900">Featured</label>
                   </div>
-                  
                   <div className="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      checked={editForm.fullScreen} 
-                      onChange={(e) => setEditForm({...editForm, fullScreen: e.target.checked})} 
-                      className="h-4 w-4 text-orange-600 border-gray-300 rounded" 
-                    />
+                    <input type="checkbox" checked={editForm.fullScreen} onChange={(e) => setEditForm({...editForm, fullScreen: e.target.checked})} className="h-4 w-4 text-orange-600 border-gray-300 rounded" />
                     <label className="ml-2 block text-sm text-gray-900">Full Screen</label>
                   </div>
                 </div>
 
-                {/* Portrait Image Section */}
+                {/* Portrait Image */}
                 <div className="border-t border-gray-200 pt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Portrait Image</label>
-                  
                   {!useDefaultImages && (
                     <>
                       {editForm.portraitImage && !portraitPreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">Current Image:</p>
-                          <img 
-                            src={getImageUrl(editForm.portraitImage)} 
-                            alt="Current Portrait" 
-                            className="w-32 h-auto rounded border border-gray-200" 
-                            onError={(e) => e.target.src = 'https://via.placeholder.com/150?text=No+Image'} 
-                          />
+                          <img src={getImageUrl(editForm.portraitImage)} alt="Current Portrait" className="w-32 h-auto rounded border border-gray-200" onError={(e) => e.target.src = 'https://via.placeholder.com/150?text=No+Image'} />
                         </div>
                       )}
-                      
                       {portraitPreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">New Image Preview:</p>
-                          <img 
-                            src={portraitPreview} 
-                            alt="New Portrait" 
-                            className="w-32 h-auto rounded border border-green-200" 
-                          />
+                          <img src={portraitPreview} alt="New Portrait" className="w-32 h-auto rounded border border-green-200" />
                         </div>
                       )}
-                      
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handlePortraitChange} 
-                        className="mt-1 w-full text-sm" 
-                      />
+                      <input type="file" accept="image/*" onChange={handlePortraitChange} className="mt-1 w-full text-sm" />
                     </>
                   )}
-                  
                   {useDefaultImages && editForm.defaultImage && (
                     <div className="p-3 bg-blue-50 rounded-lg">
                       <p className="text-xs text-blue-700 mb-2">Using default image:</p>
-                      <img 
-                        src={editForm.defaultImage} 
-                        alt="Default Portrait" 
-                        className="w-32 h-auto rounded border border-blue-200" 
-                      />
+                      <img src={editForm.defaultImage} alt="Default Portrait" className="w-32 h-auto rounded border border-blue-200" />
                     </div>
                   )}
                 </div>
 
-                {/* Landscape Image Section */}
+                {/* Landscape Image */}
                 <div className="border-t border-gray-200 pt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Landscape Image</label>
-                  
                   {!useDefaultImages && (
                     <>
                       {editForm.landscapeImage && !landscapePreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">Current Image:</p>
-                          <img 
-                            src={getImageUrl(editForm.landscapeImage)} 
-                            alt="Current Landscape" 
-                            className="w-32 h-auto rounded border border-gray-200" 
-                            onError={(e) => e.target.src = 'https://via.placeholder.com/150?text=No+Image'} 
-                          />
+                          <img src={getImageUrl(editForm.landscapeImage)} alt="Current Landscape" className="w-32 h-auto rounded border border-gray-200" onError={(e) => e.target.src = 'https://via.placeholder.com/150?text=No+Image'} />
                         </div>
                       )}
-                      
                       {landscapePreview && (
                         <div className="mb-3">
                           <p className="text-xs text-gray-500 mb-1">New Image Preview:</p>
-                          <img 
-                            src={landscapePreview} 
-                            alt="New Landscape" 
-                            className="w-32 h-auto rounded border border-green-200" 
-                          />
+                          <img src={landscapePreview} alt="New Landscape" className="w-32 h-auto rounded border border-green-200" />
                         </div>
                       )}
-                      
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleLandscapeChange} 
-                        className="mt-1 w-full text-sm" 
-                      />
+                      <input type="file" accept="image/*" onChange={handleLandscapeChange} className="mt-1 w-full text-sm" />
                     </>
                   )}
-                  
                   {useDefaultImages && editForm.defaultImage && (
                     <div className="p-3 bg-blue-50 rounded-lg">
                       <p className="text-xs text-blue-700 mb-2">Using default image:</p>
-                      <img 
-                        src={editForm.defaultImage} 
-                        alt="Default Landscape" 
-                        className="w-32 h-auto rounded border border-blue-200" 
-                      />
+                      <img src={editForm.defaultImage} alt="Default Landscape" className="w-32 h-auto rounded border border-blue-200" />
                     </div>
                   )}
                 </div>
               </div>
               
               <div className="mt-6 flex justify-end space-x-3">
-                <button 
-                  type="button" 
-                  onClick={() => setShowEditModal(false)} 
-                  className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-4 py-2 bg-orange-600 cursor-pointer text-white rounded-md text-sm font-medium hover:bg-orange-700"
-                >
-                  Save Changes
-                </button>
+                <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-orange-600 cursor-pointer text-white rounded-md text-sm font-medium hover:bg-orange-700">Save Changes</button>
               </div>
             </form>
           </div>

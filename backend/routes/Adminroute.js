@@ -2876,9 +2876,10 @@ Adminrouter.get("/games", async (req, res) => {
       category,
       provider,
       search,
+      featured,           // NEW
       sortBy = "createdAt",
       sortOrder = "desc",
-      matchAllCategories = "false", // New parameter to control category matching
+      matchAllCategories = "false",
     } = req.query;
 
     let filter = {};
@@ -2887,15 +2888,16 @@ Adminrouter.get("/games", async (req, res) => {
       filter.status = status === "true";
     }
 
-    // Updated category filtering to handle multiple categories
+    // NEW: Featured filter
+    if (featured !== undefined) {
+      filter.featured = featured === "true";
+    }
+
     if (category && category !== "all") {
-      const categories = category.split(','); // Support multiple categories: "slots,featured,new"
-      
+      const categories = category.split(',');
       if (matchAllCategories === "true") {
-        // Match games that have ALL specified categories
         filter.category = { $all: categories };
       } else {
-        // Match games that have ANY of the specified categories (default)
         filter.category = { $in: categories };
       }
     }
@@ -2909,20 +2911,16 @@ Adminrouter.get("/games", async (req, res) => {
       filter.$or = [{ name: { $regex: search, $options: "i" } }];
     }
 
-    // Calculate skip value for pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Sort configuration
     const sort = {};
     sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
-    // Get games with pagination
     const games = await Game.find(filter)
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get total count for pagination info
     const total = await Game.countDocuments(filter);
 
     res.json({
