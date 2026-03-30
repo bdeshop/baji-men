@@ -1,19 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { FaArrowLeft, FaSave, FaUser, FaPhone, FaEnvelope, FaMoneyBill, FaIdCard, FaBell, FaPalette, FaUsers, FaChartLine, FaHistory, FaCreditCard, FaGift, FaCog, FaStar, FaPlus, FaMinus, FaKey, FaEye, FaEyeSlash } from 'react-icons/fa';
+import {
+  FaArrowLeft,
+  FaSave,
+  FaUser,
+  FaPhone,
+  FaEnvelope,
+  FaMoneyBill,
+  FaIdCard,
+  FaBell,
+  FaPalette,
+  FaUsers,
+  FaChartLine,
+  FaHistory,
+  FaCreditCard,
+  FaGift,
+  FaCog,
+  FaStar,
+  FaPlus,
+  FaMinus,
+  FaKey,
+  FaEye,
+  FaEyeSlash,
+  FaSpinner,
+} from 'react-icons/fa';
+import { FiRefreshCw } from 'react-icons/fi';
 import Sidebar from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Edituserdetails = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState('');
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [balanceAction, setBalanceAction] = useState('add'); // 'add' or 'subtract'
+  const [balanceAction, setBalanceAction] = useState('add');
   const [balanceAmount, setBalanceAmount] = useState('');
   const [balanceReason, setBalanceReason] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -22,7 +46,7 @@ const Edituserdetails = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [processingBalance, setProcessingBalance] = useState(false);
   const [processingPassword, setProcessingPassword] = useState(false);
-  
+
   const navigate = useNavigate();
   const { id } = useParams();
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -50,23 +74,21 @@ const Edituserdetails = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Fetch user data
   useEffect(() => {
     const fetchUser = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('adminToken');
-        
+
         const response = await axios.get(`${base_url}/api/admin/users/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         setUser(response.data);
+        setError(null);
       } catch (err) {
         setError(err.response?.data?.error || err.message || 'Failed to fetch user data');
-        console.error('Error fetching user:', err);
+        toast.error('Failed to fetch user data');
       } finally {
         setLoading(false);
       }
@@ -77,10 +99,9 @@ const Edituserdetails = () => {
     }
   }, [id, base_url]);
 
-  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     if (name.startsWith('notification.')) {
       const field = name.split('.')[1];
       setUser(prev => ({
@@ -99,16 +120,12 @@ const Edituserdetails = () => {
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setSaving(true);
-      setError('');
-      setSuccess('');
-
       const token = localStorage.getItem('adminToken');
-      
+
       const response = await axios.put(`${base_url}/api/admin/users/${id}`, user, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -116,33 +133,25 @@ const Edituserdetails = () => {
         }
       });
 
-      setSuccess('User updated successfully!');
+      toast.success('User updated successfully!');
       setUser(response.data.user);
-      
-      // Auto hide success message
-      setTimeout(() => {
-        setSuccess('');
-      }, 3000);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to update user');
+      toast.error(err.response?.data?.error || err.message || 'Failed to update user');
     } finally {
       setSaving(false);
     }
   };
 
-  // Handle balance adjustment
   const handleBalanceAdjustment = async () => {
     if (!balanceAmount || parseFloat(balanceAmount) <= 0) {
-      setError('Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
     try {
       setProcessingBalance(true);
-      setError('');
-      
       const token = localStorage.getItem('adminToken');
-      const endpoint = balanceAction === 'add' 
+      const endpoint = balanceAction === 'add'
         ? `${base_url}/api/admin/users/${id}/balance/add`
         : `${base_url}/api/admin/users/${id}/balance/subtract`;
 
@@ -156,52 +165,39 @@ const Edituserdetails = () => {
         }
       });
 
-      // Update local user state with new balance
-      setUser(prev => ({
-        ...prev,
-        balance: response.data.newBalance
-      }));
-
-      setSuccess(`Balance ${balanceAction === 'add' ? 'added' : 'subtracted'} successfully!`);
+      setUser(prev => ({ ...prev, balance: response.data.newBalance }));
+      toast.success(`Balance ${balanceAction === 'add' ? 'added' : 'subtracted'} successfully!`);
       setShowBalanceModal(false);
       setBalanceAmount('');
       setBalanceReason('');
-
-      // Auto hide success message
-      setTimeout(() => {
-        setSuccess('');
-      }, 3000);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || `Failed to ${balanceAction} balance`);
+      toast.error(err.response?.data?.error || err.message || `Failed to ${balanceAction} balance`);
     } finally {
       setProcessingBalance(false);
     }
   };
 
-  // Handle password update
   const handlePasswordUpdate = async () => {
     if (!newPassword || !confirmPassword) {
-      setError('Please fill in all password fields');
+      toast.error('Please fill in all password fields');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+      toast.error('Password must be at least 6 characters long');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      toast.error('Passwords do not match');
       return;
     }
 
     try {
       setProcessingPassword(true);
-      setError('');
-      
       const token = localStorage.getItem('adminToken');
-      
-      const response = await axios.put(`${base_url}/api/admin/users/${id}/password`, {
+
+      await axios.put(`${base_url}/api/admin/users/${id}/password`, {
         password: newPassword
       }, {
         headers: {
@@ -210,23 +206,17 @@ const Edituserdetails = () => {
         }
       });
 
-      setSuccess('Password updated successfully!');
+      toast.success('Password updated successfully!');
       setShowPasswordModal(false);
       setNewPassword('');
       setConfirmPassword('');
-
-      // Auto hide success message
-      setTimeout(() => {
-        setSuccess('');
-      }, 3000);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to update password');
+      toast.error(err.response?.data?.error || err.message || 'Failed to update password');
     } finally {
       setProcessingPassword(false);
     }
   };
 
-  // Open balance modal
   const openBalanceModal = (action) => {
     setBalanceAction(action);
     setBalanceAmount('');
@@ -234,36 +224,31 @@ const Edituserdetails = () => {
     setShowBalanceModal(true);
   };
 
-  // Open password modal
   const openPasswordModal = () => {
     setNewPassword('');
     setConfirmPassword('');
     setShowPasswordModal(true);
   };
 
-  // Function to get user initials for avatar
   const getUserInitials = (username) => {
     if (!username) return 'U';
     return username.charAt(0).toUpperCase();
   };
 
-  // Function to get random background color based on username
   const getAvatarColor = (username) => {
     const colors = [
-      'from-purple-500 to-pink-500', 
-      'from-blue-500 to-cyan-500', 
-      'from-green-500 to-emerald-500', 
-      'from-orange-500 to-red-500',
-      'from-indigo-500 to-purple-600',
+      'from-amber-500 to-orange-600',
+      'from-blue-500 to-cyan-600',
+      'from-emerald-500 to-green-600',
+      'from-rose-500 to-pink-600',
+      'from-purple-500 to-indigo-600',
       'from-teal-500 to-blue-600'
     ];
     if (!username) return colors[0];
-    
     const charCode = username.charCodeAt(0);
     return colors[charCode % colors.length];
   };
 
-  // Format currency
   const formatCurrency = (amount, currency = 'BDT') => {
     if (amount === undefined || amount === null) return '0.00';
     return parseFloat(amount).toLocaleString('en-US', {
@@ -272,599 +257,465 @@ const Edituserdetails = () => {
     });
   };
 
-  // Status badge colors with gradients
   const getStatusBadge = (status) => {
     const statusConfig = {
-      active: 'bg-gradient-to-r from-green-500 to-emerald-600',
-      inactive: 'bg-gradient-to-r from-yellow-500 to-amber-600',
-      suspended: 'bg-gradient-to-r from-red-500 to-rose-600',
-      banned: 'bg-gradient-to-r from-gray-500 to-gray-700',
-      pending: 'bg-gradient-to-r from-blue-500 to-cyan-600'
+      active: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+      inactive: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+      suspended: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+      banned: 'bg-gray-500/10 text-gray-400 border border-gray-500/20',
+      pending: 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
     };
-    return statusConfig[status] || 'bg-gradient-to-r from-gray-500 to-gray-700';
+    return statusConfig[status] || 'bg-gray-500/10 text-gray-400 border border-gray-500/20';
   };
 
-  // KYC status badge colors
   const getKycBadge = (status) => {
     const kycConfig = {
-      verified: 'bg-gradient-to-r from-green-500 to-emerald-600',
-      pending: 'bg-gradient-to-r from-yellow-500 to-amber-600',
-      unverified: 'bg-gradient-to-r from-red-500 to-rose-600',
-      rejected: 'bg-gradient-to-r from-gray-500 to-gray-700'
+      verified: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+      pending: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+      unverified: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+      rejected: 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
     };
-    return kycConfig[status] || 'bg-gradient-to-r from-gray-500 to-gray-700';
+    return kycConfig[status] || 'bg-gray-500/10 text-gray-400 border border-gray-500/20';
   };
 
-  if (loading) {
-    return (
-      <section className="font-nunito h-screen bg-gray-50">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
-            <div className="flex justify-center items-center h-[90vh]">
-              <div className="relative flex justify-center items-center flex-col">
-                <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-4 text-gray-600 font-semibold">Loading user data...</p>
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder-gray-600';
+  const labelClass = 'block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500';
 
-  if (error && !user.username) {
-    return (
-      <section className="font-nunito h-screen bg-gray-50">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="text-red-500 text-2xl mb-4">Error</div>
-                <p className="text-gray-600">{error}</p>
-                <button 
-                  onClick={() => navigate('/admin/users')} 
-                  className="mt-4 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg border border-orange-600"
-                >
-                  Back to Users
-                </button>
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  const CloseIcon = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
 
   return (
-    <section className="font-nunito h-screen 0">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
+
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
-        <main className={`transition-all duration-300 font-poppins flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
-          <div className="w-full mx-auto">
+
+        <main
+          className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
+            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
+          }`}
+        >
+          <div className="w-full">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-800">Edit User</h1>
-                  <p className="text-sm text-gray-600 mt-1">Manage user account details and settings</p>
-                </div>
+            <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Edit User</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                  <FaUser className="text-amber-500" /> Manage user account details and settings
+                </p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex gap-3">
                 <button
                   onClick={openPasswordModal}
-                  className="flex items-center px-4 py-2.5 bg-blue-600 text-white rounded-[5px] border border-blue-600 hover:bg-blue-700 transition-all font-semibold"
+                  className="bg-[#1F2937] hover:bg-blue-600/20 border border-gray-700 hover:border-blue-500/40 px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-blue-400"
                 >
-                  <FaKey className="mr-2" />
-                  Change Password
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={saving}
-                  className="flex items-center px-6 py-2.5 bg-orange-600 text-white rounded-[5px] border border-orange-600 hover:from-orange-600 hover:to-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-                >
-                  {saving ? 'Saving Changes...' : 'Save Changes'}
+                  CHANGE PASSWORD
                 </button>
               </div>
             </div>
 
-            {/* Success/Error Messages */}
-            {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-700 font-medium flex items-center">
-                  <FaStar className="mr-2" />
-                  {success}
-                </p>
+            {loading ? (
+              <div className="bg-[#161B22] border border-gray-800 rounded-lg p-12 flex justify-center items-center">
+                <div className="flex flex-col items-center gap-3">
+                  <FaSpinner className="animate-spin text-amber-400 text-3xl" />
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading user data...</p>
+                </div>
               </div>
-            )}
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-700 font-medium flex items-center">
-                  {error}
-                </p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - User Info & Financial Boxes */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* User Profile Card */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <div className="flex items-center space-x-6 mb-6">
-                    <div className={`h-20 w-20 rounded-xl flex items-center justify-center text-white font-bold text-3xl bg-gradient-to-br ${getAvatarColor(user.username)}`}>
-                      {getUserInitials(user.username)}
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - User Info & Financial Boxes */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* User Profile Card */}
+                  <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6">
+                    <div className="flex items-center space-x-6 mb-6">
+                      <div className={`h-20 w-20 rounded-xl flex items-center justify-center text-white font-bold text-3xl bg-gradient-to-br ${getAvatarColor(user.username)}`}>
+                        {getUserInitials(user.username)}
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-xl font-bold text-white">{user.username}</h2>
+                        <p className="text-[10px] text-gray-500 mt-1 font-mono">Player ID: {user.player_id}</p>
+                        <div className="flex space-x-3 mt-3">
+                          <span className={`text-[9px] px-3 py-1 rounded-full font-bold uppercase ${getStatusBadge(user.status)}`}>
+                            {user.status}
+                          </span>
+                          <span className={`text-[9px] px-3 py-1 rounded-full font-bold uppercase ${getKycBadge(user.kycStatus)}`}>
+                            KYC: {user.kycStatus}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h2 className="text-2xl font-bold text-gray-800">{user.username}</h2>
-                      <p className="text-sm text-gray-600 mt-1">Player ID: {user.player_id}</p>
-                      <div className="flex space-x-3 mt-3">
-                        <span className={`px-4 py-2 text-sm font-semibold rounded-full ${getStatusBadge(user.status)} text-white`}>
-                          {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                        </span>
-                        <span className={`px-4 py-2 text-sm font-semibold rounded-full ${getKycBadge(user.kycStatus)} text-white`}>
-                          KYC: {user.kycStatus.charAt(0).toUpperCase() + user.kycStatus.slice(1)}
-                        </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClass}>Username</label>
+                        <input
+                          type="text"
+                          name="username"
+                          value={user.username}
+                          onChange={handleInputChange}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Email</label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={user.email || ''}
+                          onChange={handleInputChange}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Phone</label>
+                        <input
+                          type="text"
+                          name="phone"
+                          value={user.phone || ''}
+                          onChange={handleInputChange}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Status</label>
+                        <select
+                          name="status"
+                          value={user.status}
+                          onChange={handleInputChange}
+                          className={selectClass}
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="suspended">Suspended</option>
+                          <option value="banned">Banned</option>
+                          <option value="pending">Pending</option>
+                        </select>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <FaUser className="inline mr-3 text-blue-500" />
-                        Username
-                      </label>
-                      <input
-                        type="text"
-                        name="username"
-                        value={user.username}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none  bg-white transition-all"
-                      />
+                  {/* Financial Overview Boxes */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Balance Box */}
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg p-5 border border-blue-500/30">
+                      <div className="flex items-center justify-between mb-4">
+                        <FaMoneyBill className="text-2xl opacity-90" />
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-1 rounded">Main Balance</span>
+                      </div>
+                      <p className="text-2xl font-bold">{formatCurrency(user.balance)}</p>
+                      <p className="text-blue-200 text-[10px] mt-1">{user.currency}</p>
+                      <div className="flex space-x-2 mt-4">
+                        <button
+                          onClick={() => openBalanceModal('add')}
+                          className="flex-1 flex items-center justify-center px-3 py-2 bg-white/20 hover:bg-white/30 rounded text-[10px] font-bold transition-colors"
+                        >
+                          <FaPlus className="mr-1 text-[8px]" /> ADD
+                        </button>
+                        <button
+                          onClick={() => openBalanceModal('subtract')}
+                          className="flex-1 flex items-center justify-center px-3 py-2 bg-white/20 hover:bg-white/30 rounded text-[10px] font-bold transition-colors"
+                        >
+                          <FaMinus className="mr-1 text-[8px]" /> SUBTRACT
+                        </button>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <FaEnvelope className="inline mr-3 text-purple-500" />
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={user.email || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none  bg-white transition-all"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <FaPhone className="inline mr-3 text-green-500" />
-                        Phone
-                      </label>
-                      <input
-                        type="text"
-                        name="phone"
-                        value={user.phone || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none bg-white transition-all"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Status
-                      </label>
-                      <select
-                        name="status"
-                        value={user.status}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none  bg-white transition-all"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
-                        <option value="banned">Banned</option>
-                        <option value="pending">Pending</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Financial Overview Boxes */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Balance Box */}
-                  <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-xl p-5 text-white border border-blue-600 relative">
-                    <div className="flex items-center justify-between mb-4">
-                      <FaMoneyBill className="text-2xl opacity-90" />
-                      <span className="text-xs font-semibold bg-white/20 px-2 py-1 rounded">Main Balance</span>
-                    </div>
-                    <div className="mt-2">
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(user.balance)}
-                      </p>
-                      <p className="text-blue-100 text-sm mt-1 font-medium">{user.currency}</p>
-                    </div>
-                    <div className="flex space-x-2 mt-4">
-                      <button
-                        onClick={() => openBalanceModal('add')}
-                        className="flex-1 flex items-center justify-center px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-semibold"
-                      >
-                        <FaPlus className="mr-1" /> Add
-                      </button>
-                      <button
-                        onClick={() => openBalanceModal('subtract')}
-                        className="flex-1 flex items-center justify-center px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-semibold"
-                      >
-                        <FaMinus className="mr-1" /> Subtract
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Bonus Balance Box */}
-                  <div className="bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 rounded-xl p-5 text-white border border-emerald-600">
-                    <div className="flex items-center justify-between mb-4">
-                      <FaGift className="text-2xl opacity-90" />
-                      <span className="text-xs font-semibold bg-white/20 px-2 py-1 rounded">Bonus Balance</span>
-                    </div>
-                    <div className="mt-2">
+                    {/* Bonus Balance Box */}
+                    <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-lg p-5 border border-emerald-500/30">
+                      <div className="flex items-center justify-between mb-4">
+                        <FaGift className="text-2xl opacity-90" />
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-1 rounded">Bonus Balance</span>
+                      </div>
                       <input
                         type="number"
                         name="bonusBalance"
                         value={user.bonusBalance}
                         onChange={handleInputChange}
-                        className="w-full bg-transparent border-none text-2xl font-bold text-white focus:outline-none focus:ring-0 placeholder-white/80"
+                        className="w-full bg-transparent border-none text-2xl font-bold text-white focus:outline-none focus:ring-0 placeholder-white/80 p-0"
                         step="0.01"
-                        placeholder="0.00"
                       />
-                      <p className="text-green-100 text-sm mt-1 font-medium">{user.currency}</p>
+                      <p className="text-emerald-200 text-[10px] mt-1">{user.currency}</p>
+                    </div>
+
+                    {/* Referral Earnings Box */}
+                    <div className="bg-gradient-to-br from-purple-600 to-pink-700 rounded-lg p-5 border border-purple-500/30">
+                      <div className="flex items-center justify-between mb-4">
+                        <FaUsers className="text-2xl opacity-90" />
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-white/20 px-2 py-1 rounded">Referral Earnings</span>
+                      </div>
+                      <p className="text-2xl font-bold">{formatCurrency(user.referralEarnings || 0)}</p>
+                      <p className="text-purple-200 text-[10px] mt-1">{user.currency}</p>
                     </div>
                   </div>
 
-                  {/* Referral Earnings Box */}
-                  <div className="bg-gradient-to-br from-purple-500 via-pink-600 to-rose-700 rounded-xl p-5 text-white border border-purple-600">
-                    <div className="flex items-center justify-between mb-4">
-                      <FaUsers className="text-2xl opacity-90" />
-                      <span className="text-xs font-semibold bg-white/20 px-2 py-1 rounded">Referral Earnings</span>
+                  {/* Additional Financial Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-4 flex items-center">
+                        <FaChartLine className="mr-2" /> Financial Statistics
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Total Deposit:</span>
+                          <span className="text-xs font-bold text-blue-400">{formatCurrency(user.total_deposit)} {user.currency}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Total Withdraw:</span>
+                          <span className="text-xs font-bold text-emerald-400">{formatCurrency(user.total_withdraw)} {user.currency}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Total Bet:</span>
+                          <span className="text-xs font-bold text-purple-400">{formatCurrency(user.total_bet)} {user.currency}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Net Profit:</span>
+                          <span className={`text-xs font-bold ${(user.net_profit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {formatCurrency(user.net_profit)} {user.currency}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(user.referralEarnings || 0)}
-                      </p>
-                      <p className="text-purple-100 text-sm mt-1 font-medium">{user.currency}</p>
+
+                    <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-4 flex items-center">
+                        <FaHistory className="mr-2" /> Account Activity
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Login Count:</span>
+                          <span className="text-xs font-bold text-white">{user.login_count || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Referral Count:</span>
+                          <span className="text-xs font-bold text-white">{user.referralCount || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Last Login:</span>
+                          <span className="text-xs font-bold text-gray-400">
+                            {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                          <span className="text-[10px] text-gray-500">Registered:</span>
+                          <span className="text-xs font-bold text-gray-400">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Additional Financial Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                      <FaChartLine className="mr-3 text-blue-500" />
-                      Financial Statistics
+                {/* Right Column - Settings & Preferences */}
+                <div className="space-y-6">
+                  {/* Account Settings */}
+                  <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-4 flex items-center">
+                      <FaCog className="mr-2" /> Account Settings
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Total Deposit:</span>
-                        <span className="text-sm font-bold text-blue-600">{formatCurrency(user.total_deposit)} {user.currency}</span>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-300">Email Verified</span>
+                          <p className="text-[9px] text-gray-500">User email verification status</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="isEmailVerified"
+                            checked={user.isEmailVerified}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Total Withdraw:</span>
-                        <span className="text-sm font-bold text-green-600">{formatCurrency(user.total_withdraw)} {user.currency}</span>
+                      <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-300">Phone Verified</span>
+                          <p className="text-[9px] text-gray-500">User phone verification status</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="isPhoneVerified"
+                            checked={user.isPhoneVerified}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Total Bet:</span>
-                        <span className="text-sm font-bold text-purple-600">{formatCurrency(user.total_bet)} {user.currency}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Net Profit:</span>
-                        <span className={`text-sm font-bold ${(user.net_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatCurrency(user.net_profit)} {user.currency}
-                        </span>
+                      <div>
+                        <label className={labelClass}>Currency</label>
+                        <select
+                          name="currency"
+                          value={user.currency}
+                          onChange={handleInputChange}
+                          className={selectClass}
+                        >
+                          <option value="BDT">BDT</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="INR">INR</option>
+                        </select>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                      <FaHistory className="mr-3 text-green-500" />
-                      Account Activity
+                  {/* Notification Preferences */}
+                  <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-4 flex items-center">
+                      <FaBell className="mr-2" /> Notification Preferences
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Login Count:</span>
-                        <span className="text-sm font-bold text-gray-800">{user.login_count || 0}</span>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-300">Email Notifications</span>
+                          <p className="text-[9px] text-gray-500">Receive updates via email</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="notification.email"
+                            checked={user.notificationPreferences?.email || false}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                        </label>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Referral Count:</span>
-                        <span className="text-sm font-bold text-gray-800">{user.referralCount || 0}</span>
+                      <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-300">SMS Notifications</span>
+                          <p className="text-[9px] text-gray-500">Receive updates via SMS</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="notification.sms"
+                            checked={user.notificationPreferences?.sms || false}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                        </label>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Last Login:</span>
-                        <span className="text-sm font-bold text-gray-800">
-                          {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                        </span>
+                      <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-300">Push Notifications</span>
+                          <p className="text-[9px] text-gray-500">Receive push notifications</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="notification.push"
+                            checked={user.notificationPreferences?.push || false}
+                            onChange={handleInputChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                        </label>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm text-gray-600">Registered:</span>
-                        <span className="text-sm font-bold text-gray-800">
-                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                        </span>
+                    </div>
+                  </div>
+
+                  {/* Referral Information */}
+                  <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-4 flex items-center">
+                      <FaUsers className="mr-2" /> Referral Information
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className={labelClass}>Referral Code</label>
+                        <input
+                          type="text"
+                          value={user.referralCode || 'N/A'}
+                          readOnly
+                          className="w-full bg-[#0F111A] border border-gray-700 text-gray-400 text-sm rounded-lg px-4 py-2.5 font-mono cursor-not-allowed"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>Referral Count</label>
+                          <input
+                            type="text"
+                            value={user.referralCount || 0}
+                            readOnly
+                            className="w-full bg-[#0F111A] border border-gray-700 text-gray-400 text-sm rounded-lg px-4 py-2.5 text-center font-bold cursor-not-allowed"
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Referral Earnings</label>
+                          <input
+                            type="text"
+                            value={formatCurrency(user.referralEarnings || 0)}
+                            readOnly
+                            className="w-full bg-[#0F111A] border border-gray-700 text-gray-400 text-sm rounded-lg px-4 py-2.5 text-center font-bold cursor-not-allowed"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* Right Column - Settings & Preferences */}
-              <div className="space-y-6">
-                {/* Account Settings */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-                    <FaCog className="mr-3 text-orange-500" />
-                    Account Settings
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Email Verified</span>
-                        <p className="text-xs text-gray-500">User email verification status</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="isEmailVerified"
-                          checked={user.isEmailVerified}
-                          onChange={handleInputChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Phone Verified</span>
-                        <p className="text-xs text-gray-500">User phone verification status</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="isPhoneVerified"
-                          checked={user.isPhoneVerified}
-                          onChange={handleInputChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                      </label>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Currency
-                      </label>
-                      <select
-                        name="currency"
-                        value={user.currency}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white transition-all"
-                      >
-                        <option value="BDT">BDT</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="INR">INR</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notification Preferences */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-                    <FaBell className="mr-3 text-purple-500" />
-                    Notification Preferences
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Email Notifications</span>
-                        <p className="text-xs text-gray-500">Receive updates via email</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="notification.email"
-                          checked={user.notificationPreferences?.email || false}
-                          onChange={handleInputChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">SMS Notifications</span>
-                        <p className="text-xs text-gray-500">Receive updates via SMS</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="notification.sms"
-                          checked={user.notificationPreferences?.sms || false}
-                          onChange={handleInputChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
-                      </label>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Push Notifications</span>
-                        <p className="text-xs text-gray-500">Receive push notifications</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="notification.push"
-                          checked={user.notificationPreferences?.push || false}
-                          onChange={handleInputChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Theme Preferences */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-                    <FaPalette className="mr-3 text-pink-500" />
-                    Theme Preference
-                  </h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
-                      <input
-                        type="radio"
-                        name="themePreference"
-                        value="light"
-                        checked={user.themePreference === 'light'}
-                        onChange={handleInputChange}
-                        className="text-orange-500 focus:ring-orange-500"
-                      />
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Light Mode</span>
-                        <p className="text-xs text-gray-500">Clean and bright interface</p>
-                      </div>
-                    </label>
-                    <label className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
-                      <input
-                        type="radio"
-                        name="themePreference"
-                        value="dark"
-                        checked={user.themePreference === 'dark'}
-                        onChange={handleInputChange}
-                        className="text-orange-500 focus:ring-orange-500"
-                      />
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Dark Mode</span>
-                        <p className="text-xs text-gray-500">Easy on the eyes</p>
-                      </div>
-                    </label>
-                    <label className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
-                      <input
-                        type="radio"
-                        name="themePreference"
-                        value="auto"
-                        checked={user.themePreference === 'auto'}
-                        onChange={handleInputChange}
-                        className="text-orange-500 focus:ring-orange-500"
-                      />
-                      <div>
-                        <span className="text-sm font-semibold text-gray-700">Auto (System)</span>
-                        <p className="text-xs text-gray-500">Follows system settings</p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Referral Information */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center">
-                    <FaUsers className="mr-3 text-cyan-500" />
-                    Referral Information
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Referral Code
-                      </label>
-                      <input
-                        type="text"
-                        value={user.referralCode || 'N/A'}
-                        readOnly
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 font-mono"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Referral Count
-                        </label>
-                        <input
-                          type="text"
-                          value={user.referralCount || 0}
-                          readOnly
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 text-center font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Referral Earnings
-                        </label>
-                        <input
-                          type="text"
-                          value={formatCurrency(user.referralEarnings || 0)}
-                          readOnly
-                          className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 text-center font-bold"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Balance Adjustment Modal */}
           {showBalanceModal && (
-            <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-              <div className="bg-white rounded-xl max-w-md w-full p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  {balanceAction === 'add' ? (
-                    <><FaPlus className="mr-2 text-green-500" /> Add Balance</>
-                  ) : (
-                    <><FaMinus className="mr-2 text-red-500" /> Subtract Balance</>
-                  )}
-                </h3>
-                
-                <div className="space-y-4">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+              <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl w-full max-w-md">
+                <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                    {balanceAction === 'add' ? <FaPlus /> : <FaMinus />}
+                    {balanceAction === 'add' ? 'Add Balance' : 'Subtract Balance'}
+                  </h3>
+                  <button onClick={() => setShowBalanceModal(false)} className="text-gray-500 hover:text-gray-300">
+                    <CloseIcon />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Amount ({user.currency})
-                    </label>
+                    <label className={labelClass}>Amount ({user.currency})</label>
                     <input
                       type="number"
                       value={balanceAmount}
                       onChange={(e) => setBalanceAmount(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className={inputClass}
                       placeholder="0.00"
                       step="0.01"
                       min="0.01"
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Reason (Optional)
-                    </label>
+                    <label className={labelClass}>Reason (Optional)</label>
                     <input
                       type="text"
                       value={balanceReason}
                       onChange={(e) => setBalanceReason(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className={inputClass}
                       placeholder="Enter reason for adjustment"
                     />
                   </div>
 
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      Current Balance: <span className="font-bold text-gray-800">{formatCurrency(user.balance)} {user.currency}</span>
+                  <div className="bg-[#0F111A] p-4 rounded-lg border border-gray-800">
+                    <p className="text-xs text-gray-500">
+                      Current Balance: <span className="font-bold text-white">{formatCurrency(user.balance)} {user.currency}</span>
                     </p>
                     {balanceAmount && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        New Balance: <span className="font-bold text-gray-800">
+                      <p className="text-xs text-gray-500 mt-1">
+                        New Balance: <span className="font-bold text-amber-400">
                           {formatCurrency(
-                            balanceAction === 'add' 
+                            balanceAction === 'add'
                               ? user.balance + parseFloat(balanceAmount)
                               : user.balance - parseFloat(balanceAmount)
                           )} {user.currency}
@@ -874,19 +725,20 @@ const Edituserdetails = () => {
                   </div>
                 </div>
 
-                <div className="flex space-x-3 mt-6">
+                <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
                   <button
                     onClick={() => setShowBalanceModal(false)}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                    className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleBalanceAdjustment}
                     disabled={processingBalance || !balanceAmount}
-                    className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {processingBalance ? 'Processing...' : (balanceAction === 'add' ? 'Add Balance' : 'Subtract Balance')}
+                    {processingBalance ? <FaSpinner className="animate-spin" /> : (balanceAction === 'add' ? <FaPlus /> : <FaMinus />)}
+                    {balanceAction === 'add' ? 'Add Balance' : 'Subtract Balance'}
                   </button>
                 </div>
               </div>
@@ -895,55 +747,55 @@ const Edituserdetails = () => {
 
           {/* Password Update Modal */}
           {showPasswordModal && (
-            <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-              <div className="bg-white rounded-xl max-w-md w-full p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                  <FaKey className="mr-2 text-blue-500" />
-                  Update Password
-                </h3>
-                
-                <div className="space-y-4">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+              <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl w-full max-w-md">
+                <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-400 flex items-center gap-2">
+                    <FaKey /> Update Password
+                  </h3>
+                  <button onClick={() => setShowPasswordModal(false)} className="text-gray-500 hover:text-gray-300">
+                    <CloseIcon />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      New Password
-                    </label>
+                    <label className={labelClass}>New Password</label>
                     <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
+                        className={`${inputClass} pr-10`}
                         placeholder="Enter new password"
                         minLength="6"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-400"
                       >
                         {showPassword ? <FaEyeSlash /> : <FaEye />}
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters long</p>
+                    <p className="text-[9px] text-gray-500 mt-1">Password must be at least 6 characters long</p>
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Confirm Password
-                    </label>
+                    <label className={labelClass}>Confirm Password</label>
                     <div className="relative">
                       <input
                         type={showConfirmPassword ? "text" : "password"}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
+                        className={`${inputClass} pr-10`}
                         placeholder="Confirm new password"
                         minLength="6"
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-400"
                       >
                         {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                       </button>
@@ -951,19 +803,20 @@ const Edituserdetails = () => {
                   </div>
                 </div>
 
-                <div className="flex space-x-3 mt-6">
+                <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
                   <button
                     onClick={() => setShowPasswordModal(false)}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                    className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handlePasswordUpdate}
                     disabled={processingPassword || !newPassword || !confirmPassword}
-                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {processingPassword ? 'Updating...' : 'Update Password'}
+                    {processingPassword ? <FaSpinner className="animate-spin" /> : <FaKey />}
+                    Update Password
                   </button>
                 </div>
               </div>

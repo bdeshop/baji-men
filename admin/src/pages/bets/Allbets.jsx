@@ -36,7 +36,7 @@ const Allbets = () => {
       
       if (response.data.success) {
         const transformedBets = response.data.data.map((bet, index) => ({
-          game_name:bet.game_name,
+          game_name: bet.game_name,
           id: bet._id?.$oid || `bet-${index}`,
           betId: bet.serial_number || `BT${String(index + 1).padStart(6, '0')}`,
           username: bet.original_username || bet.member_account,
@@ -45,8 +45,8 @@ const Allbets = () => {
           betAmount: bet.bet_amount || 0,
           winAmount: bet.win_amount || 0,
           netAmount: bet.net_amount || 0,
-          balance_after:bet.balance_after || 0,
-          balance_before:bet.balance_before  || 0,
+          balance_after: bet.balance_after || 0,
+          balance_before: bet.balance_before || 0,
           status: bet.status ? bet.status.toLowerCase() : 'unknown',
           date: bet.transaction_time?.$date || bet.createdAt?.$date || new Date().toISOString(),
           transaction_time: bet.transaction_time?.$date || '',
@@ -56,7 +56,7 @@ const Allbets = () => {
           currency: bet.currency_code || 'BDT',
           balanceBefore: bet.balance_before || 0,
           balanceAfter: bet.balance_after || 0,
-          original_data: bet // Store original data for details
+          original_data: bet
         }));
         
         setBets(transformedBets);
@@ -122,9 +122,9 @@ const Allbets = () => {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
-    return <FaSortDown className="text-orange-500" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-500" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-indigo-500" />;
+    return <FaSortDown className="text-indigo-500" />;
   };
 
   const toggleRow = (betId) => {
@@ -157,16 +157,16 @@ const Allbets = () => {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      'won': { color: 'bg-green-100 text-green-800 ', text: 'Won' },
-      'lost': { color: 'bg-red-100 text-red-800', text: 'Lost' },
-      'pending': { color: 'bg-yellow-100 text-yellow-800', text: 'Pending' },
-      'draw': { color: 'bg-blue-100 text-blue-800', text: 'Draw' },
-      'refunded': { color: 'bg-purple-100 text-purple-800', text: 'Refunded' }
+      'won': { color: 'bg-green-900/50 text-green-300 border border-green-700', text: 'Won' },
+      'lost': { color: 'bg-red-900/50 text-red-300 border border-red-700', text: 'Lost' },
+      'pending': { color: 'bg-yellow-900/50 text-yellow-300 border border-yellow-700', text: 'Pending' },
+      'draw': { color: 'bg-blue-900/50 text-blue-300 border border-blue-700', text: 'Draw' },
+      'refunded': { color: 'bg-purple-900/50 text-purple-300 border border-purple-700', text: 'Refunded' }
     };
     
-    const statusInfo = statusMap[status.toLowerCase()] || { color: 'bg-gray-100 text-gray-800', text: status };
+    const statusInfo = statusMap[status.toLowerCase()] || { color: 'bg-gray-800 text-gray-400 border border-gray-700', text: status };
     return (
-      <div className={`w-[100%] h-[60px] flex justify-center items-center text-sm leading-5 font-[600] ${statusInfo.color}`}>
+      <div className={`w-[100%] h-[60px] flex justify-center items-center text-sm leading-5 font-[600] ${statusInfo.color} rounded`}>
         {statusInfo.text}
       </div>
     );
@@ -185,40 +185,47 @@ const Allbets = () => {
     toast.success('Data refreshed');
   };
 
-  if (loading) {
-    return (
-      <section className="font-nunito h-screen">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'}`}>
-            <div className="flex justify-center items-center h-full">
-              <div className="text-center">
-                <div className="flex justify-center items-center py-8">
-                  <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                </div>
-                <p className="mt-4 text-gray-600">Loading...</p>
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  // Pagination with ellipsis
+  const getPaginationItems = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+        range.push(i);
+      }
+    }
+
+    range.forEach((i) => {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    });
+
+    return rangeWithDots;
+  };
 
   if (error && bets.length === 0) {
     return (
-      <section className="font-nunito h-screen">
+      <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
         <Header toggleSidebar={toggleSidebar} />
         <div className="flex pt-[10vh]">
           <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'}`}>
+          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
             <div className="flex justify-center items-center h-full">
               <div className="text-center">
                 <p className="text-red-500 text-lg mb-4">{error}</p>
                 <button 
                   onClick={fetchBettingHistory}
-                  className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
                 >
                   Retry
                 </button>
@@ -231,7 +238,7 @@ const Allbets = () => {
   }
 
   return (
-    <section className="font-nunito h-screen">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
       <Toaster position="top-right" />
 
@@ -240,55 +247,53 @@ const Allbets = () => {
 
         <main
           className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
+            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
           <div className="w-full mx-auto">
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Bet History</h1>
-                <p className="text-sm text-gray-600 mt-1">View and manage all betting activities</p>
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Bet History</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1">View and manage all betting activities</p>
               </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleRefresh}
-                  className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-[5px] hover:bg-gray-600 transition-all"
-                >
-                  Refresh
-                </button>
-              </div>
+              <button 
+                onClick={handleRefresh}
+                className="w-full md:w-auto mt-4 md:mt-0 bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center justify-center gap-2"
+              >
+                Refresh
+              </button>
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Bets</h3>
-                <p className="text-2xl font-bold text-gray-800">{filteredBets.length}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-[#161B22] border-l-4 border-indigo-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Bets</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">{filteredBets.length}</p>
               </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Bet Amount</h3>
-                <p className="text-2xl font-bold text-gray-800">{formatCurrency(totalBetAmount)}</p>
+              <div className="bg-[#161B22] border-l-4 border-green-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Bet Amount</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">{formatCurrency(totalBetAmount)}</p>
               </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Payout</h3>
-                <p className="text-2xl font-bold text-gray-800">{formatCurrency(totalWinAmount)}</p>
+              <div className="bg-[#161B22] border-l-4 border-amber-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Payout</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">{formatCurrency(totalWinAmount)}</p>
               </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Profit/Loss</h3>
-                <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className="bg-[#161B22] border-l-4 border-purple-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Profit/Loss</h3>
+                <p className={`text-xl font-bold mt-2 leading-none ${totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {formatCurrency(totalProfit)}
                 </p>
               </div>
             </div>
             
             {/* Filters Section */}
-            <div className="bg-white rounded-[5px] p-4 mb-6 border border-gray-200">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-6 shadow-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                  <FaFilter className="mr-2 text-orange-500" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-indigo-500"></div>
                   Filters & Search
-                </h2>
+                </h3>
                 <button 
                   onClick={() => {
                     setSearchTerm('');
@@ -296,7 +301,7 @@ const Allbets = () => {
                     setStatusFilter('all');
                     setDateFilter('all');
                   }}
-                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
                 >
                   Clear All Filters
                 </button>
@@ -306,13 +311,13 @@ const Allbets = () => {
                 {/* Search Input */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-400" />
+                    <FaSearch className="text-gray-500" />
                   </div>
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="pl-10 w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
                     placeholder="Search by Bet ID or Username..."
                   />
                 </div>
@@ -322,7 +327,7 @@ const Allbets = () => {
                   <select
                     value={gameFilter}
                     onChange={(e) => setGameFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     <option value="all">All Games</option>
                     {games.filter(game => game !== 'all').map((game, index) => (
@@ -336,7 +341,7 @@ const Allbets = () => {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     <option value="all">All Status</option>
                     <option value="won">Won</option>
@@ -350,7 +355,7 @@ const Allbets = () => {
                   <select
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     {dateRanges.map((range, index) => (
                       <option key={index} value={range}>{range}</option>
@@ -362,14 +367,14 @@ const Allbets = () => {
             
             {/* Results Count and Sort */}
             <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-              <p className="text-gray-600">
+              <p className="text-gray-500 text-xs">
                 Showing {filteredBets.length} of {bets.length} bets
               </p>
               
               <div className="flex items-center text-sm">
-                <span className="mr-2 text-gray-600">Sort by:</span>
+                <span className="mr-2 text-gray-500">Sort by:</span>
                 <select 
-                  className="border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="bg-[#0F111A] border border-gray-700 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-200 text-sm"
                   value={sortConfig.key || ''}
                   onChange={(e) => requestSort(e.target.value)}
                 >
@@ -382,25 +387,24 @@ const Allbets = () => {
               </div>
             </div>
             
-            {/* Bets Table */}
-            <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+            {/* Bets Table - Loader only in table */}
+            <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r text-nowrap from-orange-500 to-orange-600">
+                <table className="min-w-full divide-y divide-gray-800">
+                  <thead className="bg-[#1C2128]">
                     <tr>
-                   <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                         Serial NO
                       </th>
-   <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                       Game Name
+                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
+                        Game Name
                       </th>
-                      
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
+                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                         Username
                       </th>
                       <th 
                         scope="col" 
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                         onClick={() => requestSort('betAmount')}
                       >
                         <div className="flex items-center">
@@ -410,7 +414,7 @@ const Allbets = () => {
                       </th>
                       <th 
                         scope="col" 
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                         onClick={() => requestSort('winAmount')}
                       >
                         <div className="flex items-center">
@@ -420,7 +424,7 @@ const Allbets = () => {
                       </th>
                       <th 
                         scope="col" 
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                         onClick={() => requestSort('netAmount')}
                       >
                         <div className="flex items-center">
@@ -428,12 +432,12 @@ const Allbets = () => {
                           {getSortIcon('netAmount')}
                         </div>
                       </th>
-                          <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                       Balance
+                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
+                        Balance
                       </th>
                       <th 
                         scope="col" 
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                         onClick={() => requestSort('status')}
                       >
                         <div className="flex items-center">
@@ -443,7 +447,7 @@ const Allbets = () => {
                       </th>
                       <th 
                         scope="col" 
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                         onClick={() => requestSort('date')}
                       >
                         <div className="flex items-center">
@@ -453,65 +457,73 @@ const Allbets = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.length > 0 ? (
-                      currentItems.map((bet,index) => (
+                  <tbody className="bg-[#161B22] divide-y divide-gray-800">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="9" className="px-6 py-12 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                            <FaSpinner className="animate-spin text-indigo-500 text-3xl mb-3" />
+                            <p className="text-gray-500">Loading bets...</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : currentItems.length > 0 ? (
+                      currentItems.map((bet, index) => (
                         <React.Fragment key={bet.id}>
-                          <tr onClick={() => toggleRow(bet.id)} className="hover:bg-gray-50 cursor-pointer transition-colors duration-150">
-                            <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
-                              <div className="text-sm font-medium text-gray-700">{index+1}</div>
+                          <tr onClick={() => toggleRow(bet.id)} className="hover:bg-[#1F2937] cursor-pointer transition-colors duration-150">
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + index + 1}</div>
                             </td>
-                      <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
-                              <div className="text-sm font-medium text-gray-700">{bet.game_name}</div>
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{bet.game_name || bet.game_type || 'N/A'}</div>
                             </td>
-                            
-                            <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
-                              <div className="text-sm font-medium text-gray-700">{bet.username}</div>
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{bet.username}</div>
                             </td>
-                            <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
-                              <div className="text-sm font-medium text-gray-700">{formatCurrency(bet.betAmount)}</div>
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{formatCurrency(bet.betAmount)}</div>
                             </td>
-                            <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
-                              <div className={`text-sm font-medium ${bet.winAmount > 0 ? 'text-green-600' : 'text-gray-700'}`}>
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className={`text-sm font-medium ${bet.winAmount > 0 ? 'text-green-500' : 'text-gray-300'}`}>
                                 {formatCurrency(bet.winAmount)}
                               </div>
                             </td>
-                            <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
-                              <div className={`text-sm font-medium ${bet.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className={`text-sm font-medium ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 {formatCurrency(bet.netAmount)}
                               </div>
                             </td>
-                                 <td className="px-6 py-2 whitespace-nowrap  border-r-[1px] border-gray-200">
-                              <div className="text-sm text-gray-700">{bet.balance_after} BDT</div>
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm text-gray-300">{bet.balance_after} BDT</div>
                             </td>
-                            <td className={` whitespace-nowrap border-r-[1px] border-gray-200`}>
+                            <td className="whitespace-nowrap border-r border-gray-800">
                               {getStatusBadge(bet.status)}
                             </td>
-                            <td className="px-6 py-2 whitespace-nowrap border-r-[1px] border-gray-200">
+                            <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
                               <div className="text-sm text-gray-500">{formatDate(bet.date)}</div>
                             </td>
                           </tr>
                           
                           {/* Expanded Details Row */}
                           {expandedRows[bet.id] && (
-                            <tr className="bg-gray-50">
+                            <tr className="bg-[#1F2937]">
                               <td colSpan="9" className="px-6 py-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                   {/* Balance Information */}
-                                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                    <h4 className="font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-200">Balance Information</h4>
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700">
+                                    <h4 className="font-semibold text-indigo-400 mb-3 pb-2 border-b border-gray-700">Balance Information</h4>
                                     <div className="space-y-2">
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Balance Before:</span>
-                                        <span className="text-sm font-semibold text-gray-800">{formatCurrency(bet.balanceBefore)}</span>
+                                        <span className="text-sm text-gray-400">Balance Before:</span>
+                                        <span className="text-sm font-semibold text-gray-200">{formatCurrency(bet.balanceBefore)}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Balance After:</span>
-                                        <span className="text-sm font-semibold text-gray-800">{formatCurrency(bet.balanceAfter)}</span>
+                                        <span className="text-sm text-gray-400">Balance After:</span>
+                                        <span className="text-sm font-semibold text-gray-200">{formatCurrency(bet.balanceAfter)}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Balance Change:</span>
-                                        <span className={`text-sm font-semibold ${bet.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        <span className="text-sm text-gray-400">Balance Change:</span>
+                                        <span className={`text-sm font-semibold ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                           {formatCurrency(bet.netAmount)}
                                         </span>
                                       </div>
@@ -519,62 +531,62 @@ const Allbets = () => {
                                   </div>
                                   
                                   {/* Transaction Details */}
-                                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                    <h4 className="font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-200" >Transaction Details</h4>
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700">
+                                    <h4 className="font-semibold text-indigo-400 mb-3 pb-2 border-b border-gray-700">Transaction Details</h4>
                                     <div className="space-y-2">
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Currency:</span>
-                                        <span className="text-sm font-semibold text-gray-800">{bet.currency}</span>
+                                        <span className="text-sm text-gray-400">Currency:</span>
+                                        <span className="text-sm font-semibold text-gray-200">{bet.currency}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Platform:</span>
-                                        <span className="text-sm font-semibold text-gray-800">{bet.platform}</span>
+                                        <span className="text-sm text-gray-400">Platform:</span>
+                                        <span className="text-sm font-semibold text-gray-200">{bet.platform}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Device:</span>
-                                        <span className="text-sm font-semibold text-gray-800">{bet.device_info}</span>
+                                        <span className="text-sm text-gray-400">Device:</span>
+                                        <span className="text-sm font-semibold text-gray-200">{bet.device_info}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Game UID:</span>
-                                        <span className="text-sm font-mono text-gray-800">{bet.game}</span>
+                                        <span className="text-sm text-gray-400">Game UID:</span>
+                                        <span className="text-sm font-mono text-gray-200">{bet.game}</span>
                                       </div>
                                     </div>
                                   </div>
                                   
                                   {/* Timing Information */}
-                                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                    <h4 className="font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-200">Timing Information</h4>
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700">
+                                    <h4 className="font-semibold text-indigo-400 mb-3 pb-2 border-b border-gray-700">Timing Information</h4>
                                     <div className="space-y-2">
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Transaction Time:</span>
-                                        <span className="text-sm text-gray-800">{formatDate(bet.transaction_time)}</span>
+                                        <span className="text-sm text-gray-400">Transaction Time:</span>
+                                        <span className="text-sm text-gray-200">{formatDate(bet.transaction_time)}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Processed At:</span>
-                                        <span className="text-sm text-gray-800">{formatDate(bet.processed_at)}</span>
+                                        <span className="text-sm text-gray-400">Processed At:</span>
+                                        <span className="text-sm text-gray-200">{formatDate(bet.processed_at)}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-sm text-gray-600">Display Time:</span>
-                                        <span className="text-sm text-gray-800">{formatDate(bet.date)}</span>
+                                        <span className="text-sm text-gray-400">Display Time:</span>
+                                        <span className="text-sm text-gray-200">{formatDate(bet.date)}</span>
                                       </div>
                                     </div>
                                   </div>
                                   
                                   {/* Amount Summary */}
-                                  <div className="bg-white p-4 rounded-lg border border-gray-200 lg:col-span-3">
-                                    <h4 className="font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-200">Amount Summary</h4>
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700 lg:col-span-3">
+                                    <h4 className="font-semibold text-indigo-400 mb-3 pb-2 border-b border-gray-700">Amount Summary</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                      <div className={`p-3 rounded ${bet.betAmount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
-                                        <p className="text-xs text-gray-600 mb-1">Bet Amount</p>
-                                        <p className="text-lg font-bold text-gray-800">{formatCurrency(bet.betAmount)}</p>
+                                      <div className={`p-3 rounded ${bet.betAmount > 0 ? 'bg-red-900/20 border border-red-800' : 'bg-gray-800'}`}>
+                                        <p className="text-xs text-gray-400 mb-1">Bet Amount</p>
+                                        <p className="text-lg font-bold text-gray-200">{formatCurrency(bet.betAmount)}</p>
                                       </div>
-                                      <div className={`p-3 rounded ${bet.winAmount > 0 ? 'bg-green-50' : 'bg-gray-50'}`}>
-                                        <p className="text-xs text-gray-600 mb-1">Win Amount</p>
-                                        <p className="text-lg font-bold text-green-600">{formatCurrency(bet.winAmount)}</p>
+                                      <div className={`p-3 rounded ${bet.winAmount > 0 ? 'bg-green-900/20 border border-green-800' : 'bg-gray-800'}`}>
+                                        <p className="text-xs text-gray-400 mb-1">Win Amount</p>
+                                        <p className="text-lg font-bold text-green-500">{formatCurrency(bet.winAmount)}</p>
                                       </div>
-                                      <div className={`p-3 rounded ${bet.netAmount >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                                        <p className="text-xs text-gray-600 mb-1">Net Result</p>
-                                        <p className={`text-lg font-bold ${bet.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      <div className={`p-3 rounded ${bet.netAmount >= 0 ? 'bg-green-900/20 border border-green-800' : 'bg-red-900/20 border border-red-800'}`}>
+                                        <p className="text-xs text-gray-400 mb-1">Net Result</p>
+                                        <p className={`text-lg font-bold ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                           {formatCurrency(bet.netAmount)}
                                         </p>
                                       </div>
@@ -589,10 +601,10 @@ const Allbets = () => {
                     ) : (
                       <tr>
                         <td colSpan="9" className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center justify-center text-gray-400">
+                          <div className="flex flex-col items-center justify-center text-gray-500">
                             <FaSearch className="text-5xl mb-3 opacity-30" />
-                            <p className="text-lg font-medium text-gray-500">No bets found</p>
-                            <p className="text-sm">Try adjusting your search or filters</p>
+                            <p className="text-lg font-medium text-gray-400">No bets found</p>
+                            <p className="text-sm text-gray-500">Try adjusting your search or filters</p>
                           </div>
                         </td>
                       </tr>
@@ -603,16 +615,16 @@ const Allbets = () => {
             </div>
             
             {/* Pagination */}
-            {filteredBets.length > 0 && (
+            {!loading && filteredBets.length > 0 && totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 px-4 py-3">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">
+                    <p className="text-sm text-gray-500">
+                      Showing <span className="font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                      <span className="font-medium text-gray-300">
                         {Math.min(currentPage * itemsPerPage, filteredBets.length)}
                       </span> of{' '}
-                      <span className="font-medium">{filteredBets.length}</span> results
+                      <span className="font-medium text-gray-300">{filteredBets.length}</span> results
                     </p>
                   </div>
                   <div>
@@ -620,36 +632,42 @@ const Allbets = () => {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border text-sm font-medium ${
                           currentPage === 1 
-                            ? 'bg-gray-50 text-gray-800 cursor-not-allowed' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700' 
+                            : 'bg-[#161B22] text-gray-300 hover:bg-gray-700 border-gray-700'
                         }`}
                       >
                         Previous
                       </button>
                       
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
+                      {getPaginationItems().map((page, index) => (
+                        page === '...' ? (
+                          <span key={`dots-${index}`} className="relative inline-flex items-center px-4 py-2 border border-gray-700 bg-[#161B22] text-sm font-medium text-gray-500">
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
+                                : 'bg-[#161B22] border-gray-700 text-gray-300 hover:bg-gray-700'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
                       ))}
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border text-sm font-medium ${
                           currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
+                            : 'bg-[#161B22] text-gray-300 hover:bg-gray-700 border-gray-700'
                         }`}
                       >
                         Next

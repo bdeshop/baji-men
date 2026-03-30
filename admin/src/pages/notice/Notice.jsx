@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit } from 'react-icons/fa';
+import { 
+  FaEdit, 
+  FaTrash, 
+  FaSave, 
+  FaTimes, 
+  FaInfoCircle, 
+  FaBell,
+  FaSpinner,
+  FaEye,
+  FaCalendarAlt,
+  FaClock
+} from 'react-icons/fa';
+import { FiRefreshCw, FiTrendingUp } from 'react-icons/fi';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Notice = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -14,6 +26,7 @@ const Notice = () => {
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   
@@ -104,177 +117,275 @@ const Notice = () => {
     setIsEditing(false);
   };
 
+  const confirmDelete = () => {
+    setShowDeletePopup(true);
+  };
+
+  const cancelDelete = () => {
+    setShowDeletePopup(false);
+  };
+
   const deleteNotice = async () => {
     if (!notice || !notice._id) return;
     
     try {
-      // Use singular endpoint without ID
+      setLoading(true);
       await axios.delete(`${base_url}/api/admin/notice`);
       
       setNotice(null);
       setFormData({ title: '' });
+      setIsEditing(false);
       toast.success('Notice deleted successfully');
     } catch (error) {
       console.error('Error deleting notice:', error);
       toast.error('Failed to delete notice');
+    } finally {
+      setLoading(false);
+      setShowDeletePopup(false);
     }
   };
 
-  return (
-    <section className="font-nunito h-screen bg-gray-50">
-      <Header toggleSidebar={toggleSidebar} />
+  const handleRefresh = () => {
+    fetchNotice();
+    toast.success('Notice refreshed');
+  };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString('en-BD', {
+      timeZone: 'Asia/Dhaka',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600';
+  const textareaClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600 min-h-[100px]';
+
+  const CloseIcon = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+
+  return (
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
+      <Header toggleSidebar={toggleSidebar} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
+        <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+          
+          {/* Page Header */}
+          <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Notice Management</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                <FaBell className="text-amber-500" /> Manage and update website notices
+              </p>
+            </div>
+            <div className="flex gap-3 mt-4 md:mt-0">
+              <button
+                onClick={handleRefresh}
+                className="bg-[#1F2937] hover:bg-amber-600/30 border border-gray-700 hover:border-amber-500/40 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400"
+              >
+                <FiRefreshCw className={loading ? 'animate-spin' : ''} /> REFRESH
+              </button>
+            </div>
+          </div>
 
-        <main
-          className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
-          }`}
-        >
-          <div className="w-full">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Notice Management</h1>
-            
-            {/* Notice Form Card */}
-            <div className="bg-white rounded-lg p-6 border border-gray-200 mb-8 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  {notice && notice._id ? 'Current Notice' : 'Create Notice'}
-                </h2>
-                
-                {notice && notice._id && !isEditing && (
-                  <button
-                    type="button"
-                    onClick={startEdit}
-                    className="flex items-center gap-2 px-4 py-2 bg-theme_color text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                  >
-                 Edit Notice
-                  </button>
-                )}
-              </div>
-              
-              {loading && !notice ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="flex space-x-2">
-                    <div className="h-3 w-3 bg-orange-500 rounded-full animate-bounce"></div>
-                    <div className="h-3 w-3 bg-orange-500 rounded-full animate-bounce animation-delay-200"></div>
-                    <div className="h-3 w-3 bg-orange-500 rounded-full animate-bounce animation-delay-400"></div>
-                  </div>
+          {/* Stats Card */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {[
+              { label: 'NOTICE STATUS', value: notice && notice._id ? 'ACTIVE' : 'INACTIVE', color: notice && notice._id ? 'border-emerald-500' : 'border-rose-500', valueClass: notice && notice._id ? 'text-emerald-400' : 'text-rose-400' },
+              { label: 'LAST UPDATED', value: notice?.updatedAt ? formatDate(notice.updatedAt).split(',')[0] : 'NEVER', color: 'border-indigo-500', valueClass: 'text-white' },
+              { label: 'CHARACTERS', value: notice?.title?.length || 0, color: 'border-amber-500', valueClass: 'text-amber-400' },
+            ].map((card, i) => (
+              <div key={i} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                <div className="flex justify-between items-start mb-3">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{card.label}</p>
+                  <FiTrendingUp className="text-gray-700" />
                 </div>
-              ) : (
-                <form onSubmit={handleSubmit}>
-                  {/* Notice Title Field */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Notice Title
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Enter notice title"
-                      required
-                      disabled={!isEditing && notice && notice._id}
-                    />
-                    <p className="mt-2 text-sm text-gray-500">
-                      This notice will be displayed on the website.
-                    </p>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex justify-end mt-8 space-x-4">
-                    {isEditing && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="flex items-center gap-2 px-6 py-2 bg-gray-500 text-white font-medium rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        
-                        {notice && notice._id && (
-                          <button
-                            type="button"
-                            onClick={deleteNotice}
-                            className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-                          >
-                            Delete Notice
-                          </button>
-                        )}
-                      </>
-                    )}
-                    
-                    {(isEditing || !notice || !notice._id) && (
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex items-center gap-2 px-6 py-2 bg-orange-500 text-white font-medium rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? (
-                          <>
-                            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            {notice && notice._id ? 'Update Notice' : 'Create Notice'}
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </form>
-              )}
+                <h2 className={`text-xl font-bold mt-1 leading-none ${card.valueClass}`}>{card.value}</h2>
+              </div>
+            ))}
+          </div>
+
+          {/* Notice Form Card */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-8">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-1 h-4 bg-amber-500"></div>
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                {notice && notice._id ? 'Current Notice' : 'Create Notice'}
+              </h2>
             </div>
             
-            {/* Current Notice Preview */}
-            {notice && notice._id && (
-              <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Notice Preview</h3>
+            {loading && !notice ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="flex flex-col items-center gap-3">
+                  <FaSpinner className="animate-spin text-amber-400 text-2xl" />
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading notice...</p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                {/* Notice Title Field */}
+                <div className="mb-6">
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                    Notice Title <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    className={textareaClass}
+                    placeholder="Enter notice title or announcement..."
+                    disabled={!isEditing && notice && notice._id}
+                    rows={3}
+                  />
+                  <p className="mt-2 text-[8px] text-gray-600">
+                    This notice will be displayed prominently on the website.
+                  </p>
+                </div>
                 
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 mr-3">
-                      <div className="w-8 h-8 rounded-full border-[1px] border-orange-500 bg-orange-100 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </div>
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-800">
+                  {isEditing && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="px-5 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded font-bold text-xs transition-all flex items-center gap-2"
+                      >
+                        <FaTimes /> Cancel
+                      </button>
+                      
+                      {notice && notice._id && (
+                        <button
+                          type="button"
+                          onClick={confirmDelete}
+                          className="px-5 py-2 bg-rose-500/10 hover:bg-rose-600/30 border border-rose-500/20 text-rose-400 rounded font-bold text-xs transition-all flex items-center gap-2"
+                        >
+                          <FaTrash /> Delete
+                        </button>
+                      )}
+                    </>
+                  )}
+                  
+                  {(!isEditing && notice && notice._id) ? (
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs transition-all flex items-center gap-2"
+                    >
+                      <FaEdit /> Edit Notice
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? <FaSpinner className="animate-spin" /> : <FaSave />}
+                      {loading ? 'Saving...' : (notice && notice._id ? 'Update Notice' : 'Create Notice')}
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+          </div>
+          
+          {/* Current Notice Preview */}
+          {notice && notice._id && (
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-1 h-4 bg-amber-500"></div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Notice Preview</h3>
+              </div>
+              
+              <div className="bg-[#0F111A] p-6 rounded-lg border border-gray-800">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                      <FaBell className="text-amber-400 text-sm" />
                     </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-1">{notice.title}</h4>
-                      <div className="mt-2 text-xs text-gray-500">
-                        Created: {new Date(notice.createdAt).toLocaleDateString()}
-                        {notice.updatedAt !== notice.createdAt && 
-                          ` • Updated: ${new Date(notice.updatedAt).toLocaleDateString()}`
-                        }
-                      </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-white">Notice</h4>
+                      <span className="text-[8px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                        Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">
+                      {notice.title}
+                    </p>
+                    <div className="mt-3 flex items-center gap-3 text-[9px] text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <FaCalendarAlt className="text-[8px]" />
+                        Created: {formatDate(notice.createdAt)}
+                      </span>
+                      {notice.updatedAt !== notice.createdAt && (
+                        <span className="flex items-center gap-1">
+                          <FaClock className="text-[8px]" />
+                          Updated: {formatDate(notice.updatedAt)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
-            )}
-            
-            {/* Empty State */}
-            {(!notice || !notice._id) && !loading && (
-              <div className="bg-white rounded-lg p-8 border border-dashed border-gray-300 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Notice Created</h3>
-                <p className="text-gray-500 mb-4">
-                  There is no notice currently set. Create your first notice above.
-                </p>
+            </div>
+          )}
+          
+          {/* Empty State */}
+          {(!notice || !notice._id) && !loading && (
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-8 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#0F111A] border border-gray-800 flex items-center justify-center">
+                <FaBell className="text-gray-600 text-2xl" />
               </div>
-            )}
-          </div>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">No Notice Created</h3>
+              <p className="text-[10px] text-gray-600 mb-4">
+                There is no notice currently set. Create your first notice above.
+              </p>
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeletePopup && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-rose-400">Confirm Delete</h3>
+              <button onClick={cancelDelete} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs text-gray-400 mb-5">
+                Are you sure you want to delete this notice? This action cannot be undone. The notice will be removed from the website.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-800 bg-[#1C2128] flex justify-end gap-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteNotice}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition-all flex items-center gap-2"
+              >
+                <FaTrash /> Delete Notice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

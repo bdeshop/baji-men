@@ -8,22 +8,34 @@ import {
   FaChartLine,
   FaHourglassHalf,
   FaUserTie,
-  FaCalendarAlt
+  FaCalendarAlt,
+  FaGift,
+  FaWallet
 } from 'react-icons/fa';
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
-  Cell
 } from 'recharts';
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
-import { FiRefreshCw, FiTrendingUp, FiTrendingDown, FiChevronDown } from "react-icons/fi";
-import { MdAccountBalanceWallet, MdTrendingUp } from "react-icons/md";
+import { FiRefreshCw, FiTrendingUp } from "react-icons/fi";
+import { MdAccountBalanceWallet } from "react-icons/md";
 import axios from "axios";
+import group_img from "../assets/dashboard/group.png"
+import wallet_img from "../assets/dashboard/wallet.png"
+import credit_img from "../assets/dashboard/credit.png"
+import taka_img from "../assets/dashboard/taka.png"
+import bet_img from "../assets/dashboard/casino-chips.png"
+import payment_img from "../assets/dashboard/payment.png"
+import crypto_wallet from "../assets/dashboard/crypto-wallet.png"
+import affilaite_img from "../assets/dashboard/referral.png"
+import bonus_img from "../assets/dashboard/bonus.png"
+import atm_wallet from "../assets/dashboard/atm.png"
+
 
 const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -33,25 +45,15 @@ const Dashboard = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
-  // Get Bangladesh time
-  const getBangladeshTime = () => {
-    const now = new Date();
-    // Bangladesh is UTC+6
-    const bangladeshTime = new Date(now.getTime() + (6 * 60 * 60 * 1000));
-    return bangladeshTime;
-  };
-
-  // Format date to Bangladesh time string
-  const formatBangladeshDate = (date) => {
+  const formatBangladeshDate = (dateString) => {
+    const date = dateString ? new Date(dateString) : new Date();
     return date.toLocaleString('en-BD', {
       timeZone: 'Asia/Dhaka',
-      year: 'numeric',
-      month: '2-digit',
+      month: 'short',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
-      hour12: false
+      hour12: true
     });
   };
 
@@ -63,7 +65,6 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await axios.get(`${base_url}/api/admin/dashboard`);
-      console.log('Dashboard API Response:', response.data);
       setDashboardData(response.data || {});
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -73,13 +74,10 @@ const Dashboard = () => {
     }
   };
 
-  // Helper function to safely extract data with defaults
   const getData = (path, defaultValue = 0) => {
     if (!dashboardData || Object.keys(dashboardData).length === 0) return defaultValue;
-    
     const paths = path.split('.');
     let value = dashboardData;
-    
     for (const p of paths) {
       if (value && typeof value === 'object' && p in value) {
         value = value[p];
@@ -87,11 +85,9 @@ const Dashboard = () => {
         return defaultValue;
       }
     }
-    
     return value !== null && value !== undefined ? value : defaultValue;
   };
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
@@ -99,433 +95,166 @@ const Dashboard = () => {
     }).format(amount || 0);
   };
 
-  // Prepare dashboard statistics (always return values, even if loading)
   const stats = {
-    // User Statistics
     totalUsers: getData('data.users.totalUsers', 0),
     activeUsers: getData('data.users.activeUsers', 0),
     totalUserBalance: getData('data.users.totalBalance', 0),
     totalBonusBalance: getData('data.users.totalBonusBalance', 0),
-    
-    // Financial Statistics
     totalDeposits: getData('data.financial.totalDeposits', 0),
     totalWithdrawals: getData('data.financial.totalWithdrawals', 0),
-    userTotalDeposit: getData('data.financial.userTotalDeposit', 0),
-    userTotalWithdraw: getData('data.financial.userTotalWithdraw', 0),
-    userTotalBet: getData('data.financial.userTotalBet', 0),
-    userTotalWins: getData('data.financial.userTotalWins', 0),
-    userTotalLoss: getData('data.financial.userTotalLoss', 0),
-    userNetProfit: getData('data.financial.userNetProfit', 0),
-    lifetimeDeposit: getData('data.financial.lifetimeDeposit', 0),
-    lifetimeWithdraw: getData('data.financial.lifetimeWithdraw', 0),
-    lifetimeBet: getData('data.financial.lifetimeBet', 0),
-    
-    // Pending Approvals
     pendingDeposits: getData('data.pendingApprovals.deposits', 0),
     pendingWithdrawals: getData('data.pendingApprovals.withdrawals', 0),
-    
-    // Gaming Statistics
     totalBetAmount: getData('data.gaming.totalBetAmount', 0),
-    totalWinAmount: getData('data.gaming.totalWinAmount', 0),
     totalNetProfit: getData('data.gaming.totalNetProfit', 0),
-    bettingTotalBetAmount: getData('data.gaming.bettingTotalBetAmount', 0),
-    bettingTotalWinAmount: getData('data.gaming.bettingTotalWinAmount', 0),
-    bettingTotalProfitLoss: getData('data.gaming.bettingTotalProfitLoss', 0),
-    
-    // Affiliate Statistics
-    affiliatePendingEarnings: getData('data.affiliate.totalPendingEarnings', 0),
-    affiliatePaidEarnings: getData('data.affiliate.totalPaidEarnings', 0),
     affiliateTotalEarnings: getData('data.affiliate.totalEarnings', 0),
-    
-    // Bonus Statistics
     totalBonusGiven: getData('data.bonus.totalBonusGiven', 0),
-    totalBonusWagered: getData('data.bonus.totalBonusWagered', 0),
-    
-    // Today's Statistics
-    todayDeposits: getData('data.today.deposits', 0),
-    todayWithdrawals: getData('data.today.withdrawals', 0),
-    todayTotalBet: getData('data.today.betting.totalBet', 0),
-    todayTotalWin: getData('data.today.betting.totalWin', 0),
-    
-    // Monthly Statistics
     monthlyDeposits: getData('data.monthly.deposits', 0),
-    monthlyWithdrawals: getData('data.monthly.withdrawals', 0),
-    
-    // Recent Activities
     recentUsers: getData('recentActivities.users', []),
     recentDeposits: getData('recentActivities.deposits', [])
   };
 
-  // Professional color palette
-  const gradientColors = [
-    'from-blue-600 to-blue-800',
-    'from-green-600 to-green-800',
-    'from-orange-600 to-orange-800',
-    'from-purple-600 to-purple-800',
-    'from-teal-600 to-teal-800',
-    'from-red-600 to-red-800',
-    'from-indigo-600 to-indigo-800',
-    'from-cyan-600 to-cyan-800',
-    'from-rose-600 to-rose-800',
-    'from-amber-600 to-amber-800'
-  ];
-
-  // Status cards data
+  // Full 10 Box Configuration
   const statusCards = [
-    {
-      title: 'Total Users',
-      value: formatCurrency(stats.totalUsers),
-      icon: <FaUsers className="text-3xl text-white" />,
-      description: `${stats.activeUsers} active users`,
-      gradient: gradientColors[0],
-      prefix: ''
-    },
-    {
-      title: 'Platform Balance',
-      value: `৳${formatCurrency(stats.totalUserBalance)}`,
-      icon: <MdAccountBalanceWallet className="text-3xl text-white" />,
-      description: `৳${formatCurrency(stats.totalBonusBalance)} bonus balance`,
-      gradient: gradientColors[1],
-      prefix: '৳'
-    },
-    {
-      title: 'Total Deposits',
-      value: `৳${formatCurrency(stats.totalDeposits)}`,
-      icon: <FaMoneyCheckAlt className="text-3xl text-white" />,
-      description: `৳${formatCurrency(stats.todayDeposits)} today`,
-      gradient: gradientColors[2],
-      prefix: '৳'
-    },
-    {
-      title: 'Total Withdrawals',
-      value: `৳${formatCurrency(stats.totalWithdrawals)}`,
-      icon: <FaBangladeshiTakaSign className="text-3xl text-white" />,
-      description: `৳${formatCurrency(stats.todayWithdrawals)} today`,
-      gradient: gradientColors[3],
-      prefix: '৳'
-    },
-    {
-      title: 'Total Bets',
-      value: `৳${formatCurrency(stats.totalBetAmount)}`,
-      icon: <FaChartLine className="text-3xl text-white" />,
-      description: `Net: ৳${formatCurrency(stats.totalNetProfit)}`,
-      gradient: gradientColors[4],
-      prefix: '৳'
-    },
-    {
-      title: 'Pending Deposits',
-      value: `৳${formatCurrency(stats.pendingDeposits)}`,
-      icon: <FaHourglassHalf className="text-3xl text-white" />,
-      description: 'Requires approval',
-      gradient: gradientColors[5],
-      prefix: '৳'
-    },
-    {
-      title: 'Pending Withdrawals',
-      value: `৳${formatCurrency(stats.pendingWithdrawals)}`,
-      icon: <FaClock className="text-3xl text-white" />,
-      description: 'Awaiting processing',
-      gradient: gradientColors[6],
-      prefix: '৳'
-    },
-    {
-      title: 'Affiliate Earnings',
-      value: `৳${formatCurrency(stats.affiliateTotalEarnings)}`,
-      icon: <FaUserTie className="text-3xl text-white" />,
-      description: `৳${formatCurrency(stats.affiliatePendingEarnings)} pending`,
-      gradient: gradientColors[7],
-      prefix: '৳'
-    },
-    {
-      title: 'Total Bonus Given',
-      value: `৳${formatCurrency(stats.totalBonusGiven)}`,
-      icon: <MdTrendingUp className="text-3xl text-white" />,
-      description: `৳${formatCurrency(stats.totalBonusWagered)} wagered`,
-      gradient: gradientColors[8],
-      prefix: '৳'
-    },
-    {
-      title: 'Monthly Deposits',
-      value: `৳${formatCurrency(stats.monthlyDeposits)}`,
-      icon: <MdTrendingUp className="text-3xl text-white" />,
-      description: `৳${formatCurrency(stats.monthlyWithdrawals)} withdrawals`,
-      gradient: gradientColors[9],
-      prefix: '৳'
-    }
+    { title: 'Total Users', value: formatCurrency(stats.totalUsers), icon: group_img, color: 'border-indigo-500', iconColor: 'text-indigo-500' },
+    { title: 'Platform Balance', value: `৳${formatCurrency(stats.totalUserBalance)}`, icon: wallet_img, color: 'border-green-500', iconColor: 'text-emerald-500' },
+    { title: 'Total Deposits', value: `৳${formatCurrency(stats.totalDeposits)}`, icon: credit_img, color: 'border-indigo-500', iconColor: 'text-indigo-500' },
+    { title: 'Total Withdraw', value: `৳${formatCurrency(stats.totalWithdrawals)}`, icon: taka_img, color: 'border-rose-500', iconColor: 'text-rose-500' },
+    { title: 'Total Bets', value: `৳${formatCurrency(stats.totalBetAmount)}`, icon:bet_img, color: 'border-yellow-500', iconColor: 'text-amber-500' },
+    { title: 'Pending Deposit', value: `৳${formatCurrency(stats.pendingDeposits)}`, icon: payment_img, color: 'border-sky-500', iconColor: 'text-cyan-500' },
+    { title: 'Pending Withdraw', value: `৳${formatCurrency(stats.pendingWithdrawals)}`, icon:atm_wallet, color: 'border-orange-500', iconColor: 'text-orange-500' },
+    { title: 'Affiliate', value: `৳${formatCurrency(stats.affiliateTotalEarnings)}`, icon:affilaite_img, color: 'border-purple-500', iconColor: 'text-purple-500' },
+    { title: 'Total Bonus', value: `৳${formatCurrency(stats.totalBonusGiven)}`, icon: bonus_img, color: 'border-pink-500', iconColor: 'text-pink-500' },
+    { title: 'Monthly In', value: `৳${formatCurrency(stats.monthlyDeposits)}`, icon: crypto_wallet, color: 'border-teal-500', iconColor: 'text-teal-500' }
   ];
 
-  // Financial overview data for chart
-  const financialChartData = [
-    { name: 'Deposits', amount: stats.totalDeposits, color: '#3B82F6' },
-    { name: 'Withdrawals', amount: stats.totalWithdrawals, color: '#10B981' },
-    { name: 'Bets', amount: stats.totalBetAmount, color: '#F59E0B' },
-    { name: 'Wins', amount: stats.totalWinAmount, color: '#8B5CF6' },
-    { name: 'User Balance', amount: stats.totalUserBalance, color: '#EF4444' },
-    { name: 'Bonus Balance', amount: stats.totalBonusBalance, color: '#6EE7B7' }
-  ];
-
-  // Daily performance data (Bangladesh time)
-  const generateDailyPerformanceData = () => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const now = getBangladeshTime();
-    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    
-    // Generate data for last 7 days
-    return days.map((day, index) => {
-      const dayIndex = (currentDay + 6 - index) % 7; // Get days in reverse order
-      return {
-        day: days[dayIndex],
-        deposits: Math.floor(Math.random() * 50000) + 20000,
-        withdrawals: Math.floor(Math.random() * 30000) + 10000,
-        bets: Math.floor(Math.random() * 70000) + 30000
-      };
-    }).reverse(); // Reverse to show chronological order
-  };
-
-  const dailyPerformanceData = generateDailyPerformanceData();
-
-  // Custom tooltip for charts
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-100">
-          <p className="font-semibold text-gray-800 mb-2">{label}</p>
-          {payload.map((entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: ৳{formatCurrency(entry.value)}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Financial summary items
-  const financialSummaryItems = [
-    { label: 'Total User Deposits', value: stats.userTotalDeposit },
-    { label: 'Total User Withdrawals', value: stats.userTotalWithdraw },
-    { label: 'Total User Bets', value: stats.userTotalBet },
-    { label: 'Total User Wins', value: stats.userTotalWins },
-    { label: 'Total User Loss', value: stats.userTotalLoss },
-    { label: 'Net Profit/Loss', value: stats.userNetProfit }
+  const chartData = [
+    { name: 'Sat', dep: 4000, wit: 2400 },
+    { name: 'Sun', dep: 3000, wit: 1398 },
+    { name: 'Mon', dep: 2000, wit: 9800 },
+    { name: 'Tue', dep: 2780, wit: 3908 },
+    { name: 'Wed', dep: 1890, wit: 4800 },
+    { name: 'Thu', dep: 2390, wit: 3800 },
+    { name: 'Fri', dep: 3490, wit: 4300 },
   ];
 
   return (
-    <section className="font-nunito min-h-screen bg-gray-50">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
 
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
 
-        <main className={`transition-all duration-300 flex-1 p-8 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
-          {/* Header Section */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-                <p className="text-gray-600 mt-2">
-                  Bangladesh Time: {formatBangladeshDate(getBangladeshTime())}
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <button 
-                  onClick={fetchDashboardData}
-                  disabled={loading}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-                  Refresh
-                </button>
-              </div>
+        <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+          
+          {/* Header Box */}
+          <div className=" rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Admin Dashboard</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                <FaCalendarAlt className="text-indigo-500" /> BD TIME: {formatBangladeshDate()}
+              </p>
             </div>
+            <button onClick={fetchDashboardData} className="w-full md:w-auto mt-4 md:mt-0 bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center justify-center gap-2">
+              <FiRefreshCw className={loading ? 'animate-spin' : ''} /> REFRESH SYSTEM
+            </button>
           </div>
 
-          {/* Stats Cards - Always visible */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-10">
+          {/* Metric Grid - Exactly 10 Boxes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             {statusCards.map((card, index) => (
-              <div
-                key={index}
-                className={`relative bg-gradient-to-r ${card.gradient} rounded-lg p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 min-h-[140px] flex flex-col`}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold uppercase tracking-wide opacity-90">{card.title}</p>
-                    <h2 className="text-2xl font-bold mt-1 truncate">{card.value}</h2>
+              <div key={index} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className={` ${card.iconColor}`}>
+                    <img className='w-[40px]' src={card.icon} alt="" />
                   </div>
-                  <div className="p-3 border-[1px] border-gray-200 text-white bg-opacity-20 rounded-full flex-shrink-0">
-                    {card.icon}
-                  </div>
+                  <FiTrendingUp className="text-gray-700" />
                 </div>
-                <div className="flex items-center mt-auto text-sm opacity-90">
-                  {card.trend === 'up' ? (
-                    <FiTrendingUp className="mr-1 text-green-300" />
-                  ) : card.trend === 'down' ? (
-                    <FiTrendingDown className="mr-1 text-red-300" />
-                  ) : null}
-                  <span className="truncate">{card.description}</span>
-                </div>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">{card.title}</p>
+                <h2 className="text-xl font-bold text-white mt-2 leading-none">{card.value}</h2>
               </div>
             ))}
           </div>
 
-          {/* Financial Overview Chart */}
-          <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Financial Overview</h3>
+          {/* Chart Section Box */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-8 shadow-2xl">
+            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6 flex items-center gap-2">
+              <div className="w-1 h-4 bg-indigo-500"></div> System Performance Flow
+            </h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorDep" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient>
+                    <linearGradient id="colorWit" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" vertical={false} />
+                  <XAxis dataKey="name" stroke="#718096" fontSize={11} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#718096" fontSize={11} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1A202C', border: '1px solid #2D3748' }} />
+                  <Area type="monotone" dataKey="dep" stroke="#6366f1" strokeWidth={3} fill="url(#colorDep)" />
+                  <Area type="monotone" dataKey="wit" stroke="#f43f5e" strokeWidth={3} fill="url(#colorWit)" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
+          </div>
+
+          {/* Table Boxes Section */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart 
-                    data={financialChartData} 
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  >
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="#6B7280"
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke="#6B7280"
-                      fontSize={12}
-                      tickFormatter={(value) => `৳${formatCurrency(value)}`}
-                    />
-                    <Tooltip 
-                      content={<CustomTooltip />}
-                    />
-                    <Legend />
-                    <Bar 
-                      dataKey="amount" 
-                      name="Amount (৳)" 
-                      radius={[6, 6, 0, 0]}
-                    >
-                      {financialChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            {/* Registrations Table Box */}
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+              <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 font-black text-[10px] text-blue-400 uppercase tracking-widest">
+                Latest Registrations
               </div>
-              
-              <div className="bg-gray-50 rounded-lg p-6 border-[1px] border-gray-200">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h4>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                  {financialSummaryItems.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                      <span className="text-sm text-gray-600 truncate">{item.label}</span>
-                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap ml-2">
-                        ৳{formatCurrency(item.value)}
-                      </span>
-                    </div>
+              <table className="w-full text-left">
+                <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-6 py-3">User</th>
+                    <th className="px-6 py-3">Player ID</th>
+                    <th className="px-6 py-3 text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {stats.recentUsers.slice(0, 5).map((user, i) => (
+                    <tr key={i} className="hover:bg-[#1F2937] transition-colors">
+                      <td className="px-6 py-4 text-sm font-bold text-white">{user.username}</td>
+                      <td className="px-6 py-4 text-xs font-mono text-gray-500">#{user.player_id}</td>
+                      <td className="px-6 py-4 text-right text-[10px] text-gray-400">{formatBangladeshDate(user.createdAt).split(',')[0]}</td>
+                    </tr>
                   ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Daily Performance */}
-          <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200 mb-10">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Performance (Last 7 Days - BD Time)</h3>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart 
-                data={dailyPerformanceData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-              >
-                <XAxis dataKey="day" stroke="#6B7280" fontSize={12} />
-                <YAxis 
-                  stroke="#6B7280"
-                  fontSize={12}
-                  tickFormatter={(value) => `৳${formatCurrency(value)}`}
-                />
-                <Tooltip 
-                  content={<CustomTooltip />}
-                />
-                <Legend />
-                <Bar 
-                  dataKey="deposits" 
-                  name="Deposits" 
-                  fill="#3B82F6" 
-                  radius={[6, 6, 0, 0]} 
-                />
-                <Bar 
-                  dataKey="withdrawals" 
-                  name="Withdrawals" 
-                  fill="#10B981" 
-                  radius={[6, 6, 0, 0]} 
-                />
-                <Bar 
-                  dataKey="bets" 
-                  name="Bets" 
-                  fill="#F59E0B" 
-                  radius={[6, 6, 0, 0]} 
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Recent Activities */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Recent Users */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Users</h3>
-              <div className="space-y-4">
-                {stats.recentUsers.length > 0 ? (
-                  stats.recentUsers.slice(0, 5).map((user, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                          <FaUsers className="text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{user.username || 'Unknown'}</p>
-                          <p className="text-sm text-gray-600">{user.player_id || 'N/A'}</p>
-                        </div>
-                      </div>
-                      <span className="text-sm text-gray-500">
-                        {user.createdAt ? formatBangladeshDate(new Date(user.createdAt)) : 'N/A'}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No recent user data available
-                  </div>
-                )}
-              </div>
+                </tbody>
+              </table>
             </div>
 
-            {/* Recent Deposits */}
-            <div className="bg-white rounded-xl p-8 border-[1px] border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Deposits</h3>
-              <div className="space-y-4">
-                {stats.recentDeposits.length > 0 ? (
-                  stats.recentDeposits.slice(0, 5).map((deposit, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {deposit.userId?.username || 'Unknown User'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {deposit.method || 'N/A'} • {deposit.status || 'N/A'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">৳{formatCurrency(deposit.amount || 0)}</p>
-                        <p className="text-sm text-gray-500">
-                          {deposit.createdAt ? formatBangladeshDate(new Date(deposit.createdAt)) : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No recent deposit data available
-                  </div>
-                )}
+            {/* Deposits Table Box */}
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+              <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 font-black text-[10px] text-emerald-400 uppercase tracking-widest">
+                Recent Deposits
               </div>
+              <table className="w-full text-left">
+                <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-6 py-3">User</th>
+                    <th className="px-6 py-3">Amount</th>
+                    <th className="px-6 py-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {stats.recentDeposits.slice(0, 5).map((dep, i) => (
+                    <tr key={i} className="hover:bg-[#1F2937] transition-colors">
+                      <td className="px-6 py-4 text-sm font-bold text-white">{dep.userId?.username || 'Guest'}</td>
+                      <td className="px-6 py-4 text-sm font-black text-emerald-500">৳{formatCurrency(dep.amount)}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`text-[9px] px-2 py-1 rounded ${dep.status === 'completed' ? 'bg-emerald-500/10' : 'bg-amber-500/10'} ${dep.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'} font-bold border border-emerald-500/20 uppercase`}>
+                          {dep.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+
           </div>
         </main>
       </div>

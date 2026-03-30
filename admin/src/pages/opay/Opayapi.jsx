@@ -11,7 +11,8 @@ import { MdTimer, MdDomain } from 'react-icons/md';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
+import { FiRefreshCw } from "react-icons/fi";
 
 const Opayapi = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -401,10 +402,10 @@ const Opayapi = () => {
   }, [subscriptionData.isValid]);
 
   const getStatusColor = () => {
-    if (isValidating) return 'border-blue-500 bg-blue-50';
-    if (subscriptionData.isValid) return 'border-green-500 bg-green-50';
-    if (validationError) return 'border-red-500 bg-red-50';
-    return 'border-gray-400 bg-gray-50';
+    if (isValidating) return 'border-amber-500 bg-amber-500/10';
+    if (subscriptionData.isValid) return 'border-emerald-500 bg-emerald-500/10';
+    if (validationError) return 'border-rose-500 bg-rose-500/10';
+    return 'border-gray-700 bg-[#0F111A]';
   };
 
   const getStatusText = () => {
@@ -415,9 +416,9 @@ const Opayapi = () => {
   };
 
   const getStatusIcon = () => {
-    if (isValidating) return <FaSync className="animate-spin text-blue-500" />;
-    if (subscriptionData.isValid) return <FaCheckCircle className="text-green-500" />;
-    return <FaTimesCircle className="text-red-500" />;
+    if (isValidating) return <FaSync className="animate-spin text-amber-400" />;
+    if (subscriptionData.isValid) return <FaCheckCircle className="text-emerald-400" />;
+    return <FaTimesCircle className="text-rose-400" />;
   };
 
   // Mask API key for display
@@ -427,78 +428,61 @@ const Opayapi = () => {
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
   };
 
-  return (
-    <section className="font-sans min-h-screen bg-gray-50">
-      <Header toggleSidebar={toggleSidebar} />
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500';
 
-      <div className="flex pt-16">
+  return (
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
+      <Header toggleSidebar={toggleSidebar} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
+      <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
-        <main
-          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto min-h-[calc(100vh-64px)] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
-          }`}
-        >
+        <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-semibold pt-[30px] text-gray-800">Opay API Management</h1>
-                <p className="text-gray-600 mt-1">
-                  Manage API keys and monitor subscription status
-                  {lastUpdated && (
-                    <span className="ml-2 text-gray-500 text-sm">
-                      • Last updated: {lastUpdated}
-                    </span>
-                  )}
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-3 mt-4 md:mt-0">
-                <button
-                  onClick={toggleRunning}
-                  disabled={runningUpdating || !subscriptionData.isValid}
-                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
-                    running
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                  } ${(runningUpdating || !subscriptionData.isValid) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title={!subscriptionData.isValid ? 'Valid API key required' : ''}
-                >
-                  {running ? (
-                    <>
-                      <FaToggleOn className="mr-2" />
-                      Active
-                    </>
-                  ) : (
-                    <>
-                      <FaToggleOff className="mr-2" />
-                      Inactive
-                    </>
-                  )}
-                </button>
-                
-                <button
-                  onClick={handleRefreshSettings}
-                  disabled={isLoading}
-                  className="flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
-                >
-                  <FaSync className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-              </div>
+          <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Opay API Management</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                <FaKey className="text-amber-500" /> Manage API keys and monitor subscription status
+                {lastUpdated && (
+                  <span className="text-gray-600">• Last updated: {lastUpdated}</span>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-3 mt-4 md:mt-0">
+              <button
+                onClick={toggleRunning}
+                disabled={runningUpdating || !subscriptionData.isValid}
+                className={`px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 ${
+                  running
+                    ? 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/30'
+                    : 'bg-[#1F2937] border border-gray-700 text-gray-400 hover:border-amber-500/40 hover:text-amber-400'
+                } ${(runningUpdating || !subscriptionData.isValid) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={!subscriptionData.isValid ? 'Valid API key required' : ''}
+              >
+                {running ? <FaToggleOn className="text-emerald-400" /> : <FaToggleOff />}
+                {running ? 'ACTIVE' : 'INACTIVE'}
+              </button>
+              <button
+                onClick={handleRefreshSettings}
+                disabled={isLoading}
+                className="bg-[#1F2937] hover:bg-amber-600/30 border border-gray-700 hover:border-amber-500/40 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400"
+              >
+                <FiRefreshCw className={isLoading ? 'animate-spin' : ''} /> REFRESH
+              </button>
             </div>
           </div>
 
           {/* Current API Key Section */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-6 shadow-lg">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
               <div className="flex items-center mb-4 md:mb-0">
-                <div className="p-2 rounded-lg bg-blue-100 mr-3">
-                  <FaKey className="text-xl text-blue-600" />
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mr-3">
+                  <FaKey className="text-xl text-amber-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-800">Current API Key</h2>
-                  <p className="text-gray-600 text-sm">Your active Opay API key</p>
+                  <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Current API Key</h2>
+                  <p className="text-xs text-gray-500">Your active Opay API key</p>
                 </div>
               </div>
               
@@ -506,31 +490,31 @@ const Opayapi = () => {
                 {!isUpdating && (
                   <button
                     onClick={handleUpdateClick}
-                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors flex items-center"
+                    className="bg-amber-500/10 hover:bg-amber-600/30 border border-amber-500/20 text-amber-400 px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2"
                   >
-                    Update API Key
+                    <FaEdit /> UPDATE KEY
                   </button>
                 )}
                 <button
                   onClick={handleValidateCurrentClick}
                   disabled={isValidating || !currentApiKey}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
+                  className={`px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 ${
                     isValidating
-                      ? 'bg-blue-500 text-white cursor-wait'
+                      ? 'bg-amber-500/20 text-amber-400 cursor-wait'
                       : subscriptionData.isValid
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                      : 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-600/30'
                   } ${!currentApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {isValidating ? (
                     <>
-                      <FaSync className="animate-spin mr-2" />
-                      Validating...
+                      <FaSync className="animate-spin" />
+                      VALIDATING...
                     </>
                   ) : (
                     <>
-                      <FaCheckCircle className="mr-2" />
-                      Revalidate
+                      <FaCheckCircle />
+                      REVALIDATE
                     </>
                   )}
                 </button>
@@ -539,24 +523,24 @@ const Opayapi = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">
                   Current API Key
                 </label>
                 <div className="flex">
-                  <div className="flex-1 border border-gray-300 rounded-l-lg px-4 py-3 bg-gray-50 font-mono text-gray-700">
+                  <div className="flex-1 border border-gray-700 rounded-l-lg px-4 py-3 bg-[#0F111A] font-mono text-gray-300 text-sm">
                     {maskApiKey(currentApiKey) || 'No API key configured'}
                   </div>
                   <button
                     onClick={() => copyToClipboard(currentApiKey)}
                     disabled={!currentApiKey}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-r-lg border border-l-0 border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-[#1C2128] hover:bg-gray-700 text-gray-400 px-4 py-3 rounded-r-lg border border-l-0 border-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Copy full API key"
                   >
-                    {copied ? <FaCheck /> : <FaCopy />}
+                    {copied ? <FaCheck className="text-emerald-400" /> : <FaCopy />}
                   </button>
                 </div>
                 {currentApiKey && (
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-[10px] text-gray-600">
                     Full key: {currentApiKey.substring(0, 8)}...{currentApiKey.substring(currentApiKey.length - 4)}
                   </p>
                 )}
@@ -566,10 +550,10 @@ const Opayapi = () => {
               <div className={`flex items-center justify-between p-4 rounded-lg border ${getStatusColor()}`}>
                 <div className="flex items-center">
                   {getStatusIcon()}
-                  <span className="ml-2 font-medium">{getStatusText()}</span>
+                  <span className="ml-2 text-xs font-bold uppercase tracking-wider">{getStatusText()}</span>
                 </div>
-                <div className="text-sm text-gray-600">
-                  {validationError || (subscriptionData.isValid ? 'Ready for use' : 'Validate API key to check status')}
+                <div className="text-[10px] text-gray-400">
+                  {validationError || (subscriptionData.isValid ? '✓ Ready for use' : 'Validate API key to check status')}
                 </div>
               </div>
             </div>
@@ -577,43 +561,43 @@ const Opayapi = () => {
 
           {/* Update API Key Section - Only shown when updating */}
           {isUpdating && (
-            <div className="bg-white rounded-xl border-2 border-orange-200 p-6 mb-6 ">
+            <div className="bg-[#161B22] border border-amber-500/30 rounded-lg p-6 mb-6 shadow-lg">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
                 <div className="flex items-center mb-4 md:mb-0">
-                  <div className="p-2 rounded-lg bg-orange-100 mr-3">
-                    <FaEdit className="text-xl text-orange-600" />
+                  <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mr-3">
+                    <FaEdit className="text-xl text-amber-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-800">Update API Key</h2>
-                    <p className="text-gray-600 text-sm">Enter a new Opay API key</p>
+                    <h2 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Update API Key</h2>
+                    <p className="text-xs text-gray-500">Enter a new Opay API key</p>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleCancelUpdate}
-                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors flex items-center"
+                    className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2"
                   >
-                    Cancel
+                    <FaUndo /> CANCEL
                   </button>
                   <button
                     onClick={handleSaveNewKey}
                     disabled={isValidating || !newApiKey}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
+                    className={`px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 ${
                       isValidating
-                        ? 'bg-blue-500 text-white cursor-wait'
-                        : 'bg-green-500 hover:bg-green-600 text-white'
+                        ? 'bg-amber-500/20 text-amber-400 cursor-wait'
+                        : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/30'
                     } ${!newApiKey ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {isValidating ? (
                       <>
-                        <FaSync className="animate-spin mr-2" />
-                        Validating...
+                        <FaSync className="animate-spin" />
+                        VALIDATING...
                       </>
                     ) : (
                       <>
-                        <FaSave className="mr-2" />
-                        Save New Key
+                        <FaSave />
+                        SAVE NEW KEY
                       </>
                     )}
                   </button>
@@ -622,30 +606,30 @@ const Opayapi = () => {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    New API Key <span className="text-red-500">*</span>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">
+                    New API Key <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={newApiKey}
                     onChange={handleNewKeyChange}
                     placeholder="Enter your new Opay API Key"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className={inputClass}
                     autoFocus
                   />
                   {hasChanges && (
-                    <p className="mt-2 text-sm text-orange-600">
+                    <p className="mt-2 text-[10px] text-amber-400">
                       ⚠️ Click "Save New Key" to validate and save this API key
                     </p>
                   )}
                 </div>
                 
                 {/* Warning message */}
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-700 flex items-center">
-                    <FaEdit className="mr-2" />
-                    <span>
-                      <strong>Important:</strong> Updating the API key will immediately switch to the new key. 
+                <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                  <p className="text-[10px] text-amber-400 flex items-center gap-2">
+                    <FaEdit className="text-amber-400" />
+                    <span className="uppercase font-bold">
+                      Important: Updating the API key will immediately switch to the new key. 
                       Make sure the new key is valid and has the correct permissions.
                     </span>
                   </p>
@@ -657,39 +641,39 @@ const Opayapi = () => {
           {/* Stats Grid - Only show if there's valid subscription data */}
           {subscriptionData.isValid && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="flex items-center mb-4">
-                    <div className="p-2 rounded-lg bg-blue-100 mr-3">
-                      <FaMobileAlt className="text-xl text-blue-600" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <FaMobileAlt className="text-xl text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Devices</p>
-                      <p className="text-2xl font-semibold text-gray-800 mt-1">{subscriptionData.deviceCount}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Devices</p>
+                      <p className="text-2xl font-bold text-white mt-1">{subscriptionData.deviceCount}</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="flex items-center mb-4">
-                    <div className="p-2 rounded-lg bg-green-100 mr-3">
-                      <FaUsers className="text-xl text-green-600" />
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <FaUsers className="text-xl text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Active Numbers</p>
-                      <p className="text-2xl font-semibold text-gray-800 mt-1">{subscriptionData.activeCount}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Active Numbers</p>
+                      <p className="text-2xl font-bold text-white mt-1">{subscriptionData.activeCount}</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <div className="flex items-center mb-4">
-                    <div className="p-2 rounded-lg bg-purple-100 mr-3">
-                      <FaGlobe className="text-xl text-purple-600" />
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                      <FaGlobe className="text-xl text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Domains</p>
-                      <p className="text-2xl font-semibold text-gray-800 mt-1">{subscriptionData.domains.length}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Domains</p>
+                      <p className="text-2xl font-bold text-white mt-1">{subscriptionData.domains.length}</p>
                     </div>
                   </div>
                 </div>
@@ -698,35 +682,38 @@ const Opayapi = () => {
               {/* Subscription Details */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Subscription Info */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Subscription Details</h3>
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 shadow-lg">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-1 h-4 bg-amber-500"></div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Subscription Details</h3>
+                  </div>
                   
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <span className="font-medium text-gray-700">Plan</span>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Plan</span>
+                      <span className="px-3 py-1 bg-amber-500/10 text-amber-400 rounded-full text-[9px] font-bold uppercase border border-amber-500/20">
                         {subscriptionData.plan}
                       </span>
                     </div>
                     
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-1">Primary Domain</label>
-                        <p className="text-gray-800">{subscriptionData.primaryDomain || 'No domain set'}</p>
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Primary Domain</label>
+                        <p className="text-xs text-gray-300 bg-[#0F111A] p-2 rounded border border-gray-800">{subscriptionData.primaryDomain || 'No domain set'}</p>
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-600 mb-1">All Domains</label>
-                        <div className="space-y-1">
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">All Domains</label>
+                        <div className="space-y-1 bg-[#0F111A] p-2 rounded border border-gray-800">
                           {subscriptionData.domains.length > 0 ? (
                             subscriptionData.domains.map((domain, index) => (
-                              <div key={index} className="flex items-center text-gray-800">
-                                <FiChevronRight className="text-gray-400 mr-1" />
+                              <div key={index} className="flex items-center text-xs text-gray-400">
+                                <FiChevronRight className="text-amber-500 mr-1 text-[9px]" />
                                 {domain}
                               </div>
                             ))
                           ) : (
-                            <p className="text-gray-500 italic">No domains registered</p>
+                            <p className="text-[10px] text-gray-600 italic">No domains registered</p>
                           )}
                         </div>
                       </div>
@@ -735,20 +722,23 @@ const Opayapi = () => {
                 </div>
                 
                 {/* Subscription Timeline */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Subscription Timeline</h3>
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 shadow-lg">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-1 h-4 bg-amber-500"></div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Subscription Timeline</h3>
+                  </div>
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">Subscription ID</label>
+                      <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Subscription ID</label>
                       <div className="flex items-center">
-                        <code className="flex-1 bg-gray-50 px-3 py-2 rounded-lg text-gray-800 font-mono text-sm">
+                        <code className="flex-1 bg-[#0F111A] px-3 py-2 rounded-lg text-gray-300 font-mono text-[10px] border border-gray-800">
                           {subscriptionData.subscriptionId || 'No subscription ID'}
                         </code>
                         <button
                           onClick={() => copyToClipboard(subscriptionData.subscriptionId)}
                           disabled={!subscriptionData.subscriptionId}
-                          className="ml-2 p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                          className="ml-2 p-2 text-gray-500 hover:text-amber-400 disabled:opacity-50 transition-colors"
                           title="Copy to clipboard"
                         >
                           <FaCopy />
@@ -757,35 +747,35 @@ const Opayapi = () => {
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-600 mb-1">End Date</label>
-                        <p className="text-gray-800 font-medium">{subscriptionData.endDate}</p>
+                      <div className="p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">End Date</label>
+                        <p className="text-xs text-gray-300 font-medium">{subscriptionData.endDate}</p>
                       </div>
                       
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-600 mb-1">Latest End Date</label>
-                        <p className="text-gray-800 font-medium">{subscriptionData.latestEndDate}</p>
+                      <div className="p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                        <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Latest End Date</label>
+                        <p className="text-xs text-gray-300 font-medium">{subscriptionData.latestEndDate}</p>
                       </div>
                     </div>
                     
-                    <div className={`p-4 rounded-lg ${
+                    <div className={`p-4 rounded-lg border ${
                       subscriptionData.expireDate.includes('Expired') 
-                        ? 'bg-red-50 border border-red-200' 
+                        ? 'bg-rose-500/10 border-rose-500/20' 
                         : subscriptionData.expireDate === 'No expiration date'
-                        ? 'bg-gray-50 border border-gray-200'
-                        : 'bg-green-50 border border-green-200'
+                        ? 'bg-gray-800/30 border-gray-700'
+                        : 'bg-emerald-500/10 border-emerald-500/20'
                     }`}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-600">Expires In</p>
-                          <p className={`text-lg font-semibold mt-1 ${
-                            subscriptionData.expireDate.includes('Expired') ? 'text-red-600' : 
-                            subscriptionData.expireDate === 'No expiration date' ? 'text-gray-600' : 'text-green-600'
+                          <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Expires In</p>
+                          <p className={`text-sm font-bold mt-1 ${
+                            subscriptionData.expireDate.includes('Expired') ? 'text-rose-400' : 
+                            subscriptionData.expireDate === 'No expiration date' ? 'text-gray-400' : 'text-emerald-400'
                           }`}>
                             {subscriptionData.expireDate}
                           </p>
                         </div>
-                        <MdTimer className="text-2xl text-gray-400" />
+                        <MdTimer className="text-2xl text-gray-600" />
                       </div>
                     </div>
                   </div>
@@ -794,36 +784,36 @@ const Opayapi = () => {
 
               {/* Countdown Timer */}
               {subscriptionData.days > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-                  <div className="flex items-center mb-6">
-                    <div className="p-2 rounded-lg bg-orange-100 mr-3">
-                      <FaCalendarAlt className="text-xl text-orange-600" />
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-6 shadow-lg">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <FaCalendarAlt className="text-xl text-amber-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800">Subscription Countdown</h3>
-                      <p className="text-gray-600 text-sm">Time remaining until expiration</p>
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Subscription Countdown</h3>
+                      <p className="text-[9px] text-gray-500">Time remaining until expiration</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-gray-800 mb-1">{subscriptionData.days}</div>
-                      <div className="text-sm text-gray-600">Days</div>
+                    <div className="text-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                      <div className="text-2xl font-bold text-amber-400 mb-1">{subscriptionData.days}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Days</div>
                     </div>
                     
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-gray-800 mb-1">{subscriptionData.hours}</div>
-                      <div className="text-sm text-gray-600">Hours</div>
+                    <div className="text-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                      <div className="text-2xl font-bold text-amber-400 mb-1">{subscriptionData.hours}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Hours</div>
                     </div>
                     
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-gray-800 mb-1">{subscriptionData.minutes}</div>
-                      <div className="text-sm text-gray-600">Minutes</div>
+                    <div className="text-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                      <div className="text-2xl font-bold text-amber-400 mb-1">{subscriptionData.minutes}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Minutes</div>
                     </div>
                     
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-gray-800 mb-1">{subscriptionData.seconds}</div>
-                      <div className="text-sm text-gray-600">Seconds</div>
+                    <div className="text-center p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                      <div className="text-2xl font-bold text-amber-400 mb-1">{subscriptionData.seconds}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Seconds</div>
                     </div>
                   </div>
                 </div>
@@ -834,14 +824,14 @@ const Opayapi = () => {
           {/* History & Webhooks */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Validation History */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center mb-6">
-                <div className="p-2 rounded-lg bg-gray-100 mr-3">
-                  <FaHistory className="text-xl text-gray-600" />
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2 rounded-lg bg-gray-700/30 border border-gray-700">
+                  <FaHistory className="text-xl text-gray-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Validation History</h3>
-                  <p className="text-gray-600 text-sm">Recent validation attempts</p>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Validation History</h3>
+                  <p className="text-[9px] text-gray-500">Recent validation attempts</p>
                 </div>
               </div>
               
@@ -852,24 +842,24 @@ const Opayapi = () => {
                       key={index} 
                       className={`p-3 rounded-lg border ${
                         entry.valid 
-                          ? 'border-green-200 bg-green-50' 
-                          : 'border-red-200 bg-red-50'
+                          ? 'border-emerald-500/20 bg-emerald-500/5' 
+                          : 'border-rose-500/20 bg-rose-500/5'
                       }`}
                     >
                       <div className="flex justify-between items-center">
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
                           entry.valid 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-emerald-500/20 text-emerald-400' 
+                            : 'bg-rose-500/20 text-rose-400'
                         }`}>
                           {entry.valid ? 'Valid' : 'Invalid'}
                         </span>
-                        <span className="text-xs text-gray-500">{entry.timestamp}</span>
+                        <span className="text-[9px] text-gray-500">{entry.timestamp}</span>
                       </div>
-                      <div className="mt-2 text-xs text-gray-600">
+                      <div className="mt-2 text-[9px] text-gray-500">
                         Devices: {entry.deviceCount} • Numbers: {entry.activeNumberCount}
                         {entry.error && (
-                          <div className="mt-1 text-red-500 truncate" title={entry.error}>
+                          <div className="mt-1 text-rose-400 truncate" title={entry.error}>
                             {entry.error}
                           </div>
                         )}
@@ -878,63 +868,63 @@ const Opayapi = () => {
                   ))
                 ) : (
                   <div className="text-center py-6">
-                    <FaHistory className="text-gray-300 text-3xl mx-auto mb-2" />
-                    <p className="text-gray-500">No validation history</p>
+                    <FaHistory className="text-gray-700 text-3xl mx-auto mb-2" />
+                    <p className="text-[10px] text-gray-600">No validation history</p>
                   </div>
                 )}
               </div>
             </div>
             
             {/* Webhook Info */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center mb-6">
-                <div className="p-2 rounded-lg bg-purple-100 mr-3">
-                  <FaPlug className="text-xl text-purple-600" />
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <FaPlug className="text-xl text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Webhook Configuration</h3>
-                  <p className="text-gray-600 text-sm">Callback URLs and settings</p>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Webhook Configuration</h3>
+                  <p className="text-[9px] text-gray-500">Callback URLs and settings</p>
                 </div>
               </div>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">OraclePay Callback URL</label>
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">OraclePay Callback URL</label>
                   <div className="flex items-center">
-                    <code className="flex-1 bg-gray-50 px-3 py-2 rounded-lg text-sm text-gray-800 font-mono break-all">
+                    <code className="flex-1 bg-[#0F111A] px-3 py-2 rounded-lg text-[9px] text-gray-400 font-mono break-all border border-gray-800">
                       {base_url}/api/opay/oraclepay-callback
                     </code>
                     <button
                       onClick={() => copyToClipboard(`${base_url}/api/opay/oraclepay-callback`)}
-                      className="ml-2 p-2 text-gray-500 hover:text-gray-700"
+                      className="ml-2 p-2 text-gray-500 hover:text-amber-400 transition-colors"
                       title="Copy to clipboard"
                     >
                       <FaCopy />
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-[9px] text-gray-600">
                     Configure this URL in your OraclePay dashboard for deposit notifications
                   </p>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
                   <div>
-                    <p className="font-medium text-gray-700">Integration Status</p>
-                    <p className="text-sm text-gray-600">Current running state</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Integration Status</p>
+                    <p className="text-[9px] text-gray-600">Current running state</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase ${
                     running 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-red-100 text-red-700'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' 
+                      : 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
                   }`}>
                     {running ? 'Running' : 'Stopped'}
                   </span>
                 </div>
 
                 {subscriptionData.isValid && (
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-700">
-                      <span className="font-medium">✓ API Key Valid</span> - Integration ready to process payments
+                  <div className="p-3 bg-emerald-500/5 rounded-lg border border-emerald-500/20">
+                    <p className="text-[9px] text-emerald-400 font-bold uppercase flex items-center gap-2">
+                      <FaCheckCircle /> API Key Valid - Integration ready to process payments
                     </p>
                   </div>
                 )}
@@ -943,14 +933,14 @@ const Opayapi = () => {
           </div>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-center text-gray-500 text-sm">
+          <div className="mt-8 pt-6 border-t border-gray-800">
+            <p className="text-center text-[9px] text-gray-600 uppercase tracking-wider">
               Securely validated via Opay API • 
               <a 
                 href="https://api.oraclepay.org/docs" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="ml-1 text-blue-600 hover:text-blue-800 hover:underline"
+                className="ml-1 text-amber-400 hover:text-amber-300 hover:underline"
               >
                 View Documentation
               </a>

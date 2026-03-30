@@ -1,129 +1,164 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaSearch, FaFilter, FaEye, FaPlus, FaSort, FaSortUp, FaSortDown, FaUser, FaPhone, FaEnvelope, FaMoneyBill, FaIdCard, FaUserSlash } from 'react-icons/fa';
+import {
+  FaEdit,
+  FaTrash,
+  FaSearch,
+  FaFilter,
+  FaEye,
+  FaPlus,
+  FaSort,
+  FaSortUp,
+  FaSortDown,
+  FaUser,
+  FaPhone,
+  FaEnvelope,
+  FaMoneyBill,
+  FaIdCard,
+  FaUserSlash,
+  FaSpinner,
+  FaUsers,
+  FaCalendarAlt,
+  FaDollarSign,
+  FaCheckCircle,
+  FaUserCheck,
+} from 'react-icons/fa';
+import { FiRefreshCw } from 'react-icons/fi';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Inactiveuser = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('inactive'); // Default to inactive
+  const [statusFilter, setStatusFilter] = useState('inactive');
   const [kycFilter, setKycFilter] = useState('all');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
-  const [showStatusToast, setShowStatusToast] = useState(false);
-  const [statusToastMessage, setStatusToastMessage] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showUserDetails, setShowUserDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
-  
-  const navigate = useNavigate();
-  const itemsPerPage = 10;
-  
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-  
-  // Sample user data - focusing on inactive users
   const [users, setUsers] = useState([]);
 
-  // Fetch users from API
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        // Replace with your actual API endpoint
-        const response = await fetch(`${base_url}/api/admin/users`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
-        }
-        
-        const data = await response.json();
-        setUsers(data.users || []);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error fetching users:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const navigate = useNavigate();
+  const itemsPerPage = 10;
+  const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('adminToken');
+
+      const response = await axios.get(`${base_url}/api/admin/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      setUsers(response.data.users || []);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch users');
+      toast.error('Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const statuses = ['all', 'active', 'inactive', 'suspended', 'banned', 'deactivated', 'pending'];
   const kycStatuses = ['all', 'verified', 'unverified', 'pending', 'rejected'];
-  const roles = ['all', 'user', 'agent', 'admin', 'super_admin', 'vip'];
 
-  // Sort users
-  const sortedUsers = React.useMemo(() => {
-    let sortableItems = [...users];
-    if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-        
-        // Handle nested objects
-        if (sortConfig.key === 'createdAt' || sortConfig.key === 'lastPasswordChange') {
-          aValue = new Date(aValue);
-          bValue = new Date(bValue);
-        }
-        
-        if (aValue < bValue) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
+  const getUserInitials = (username) => {
+    if (!username) return 'U';
+    return username.charAt(0).toUpperCase();
+  };
+
+  const getAvatarColor = (username) => {
+    const colors = [
+      'from-amber-500 to-orange-600',
+      'from-blue-500 to-cyan-600',
+      'from-emerald-500 to-green-600',
+      'from-rose-500 to-pink-600',
+      'from-purple-500 to-indigo-600',
+      'from-teal-500 to-blue-600'
+    ];
+    if (!username) return colors[0];
+    const charCode = username.charCodeAt(0);
+    return colors[charCode % colors.length];
+  };
+
+  // Filter and sort users
+  const filteredAndSortedUsers = React.useMemo(() => {
+    let filtered = [...users];
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(user =>
+        user.username?.toLowerCase().includes(term) ||
+        user.email?.toLowerCase().includes(term) ||
+        user.player_id?.toLowerCase().includes(term) ||
+        user.phone?.toLowerCase().includes(term)
+      );
     }
-    return sortableItems;
-  }, [users, sortConfig]);
 
-  // Filter users based on search and filters - default to inactive
-  const filteredUsers = sortedUsers.filter(user => {
-    const matchesSearch = user.username?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.player_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          user.phone?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    const matchesKyc = kycFilter === 'all' || user.kycStatus === kycFilter;
-    
-    return matchesSearch && matchesStatus && matchesKyc;
-  });
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(user => user.status === statusFilter);
+    }
 
-  // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const currentItems = filteredUsers.slice(
+    if (kycFilter !== 'all') {
+      filtered = filtered.filter(user => user.kycStatus === kycFilter);
+    }
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (sortConfig.key === 'createdAt' || sortConfig.key === 'last_login') {
+        aVal = new Date(aVal || 0);
+        bVal = new Date(bVal || 0);
+      }
+      if (sortConfig.key === 'balance') {
+        aVal = parseFloat(aVal || 0);
+        bVal = parseFloat(bVal || 0);
+      }
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+      if (aVal < bVal) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [users, searchTerm, statusFilter, kycFilter, sortConfig]);
+
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
+  const currentItems = filteredAndSortedUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  // Handle sort request
   const requestSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
+    let direction = 'descending';
+    if (sortConfig.key === key && sortConfig.direction === 'descending') {
+      direction = 'ascending';
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1);
   };
 
-  // Get sort icon
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
-    return <FaSortDown className="text-orange-500" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-500 inline ml-1" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-amber-400 inline ml-1" />;
+    return <FaSortDown className="text-amber-400 inline ml-1" />;
   };
 
-  // Handle user deletion
   const handleDelete = (id) => {
     setUserToDelete(id);
     setShowDeleteConfirm(true);
@@ -131,32 +166,19 @@ const Inactiveuser = () => {
 
   const confirmDelete = async () => {
     try {
-      const response = await fetch(`${base_url}/api/admin/users/${userToDelete}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
+      const token = localStorage.getItem('adminToken');
+
+      await axios.delete(`${base_url}/api/admin/users/${userToDelete}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-      
+
       setUsers(users.filter(user => user._id !== userToDelete));
-      setStatusToastMessage('User deleted successfully');
-      setShowStatusToast(true);
+      toast.success('User deleted successfully');
     } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error deleting user');
-      setShowStatusToast(true);
+      toast.error(err.response?.data?.message || 'Error deleting user');
     } finally {
       setShowDeleteConfirm(false);
       setUserToDelete(null);
-      
-      // Auto hide toast after 3 seconds
-      setTimeout(() => {
-        setShowStatusToast(false);
-      }, 3000);
     }
   };
 
@@ -165,106 +187,84 @@ const Inactiveuser = () => {
     setUserToDelete(null);
   };
 
-  // Handle user status toggle - specifically for activating inactive users
   const activateUser = async (id) => {
     try {
-      const response = await fetch(`${base_url}/api/admin/users/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        },
-        body: JSON.stringify({ status: 'active' })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to activate user');
-      }
-      
-      const updatedUsers = users.map(user => {
-        if (user._id === id) {
-          return {...user, status: 'active'};
-        }
-        return user;
-      });
-      
-      setUsers(updatedUsers);
-      setStatusToastMessage('User activated successfully');
-      setShowStatusToast(true);
+      const token = localStorage.getItem('adminToken');
+
+      await axios.put(`${base_url}/api/admin/users/${id}/status`,
+        { status: 'active' },
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+      setUsers(users.map(user =>
+        user._id === id ? { ...user, status: 'active' } : user
+      ));
+      toast.success('User activated successfully');
     } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error activating user');
-      setShowStatusToast(true);
-    } finally {
-      // Auto hide toast after 3 seconds
-      setTimeout(() => {
-        setShowStatusToast(false);
-      }, 3000);
+      toast.error(err.response?.data?.message || 'Error activating user');
     }
   };
 
-  // View user details
-  const viewUserDetails = (user) => {
-    setSelectedUser(user);
-    setShowUserDetails(true);
-  };
-
-  // Close user details modal
-  const closeUserDetails = () => {
-    setShowUserDetails(false);
-    setSelectedUser(null);
-  };
-
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-BD', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
   };
 
-  // Reset to first page when filters change
+  const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null) return '0.00';
+    return parseFloat(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, kycFilter]);
 
-  // Navigate to edit user page
-  const editUser = (id) => {
-    navigate(`/admin/users/edit/${id}`);
+  const inactiveUsers = users.filter(u => u.status === 'inactive');
+  const stats = {
+    total: inactiveUsers.length,
+    recentInactive: inactiveUsers.filter(u =>
+      new Date(u.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    ).length,
+    withBalance: inactiveUsers.filter(u => parseFloat(u.balance || 0) > 0).length,
+    kycVerified: inactiveUsers.filter(u => u.kycStatus === 'verified').length,
   };
 
-  if (loading) {
-    return (
-      <section className="font-nunito h-screen">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
-            <div className="flex items-center justify-center h-full">
-        <div className="relative flex justify-center items-center flex-col">
-        <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-gray-600 font-semibold">Loading...</p>
-      </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  const getPaginationPages = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [1];
+    if (currentPage > 3) pages.push('...');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
 
-  if (error) {
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500';
+
+  const CloseIcon = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+
+  if (error && !loading) {
     return (
-      <section className="font-nunito h-screen">
+      <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
         <Header toggleSidebar={toggleSidebar} />
         <div className="flex pt-[10vh]">
           <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
+          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="text-red-500 text-2xl mb-4">Error</div>
-                <p className="text-gray-600">{error}</p>
-                <button 
-                  onClick={() => window.location.reload()} 
-                  className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md"
-                >
+              <div className="text-center bg-[#161B22] border border-gray-800 rounded-lg p-8 max-w-md">
+                <div className="text-rose-400 text-4xl mb-4">⚠️</div>
+                <p className="text-gray-400 text-sm">{error}</p>
+                <button onClick={fetchUsers} className="mt-4 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all">
                   Try Again
                 </button>
               </div>
@@ -276,347 +276,288 @@ const Inactiveuser = () => {
   }
 
   return (
-    <section className="font-nunito h-screen ">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
 
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
 
         <main
           className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
+            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
-          <div className="w-full mx-auto">
+          <div className="w-full">
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-                  <FaUserSlash className="mr-2 text-orange-500" />
-                  Inactive User Management
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase flex items-center gap-2">
+                  <FaUserSlash className="text-amber-500" /> Inactive Users
                 </h1>
-                <p className="text-sm text-gray-600 mt-1">Manage all inactive platform users</p>
+                <p className="text-xs font-bold text-gray-500 mt-1">Manage all inactive platform users</p>
               </div>
-              <NavLink to="/admin/users/new" className="flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-[5px] hover:from-orange-600 hover:to-orange-700 transition-all">
-                <FaPlus className="mr-2" />
-                Add New User
-              </NavLink>
-            </div>
-            
-            {/* Stats Cards - Focused on inactive users */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Inactive Users</h3>
-                <p className="text-2xl font-bold text-gray-800">{users.filter(u => u.status === 'inactive').length}</p>
-              </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Recently Inactive</h3>
-                <p className="text-2xl font-bold text-gray-800">
-                  {users.filter(u => u.status === 'inactive' && 
-                    new Date(u.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length}
-                </p>
-              </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">With Balance</h3>
-                <p className="text-2xl font-bold text-gray-800">
-                  {users.filter(u => u.status === 'inactive' && u.balance > 0).length}
-                </p>
-              </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">KYC Verified</h3>
-                <p className="text-2xl font-bold text-gray-800">
-                  {users.filter(u => u.status === 'inactive' && u.kycStatus === 'verified').length}
-                </p>
-              </div>
-            </div>
-            
-            {/* Filters Section */}
-            <div className="bg-white rounded-[5px] p-4 mb-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                  <FaFilter className="mr-2 text-orange-500" />
-                  Filters & Search
-                </h2>
-                <button 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('inactive'); // Reset to inactive filter
-                    setKycFilter('all');
-                  }}
-                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center"
+              <div className="flex gap-3 mt-4 md:mt-0">
+                <Link
+                  to="/admin/users/new"
+                  className="bg-[#1F2937] hover:bg-amber-600/20 border border-gray-700 hover:border-amber-500/40 px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400"
                 >
-                  Reset Filters
+                  <FaPlus /> ADD USER
+                </Link>
+                <button
+                  onClick={fetchUsers}
+                  className="bg-[#1F2937] hover:bg-amber-600/30 border border-gray-700 hover:border-amber-500/40 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400"
+                >
+                  <FiRefreshCw className={loading ? 'animate-spin' : ''} /> REFRESH
                 </button>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Search Input */}
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-400" />
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {[
+                { label: 'TOTAL INACTIVE', value: stats.total, color: 'border-rose-500', valueClass: 'text-white', icon: <FaUserSlash /> },
+                { label: 'RECENTLY INACTIVE', value: stats.recentInactive, color: 'border-yellow-500', valueClass: 'text-yellow-400', icon: <FaCalendarAlt /> },
+                { label: 'WITH BALANCE', value: stats.withBalance, color: 'border-blue-500', valueClass: 'text-blue-400', icon: <FaDollarSign /> },
+                { label: 'KYC VERIFIED', value: stats.kycVerified, color: 'border-emerald-500', valueClass: 'text-emerald-400', icon: <FaCheckCircle /> },
+              ].map((card, i) => (
+                <div key={i} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                  <div className="flex justify-between items-start mb-3">
+                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{card.label}</p>
+                    <div className="text-gray-600">{card.icon}</div>
                   </div>
+                  <h2 className={`text-xl font-bold mt-1 leading-none ${card.valueClass}`}>{card.value}</h2>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters Section */}
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-amber-500"></div> Filters & Search
+                </h2>
+                <button
+                  onClick={() => { setSearchTerm(''); setStatusFilter('inactive'); setKycFilter('all'); }}
+                  className="text-[10px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
+                >
+                  Clear All
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="relative">
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className={`${inputClass} pl-8`}
                     placeholder="Search inactive users..."
                   />
                 </div>
-                
-                {/* Status Filter - Default to inactive */}
-                <div>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="inactive">Inactive Users</option>
-                    <option value="all">All Status</option>
-                    {statuses.filter(status => status !== 'all' && status !== 'inactive').map((status, index) => (
-                      <option key={index} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* KYC Filter */}
-                <div>
-                  <select
-                    value={kycFilter}
-                    onChange={(e) => setKycFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="all">All KYC Status</option>
-                    {kycStatuses.filter(status => status !== 'all').map((status, index) => (
-                      <option key={index} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* Sort by */}
-                <div>
-                  <select 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    value={sortConfig.key || ''}
-                    onChange={(e) => requestSort(e.target.value)}
-                  >
-                    <option value="">Sort By</option>
-                    <option value="username">Username</option>
-                    <option value="createdAt">Registration Date</option>
-                    <option value="balance">Balance</option>
-                    <option value="last_login">Last Login</option>
-                  </select>
-                </div>
+
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
+                  <option value="inactive">Inactive Users</option>
+                  <option value="all">All Status</option>
+                  {statuses.filter(s => s !== 'all' && s !== 'inactive').map((status) => (
+                    <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                  ))}
+                </select>
+
+                <select value={kycFilter} onChange={(e) => setKycFilter(e.target.value)} className={selectClass}>
+                  <option value="all">All KYC Status</option>
+                  {kycStatuses.filter(s => s !== 'all').map((status) => (
+                    <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                  ))}
+                </select>
+
+                <select
+                  className={selectClass}
+                  value={sortConfig.key}
+                  onChange={(e) => requestSort(e.target.value)}
+                >
+                  <option value="createdAt">Sort by Date</option>
+                  <option value="username">Sort by Name</option>
+                  <option value="balance">Sort by Balance</option>
+                  <option value="last_login">Sort by Last Login</option>
+                </select>
               </div>
             </div>
-            
+
             {/* Results Count */}
-            <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-              <p className="text-gray-600">
-                Showing {filteredUsers.length} of {users.filter(u => u.status === 'inactive').length} inactive users
+            <div className="mb-3 flex justify-between items-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                Showing {currentItems.length} of {filteredAndSortedUsers.length} inactive users
               </p>
-              {filteredUsers.length > 0 && (
-                <button 
+              {filteredAndSortedUsers.length > 0 && (
+                <button
                   onClick={() => {
-                    // Activate all filtered users
-                    filteredUsers.forEach(user => {
+                    filteredAndSortedUsers.forEach(user => {
                       if (user.status === 'inactive') {
                         activateUser(user._id);
                       }
                     });
                   }}
-                  className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                  className="text-[9px] px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition-all flex items-center gap-1"
                 >
-                  Activate All
+                  <FaUserCheck className="text-[8px]" /> Activate All
                 </button>
               )}
             </div>
-            
+
             {/* Users Table */}
-            <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+              <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 font-black text-[10px] text-amber-400 uppercase tracking-widest">
+                Inactive User List
+              </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
+                <table className="min-w-full text-left">
+                  <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
                     <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        User
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Player ID
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Contact
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Balance
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        KYC Status
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Last Login
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Registered
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Actions
-                      </th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('username')}>User {getSortIcon('username')}</th>
+                      <th className="px-5 py-3">Player ID</th>
+                      <th className="px-5 py-3">Contact</th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('balance')}>Balance {getSortIcon('balance')}</th>
+                      <th className="px-5 py-3">KYC</th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('last_login')}>Last Login {getSortIcon('last_login')}</th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>Registered {getSortIcon('createdAt')}</th>
+                      <th className="px-5 py-3">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.length > 0 ? (
+                  <tbody className="divide-y divide-gray-800">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="8" className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <FaSpinner className="animate-spin text-amber-400 text-2xl" />
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading inactive users...</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : currentItems.length > 0 ? (
                       currentItems.map((user) => (
-                        <tr key={user._id} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-12 w-12">
-                                <img className="h-12 w-12 rounded-full object-cover shadow-sm border border-gray-200" src={user.avatar} alt={user.username} />
+                        <tr key={user._id} className="hover:bg-[#1F2937] transition-colors">
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold text-sm bg-gradient-to-br ${getAvatarColor(user.username)}`}>
+                                {getUserInitials(user.username)}
                               </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-semibold text-gray-900">{user.username}</div>
-                                <div className="text-xs text-gray-500 capitalize">{user.role}</div>
+                              <div>
+                                <div className="text-sm font-bold text-white">{user.username}</div>
+                                <div className="text-[10px] text-gray-500 capitalize">{user.role || 'User'}</div>
                               </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">{user.player_id}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700">{user.email}</div>
-                            <div className="text-xs text-gray-500 flex items-center mt-1">
-                              <FaPhone className="mr-1" /> {user.phone || 'N/A'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{user.balance} {user.currency}</div>
-                            <div className="text-xs text-gray-500">Bonus: {user.bonusBalance}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.kycStatus === 'verified' 
-                                ? 'bg-green-100 text-green-800 border border-green-200' 
-                                : user.kycStatus === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                                : 'bg-red-100 text-red-800 border border-red-200'
-                            }`}>
-                              {user.kycStatus}
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className="text-[10px] font-mono text-gray-400 bg-[#0F111A] px-2 py-1 rounded border border-gray-800">
+                              {user.player_id}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700">
-                              {user.last_login ? formatDate(user.last_login) : 'Never'}
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-xs text-gray-300">{user.email}</div>
+                            <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                              <FaPhone className="text-[8px]" /> {user.phone || 'N/A'}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700">{formatDate(user.createdAt)}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
-                              <button 
-                                className="p-2 px-[8px] py-[7px] bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700"
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-sm font-bold text-amber-400">{formatCurrency(user.balance)} {user.currency || 'BDT'}</div>
+                            <div className="text-[10px] text-gray-500">Bonus: {formatCurrency(user.bonusBalance)}</div>
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${
+                              user.kycStatus === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              user.kycStatus === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                              'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}>
+                              {user.kycStatus || 'Unverified'}
+                            </span>
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-xs text-gray-400">{formatDate(user.last_login) || 'Never'}</div>
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-xs text-gray-400">{formatDate(user.createdAt)}</div>
+                           </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex gap-1.5">
+                              <Link
+                                to={`/users/view-user-details/${user._id}`}
+                                className="p-1.5 bg-blue-500/10 hover:bg-blue-500/30 border border-blue-500/20 text-blue-400 rounded text-xs transition-all"
                                 title="View details"
-                                onClick={() => viewUserDetails(user)}
                               >
                                 <FaEye />
-                              </button>
-                              <NavLink 
-                                                            to={`/users/edit-user-details/${user._id}`} 
-                                className="p-2 px-[8px] py-[7px] bg-orange-600 text-white rounded-[3px] text-[16px] hover:bg-orange-700"
+                              </Link>
+                              <Link
+                                to={`/users/edit-user-details/${user._id}`}
+                                className="p-1.5 bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 rounded text-xs transition-all"
                                 title="Edit user"
-                                onClick={() => editUser(user._id)}
                               >
                                 <FaEdit />
-                              </NavLink>
-                              <button 
-                                className="p-2 px-[8px] py-[7px] bg-green-600 text-white rounded-[3px] text-[16px] hover:bg-green-700"
+                              </Link>
+                              <button
                                 onClick={() => activateUser(user._id)}
+                                className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 rounded text-xs transition-all"
                                 title="Activate user"
                               >
-                                Activate
+                                <FaUserCheck />
                               </button>
-                              <button 
-                                className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700"
+                              <button
                                 onClick={() => handleDelete(user._id)}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
                                 title="Delete user"
                               >
                                 <FaTrash />
                               </button>
                             </div>
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="8" className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center justify-center text-gray-400">
-                            <FaUserSlash className="text-5xl mb-3 opacity-30" />
-                            <p className="text-lg font-medium text-gray-500">No inactive users found</p>
-                            <p className="text-sm">Try adjusting your search or filters</p>
+                        <td colSpan="8" className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center text-gray-600">
+                            <FaUserSlash className="text-4xl mb-3 opacity-20" />
+                            <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">No inactive users found</p>
+                            <p className="text-xs mt-1">Try adjusting your search or filters</p>
                           </div>
-                        </td>
-                      </tr>
+                         </td>
+                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
-            
+
             {/* Pagination */}
-            {filteredUsers.length > 0 && (
-              <div className="flex items-center justify-between mt-4 px-4 py-3">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">
-                        {Math.min(currentPage * itemsPerPage, filteredUsers.length)}
-                      </span> of{' '}
-                      <span className="font-medium">{filteredUsers.length}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {totalPages > 1 && !loading && (
+              <div className="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                  Page {currentPage} of {totalPages} &nbsp;·&nbsp; {filteredAndSortedUsers.length} total
+                </p>
+                <nav className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === 1 ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                  >← Prev</button>
+                  {getPaginationPages().map((page, idx) =>
+                    page === '...' ? (
+                      <span key={`e-${idx}`} className="px-2 py-1.5 text-xs text-gray-600 font-bold select-none">···</span>
+                    ) : (
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                          currentPage === 1 
-                            ? 'bg-gray-50 text-gray-800 cursor-not-allowed' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Previous
-                      </button>
-                      
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                      
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                          currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Next
-                      </button>
-                    </nav>
-                  </div>
-                </div>
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === page ? 'bg-amber-600 border-amber-500 text-white' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                      >{page}</button>
+                    )
+                  )}
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === totalPages ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                  >Next →</button>
+                </nav>
               </div>
             )}
           </div>
@@ -625,198 +566,27 @@ const Inactiveuser = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Deletion</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete this inactive user? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-rose-400">Confirm Deletion</h3>
+              <button onClick={cancelDelete} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs text-gray-400 mb-5">
+                Are you sure you want to delete this inactive user? This action cannot be undone.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-800 bg-[#1C2128] flex justify-end gap-3">
               <button
                 onClick={cancelDelete}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-              >
-                Cancel
-              </button>
+                className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
+              >Cancel</button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition-all flex items-center gap-2"
               >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status Change Toast */}
-      {showStatusToast && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fadeIn">
-          {statusToastMessage}
-        </div>
-      )}
-
-      {/* User Details Modal */}
-      {showUserDetails && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Inactive User Details</h3>
-              <button onClick={closeUserDetails} className="text-gray-400 hover:text-gray-500">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="px-6 py-4">
-              <div className="flex flex-col md:flex-row gap-6 mb-6">
-                <div className="flex-shrink-0">
-                  <img className="h-24 w-24 rounded-full object-cover shadow-md border border-gray-200" src={selectedUser.avatar} alt={selectedUser.username} />
-                </div>
-                
-                <div className="flex-grow">
-                  <h2 className="text-xl font-bold text-gray-800">{selectedUser.username}</h2>
-                  <p className="text-sm text-gray-600 mb-4">Player ID: {selectedUser.player_id}</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <FaEnvelope className="text-gray-400 mr-2" />
-                      <span className="text-sm">{selectedUser.email}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <FaPhone className="text-gray-400 mr-2" />
-                      <span className="text-sm">{selectedUser.phone || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <FaUser className="text-gray-400 mr-2" />
-                      <span className="text-sm capitalize">{selectedUser.role}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <FaIdCard className="text-gray-400 mr-2" />
-                      <span className="text-sm capitalize">{selectedUser.kycStatus}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Account Status</h4>
-                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    selectedUser.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : selectedUser.status === 'inactive'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {selectedUser.status}
-                  </span>
-                  
-                  <h4 className="text-sm font-medium text-gray-700 mt-4 mb-2">Balance</h4>
-                  <p className="text-lg font-bold text-gray-800">{selectedUser.balance} {selectedUser.currency}</p>
-                  <p className="text-sm text-gray-600">Bonus: {selectedUser.bonusBalance}</p>
-                  
-                  <button 
-                    onClick={() => {
-                      activateUser(selectedUser._id);
-                      closeUserDetails();
-                    }}
-                    className="mt-4 w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-                  >
-                    Activate User
-                  </button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Financial Overview</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Total Deposit:</span>
-                      <span className="text-sm font-medium">{selectedUser.total_deposit} {selectedUser.currency}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Total Withdraw:</span>
-                      <span className="text-sm font-medium">{selectedUser.total_withdraw} {selectedUser.currency}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Total Bet:</span>
-                      <span className="text-sm font-medium">{selectedUser.total_bet} {selectedUser.currency}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Net Profit:</span>
-                      <span className={`text-sm font-medium ${selectedUser.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {selectedUser.net_profit} {selectedUser.currency}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Account Information</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Registered:</span>
-                      <span className="text-sm font-medium">{formatDate(selectedUser.createdAt)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Last Login:</span>
-                      <span className="text-sm font-medium">
-                        {selectedUser.last_login ? formatDate(selectedUser.last_login) : 'Never'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Login Count:</span>
-                      <span className="text-sm font-medium">{selectedUser.login_count}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Referral Code:</span>
-                      <span className="text-sm font-medium">{selectedUser.referralCode}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Verification Status</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className={`p-3 rounded-md text-center ${selectedUser.isEmailVerified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    <p className="text-sm font-medium">Email</p>
-                    <p className="text-xs">{selectedUser.isEmailVerified ? 'Verified' : 'Not Verified'}</p>
-                  </div>
-                  <div className={`p-3 rounded-md text-center ${selectedUser.isPhoneVerified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    <p className="text-sm font-medium">Phone</p>
-                    <p className="text-xs">{selectedUser.isPhoneVerified ? 'Verified' : 'Not Verified'}</p>
-                  </div>
-                  <div className={`p-3 rounded-md text-center ${
-                    selectedUser.kycStatus === 'verified' 
-                      ? 'bg-green-100 text-green-800' 
-                      : selectedUser.kycStatus === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    <p className="text-sm font-medium">KYC</p>
-                    <p className="text-xs capitalize">{selectedUser.kycStatus}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end space-x-3">
-              <button
-                onClick={closeUserDetails}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-400 focus:outline-none"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  activateUser(selectedUser._id);
-                  closeUserDetails();
-                }}
-                className="px-4 py-2 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-600 focus:outline-none"
-              >
-                Activate User
+                <FaTrash /> Delete User
               </button>
             </div>
           </div>

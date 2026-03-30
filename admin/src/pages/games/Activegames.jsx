@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import { NavLink } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
 
 const Activegames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -120,34 +121,60 @@ const Activegames = () => {
 
   // Get sort icon
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
-    return <FaSortDown className="text-orange-500" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-500" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-indigo-500" />;
+    return <FaSortDown className="text-indigo-500" />;
   };
 
-  // Handle game deletion
-  const handleDelete = (id) => {
-    setGameToDelete(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = async () => {
-    try {
-      await axios.delete(`${base_url}/api/admin/games/${gameToDelete}`);
-      // Refresh the games list
-      fetchGames();
-      setShowDeleteConfirm(false);
-      setGameToDelete(null);
-      toast.success('Game deleted successfully');
-    } catch (error) {
-      console.error('Error deleting game:', error);
-      toast.error('Failed to delete game');
-    }
-  };
-
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false);
-    setGameToDelete(null);
+  // Handle game deletion with SweetAlert
+  const handleDelete = (game) => {
+    Swal.fire({
+      title: 'Delete Game?',
+      html: `Are you sure you want to delete "<strong>${game.name}</strong>"?<br/>This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      background: '#1F2937',
+      customClass: {
+        popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
+        title: 'text-xl font-bold text-gray-200',
+        confirmButton: 'px-6 py-2 rounded-lg font-medium',
+        cancelButton: 'px-6 py-2 rounded-lg font-medium'
+      }
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await axios.delete(`${base_url}/api/admin/games/${game._id}`);
+          fetchGames();
+          Swal.fire({
+            title: 'Deleted!',
+            text: `"${game.name}" has been removed successfully.`,
+            icon: 'success',
+            confirmButtonColor: '#6366f1',
+            background: '#1F2937',
+            customClass: {
+              popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
+              confirmButton: 'px-6 py-2 rounded-lg font-medium'
+            }
+          });
+        } catch (error) {
+          Swal.fire({
+            title: 'Error!',
+            text: error.response?.data?.error || error.response?.data?.message || 'Failed to delete game',
+            icon: 'error',
+            confirmButtonColor: '#6366f1',
+            background: '#1F2937',
+            customClass: {
+              popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
+              confirmButton: 'px-6 py-2 rounded-lg font-medium'
+            }
+          });
+        }
+      }
+    });
   };
 
   // Handle game status toggle (deactivate game)
@@ -184,8 +211,106 @@ const Activegames = () => {
   // Get unique categories from games for stats
   const uniqueCategories = new Set(games.map(g => g.category)).size;
 
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return 'https://via.placeholder.com/48x48?text=No+Image';
+    if (imagePath.startsWith('http')) return imagePath;
+    return `${base_url}${imagePath}`;
+  };
+
+  // Generate pagination buttons with ellipsis
+  const getPaginationButtons = () => {
+    const buttons = [];
+    const maxVisible = 5; // Maximum number of page buttons to show
+    const halfVisible = Math.floor(maxVisible / 2);
+    
+    let startPage = Math.max(1, currentPage - halfVisible);
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    // Adjust if we're near the end
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    // Always show first page
+    if (startPage > 1) {
+      buttons.push(
+        <button
+          key={1}
+          onClick={() => setCurrentPage(1)}
+          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+            currentPage === 1
+              ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
+              : 'bg-[#161B22] border-gray-700 text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          1
+        </button>
+      );
+      
+      // Show ellipsis if there's a gap
+      if (startPage > 2) {
+        buttons.push(
+          <span
+            key="ellipsis-start"
+            className="relative inline-flex items-center px-4 py-2 border border-gray-700 bg-[#161B22] text-gray-400 text-sm"
+          >
+            ...
+          </span>
+        );
+      }
+    }
+    
+    // Generate visible page buttons
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => setCurrentPage(i)}
+          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+            currentPage === i
+              ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
+              : 'bg-[#161B22] border-gray-700 text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    
+    // Always show last page
+    if (endPage < totalPages) {
+      // Show ellipsis if there's a gap
+      if (endPage < totalPages - 1) {
+        buttons.push(
+          <span
+            key="ellipsis-end"
+            className="relative inline-flex items-center px-4 py-2 border border-gray-700 bg-[#161B22] text-gray-400 text-sm"
+          >
+            ...
+          </span>
+        );
+      }
+      
+      buttons.push(
+        <button
+          key={totalPages}
+          onClick={() => setCurrentPage(totalPages)}
+          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
+            currentPage === totalPages
+              ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
+              : 'bg-[#161B22] border-gray-700 text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          {totalPages}
+        </button>
+      );
+    }
+    
+    return buttons;
+  };
+
   return (
-    <section className="font-nunito h-screen ">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
 
       <div className="flex pt-[10vh]">
@@ -193,54 +318,54 @@ const Activegames = () => {
 
         <main
           className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
+            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
           <div className="w-full mx-auto">
             {/* Page Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Active Game Management</h1>
-                <p className="text-sm text-gray-600 mt-1">Manage all active casino games</p>
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Active Game Management</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1">Manage all active casino games</p>
               </div>
-              <NavLink to="/games-management/new-game" className="flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-[5px] hover:from-orange-600 hover:to-orange-700 transition-all">
-                <FaPlus className="mr-2" />
+              <NavLink to="/games-management/new-game" className="w-full md:w-auto mt-4 md:mt-0 bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center justify-center gap-2">
+                <FaPlus />
                 Add New Game
               </NavLink>
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Active Games</h3>
-                <p className="text-2xl font-bold text-gray-800">{totalGames}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-[#161B22] border-l-4 border-indigo-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Active Games</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">{totalGames}</p>
               </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Categories</h3>
-                <p className="text-2xl font-bold text-gray-800">{uniqueCategories}</p>
+              <div className="bg-[#161B22] border-l-4 border-green-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Categories</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">{uniqueCategories}</p>
               </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Providers</h3>
-                <p className="text-2xl font-bold text-gray-800">{new Set(games.map(g => g.provider)).size}</p>
+              <div className="bg-[#161B22] border-l-4 border-amber-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Providers</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">{new Set(games.map(g => g.provider)).size}</p>
               </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Recently Added</h3>
-                <p className="text-2xl font-bold text-gray-800">
+              <div className="bg-[#161B22] border-l-4 border-purple-500 p-5 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Recently Added</h3>
+                <p className="text-xl font-bold text-white mt-2 leading-none">
                   {games.length > 0 ? new Date(games[0]?.createdAt).toLocaleDateString() : 'N/A'}
                 </p>
               </div>
             </div>
             
             {/* Filters Section */}
-            <div className="bg-white rounded-[5px] p-4 mb-6 border border-gray-200">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-6 shadow-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                  <FaFilter className="mr-2 text-orange-500" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-indigo-500"></div>
                   Filters & Search
-                </h2>
+                </h3>
                 <button 
                   onClick={resetFilters}
-                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
                 >
                   Clear All Filters
                 </button>
@@ -250,13 +375,13 @@ const Activegames = () => {
                 {/* Search Input */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-400" />
+                    <FaSearch className="text-gray-500" />
                   </div>
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="pl-10 w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
                     placeholder="Search games or ID..."
                   />
                 </div>
@@ -266,7 +391,7 @@ const Activegames = () => {
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     <option value="all">All Categories</option>
                     {categories.map((category, index) => (
@@ -280,7 +405,7 @@ const Activegames = () => {
                   <select
                     value={providerFilter}
                     onChange={(e) => setProviderFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     <option value="all">All Providers</option>
                     {providers.map((provider, index) => (
@@ -293,7 +418,7 @@ const Activegames = () => {
                 <div>
                   <select
                     value="Active"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-500 cursor-not-allowed"
                     disabled
                   >
                     <option value="Active">Active</option>
@@ -304,7 +429,7 @@ const Activegames = () => {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={applyFilters}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm"
                 >
                   Apply Filters
                 </button>
@@ -313,14 +438,14 @@ const Activegames = () => {
             
             {/* Results Count and Sort */}
             <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-              <p className="text-gray-600">
+              <p className="text-gray-500 text-xs">
                 Showing {games.length} of {totalGames} active games
               </p>
               
               <div className="flex items-center text-sm">
-                <span className="mr-2 text-gray-600">Sort by:</span>
+                <span className="mr-2 text-gray-500">Sort by:</span>
                 <select 
-                  className="border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="bg-[#0F111A] border border-gray-700 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-200 text-sm"
                   value={sortConfig.key || ''}
                   onChange={(e) => requestSort(e.target.value)}
                 >
@@ -335,21 +460,21 @@ const Activegames = () => {
             
             {/* Games Table */}
             {loading ? (
-              <div className="bg-white rounded-lg p-12 border border-gray-200 flex items-center justify-center">
+              <div className="bg-[#161B22] rounded-lg p-12 border border-gray-800 flex items-center justify-center">
                 <div className="text-center">
-                  <FaSpinner className="animate-spin text-4xl text-orange-500 mx-auto mb-4" />
-                  <p className="text-gray-600">Loading active games...</p>
+                  <FaSpinner className="animate-spin text-4xl text-indigo-500 mx-auto mb-4" />
+                  <p className="text-gray-500">Loading active games...</p>
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+              <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
+                  <table className="min-w-full divide-y divide-gray-800">
+                    <thead className="bg-[#1C2128]">
                       <tr>
                         <th 
                           scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                           onClick={() => requestSort('name')}
                         >
                           <div className="flex items-center">
@@ -357,12 +482,12 @@ const Activegames = () => {
                             {getSortIcon('name')}
                           </div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           ID
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                           onClick={() => requestSort('provider')}
                         >
                           <div className="flex items-center">
@@ -372,7 +497,7 @@ const Activegames = () => {
                         </th>
                         <th 
                           scope="col" 
-                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer transition-colors hover:bg-orange-700"
+                          className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-700"
                           onClick={() => requestSort('category')}
                         >
                           <div className="flex items-center">
@@ -380,24 +505,24 @@ const Activegames = () => {
                             {getSortIcon('category')}
                           </div>
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Status
                         </th>
-                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-[#161B22] divide-y divide-gray-800">
                       {sortedGames.length > 0 ? (
                         sortedGames.map((game) => (
-                          <tr key={game._id} className="hover:bg-gray-50 transition-colors duration-150">
+                          <tr key={game._id} className="hover:bg-[#1F2937] transition-colors duration-150">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-12 w-12">
                                   <img 
-                                    className="h-12 w-12 rounded-md object-cover shadow-sm border border-gray-200" 
-                                    src={`${base_url}${game.portraitImage}`} 
+                                    className="h-12 w-12 rounded-md object-cover shadow-sm border border-gray-700" 
+                                    src={getImageUrl(game.portraitImage)} 
                                     alt={game.name} 
                                     onError={(e) => {
                                       e.target.src = 'https://via.placeholder.com/48x48?text=No+Image';
@@ -405,19 +530,19 @@ const Activegames = () => {
                                   />
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-semibold text-gray-900">{game.name}</div>
+                                  <div className="text-sm font-semibold text-white">{game.name}</div>
                                   <div className="text-xs text-gray-500">{new Date(game.createdAt).toLocaleDateString()}</div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">{game.gameId}</div>
+                              <div className="text-sm text-gray-400 font-mono bg-[#0F111A] px-2 py-1 rounded border border-gray-700">{game.gameId}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-700">{game.provider}</div>
+                              <div className="text-sm font-medium text-gray-300">{game.provider}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+                              <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-900/50 text-indigo-300 border border-indigo-700">
                                 {game.category}
                               </span>
                             </td>
@@ -425,8 +550,8 @@ const Activegames = () => {
                               <span 
                                 className={`px-3 py-1.5 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer transition-colors duration-200 ${
                                   game.status 
-                                    ? 'bg-green-500 text-white hover:bg-green-600 border border-green-500' 
-                                    : 'bg-red-500 text-white hover:bg-red-600 border border-red-500'
+                                    ? 'bg-green-600 text-white hover:bg-green-700 border border-green-600' 
+                                    : 'bg-red-600 text-white hover:bg-red-700 border border-red-600'
                                 }`}
                                 onClick={() => deactivateGame(game._id)}
                               >
@@ -444,14 +569,14 @@ const Activegames = () => {
                                 </NavLink>
                                 <NavLink
                                   to={`/games-management/edit-game/${game._id}`}
-                                  className="p-2 px-[8px] py-[7px] bg-orange-600 text-white rounded-[3px] text-[16px] hover:bg-orange-700"
+                                  className="p-2 px-[8px] py-[7px] bg-indigo-600 text-white rounded-[3px] text-[16px] hover:bg-indigo-700"
                                   title="Edit game"
                                 >
                                   <FaEdit />
                                 </NavLink>
                                 <button 
                                   className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700"
-                                  onClick={() => handleDelete(game._id)}
+                                  onClick={() => handleDelete(game)}
                                   title="Delete game"
                                 >
                                   <FaTrash />
@@ -463,10 +588,10 @@ const Activegames = () => {
                       ) : (
                         <tr>
                           <td colSpan="6" className="px-6 py-12 text-center">
-                            <div className="flex flex-col items-center justify-center text-gray-400">
+                            <div className="flex flex-col items-center justify-center text-gray-500">
                               <FaSearch className="text-5xl mb-3 opacity-30" />
-                              <p className="text-lg font-medium text-gray-500">No active games found</p>
-                              <p className="text-sm">Try adding some games or check your filters</p>
+                              <p className="text-lg font-medium text-gray-400">No active games found</p>
+                              <p className="text-sm text-gray-500">Try adding some games or check your filters</p>
                             </div>
                           </td>
                         </tr>
@@ -477,17 +602,17 @@ const Activegames = () => {
               </div>
             )}
             
-            {/* Pagination */}
+            {/* Pagination with Ellipsis */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 px-4 py-3">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">
+                    <p className="text-sm text-gray-500">
+                      Showing <span className="font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                      <span className="font-medium text-gray-300">
                         {Math.min(currentPage * itemsPerPage, totalGames)}
                       </span> of{' '}
-                      <span className="font-medium">{totalGames}</span> results
+                      <span className="font-medium text-gray-300">{totalGames}</span> results
                     </p>
                   </div>
                   <div>
@@ -495,36 +620,24 @@ const Activegames = () => {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border text-sm font-medium ${
                           currentPage === 1 
-                            ? 'bg-gray-50 text-gray-800 cursor-not-allowed' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700' 
+                            : 'bg-[#161B22] text-gray-300 hover:bg-gray-700 border-gray-700'
                         }`}
                       >
                         Previous
                       </button>
                       
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 border-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                      {getPaginationButtons()}
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border text-sm font-medium ${
                           currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
+                            : 'bg-[#161B22] text-gray-300 hover:bg-gray-700 border-gray-700'
                         }`}
                       >
                         Next
@@ -532,37 +645,11 @@ const Activegames = () => {
                     </nav>
                   </div>
                 </div>
-                </div>
+              </div>
             )}
           </div>
         </main>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Deletion</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete this game? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={cancelDelete}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 };

@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaFilter, FaEye, FaSort, FaSortUp, FaSortDown, FaMoneyBill, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaDownload, FaEdit, FaTrash, FaSpinner } from 'react-icons/fa';
+import {
+  FaSearch, FaEye, FaSort, FaSortUp, FaSortDown,
+  FaCheckCircle, FaTimesCircle, FaClock, FaExclamationTriangle,
+  FaEdit, FaTrash, FaSpinner
+} from 'react-icons/fa';
+import { FiRefreshCw, FiTrendingUp, FiDownload } from 'react-icons/fi';
+import { FaCalendarAlt } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import axios from 'axios';
@@ -7,7 +13,7 @@ import axios from 'axios';
 const Pendingdeposit = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending'); // Default to pending
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [methodFilter, setMethodFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,7 +30,7 @@ const Pendingdeposit = () => {
     success: true,
     userIdentifyAddress: '',
     amount: 0,
-    trxid: ''
+    trxid: '',
   });
   const [stats, setStats] = useState({
     total: 0,
@@ -42,7 +48,6 @@ const Pendingdeposit = () => {
   const statuses = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
   const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank', 'card', 'opay', 'external_gateway'];
 
-  // Fetch deposits from API
   const fetchDeposits = async () => {
     try {
       setLoading(true);
@@ -54,15 +59,9 @@ const Pendingdeposit = () => {
       if (methodFilter !== 'all') params.append('method', methodFilter);
       if (dateRange.start) params.append('startDate', dateRange.start);
       if (dateRange.end) params.append('endDate', dateRange.end);
+      if (params.toString()) url += `&${params.toString()}`;
 
-      if (params.toString()) {
-        url += `&${params.toString()}`;
-      }
-
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
       setDeposits(response.data.deposits);
       setStats({
         total: response.data.total,
@@ -74,7 +73,6 @@ const Pendingdeposit = () => {
     } catch (err) {
       console.error('Error fetching deposits:', err);
       setError('Failed to load deposits. Please try again.');
-      // Fallback to sample data
       setDeposits([
         {
           _id: '68ae24b8c2b1c27dfe6572c1',
@@ -108,14 +106,12 @@ const Pendingdeposit = () => {
     }
   };
 
-  // Fetch deposit statistics
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/admin/deposits-stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       setStats((prev) => ({
         ...prev,
         total: response.data.total.totalCount,
@@ -134,32 +130,27 @@ const Pendingdeposit = () => {
     fetchStats();
   }, [currentPage, statusFilter, methodFilter, dateRange]);
 
-  // Update deposit status via the callback endpoint
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, methodFilter, dateRange]);
+
   const updateDepositStatus = async (depositId, success, notes = '') => {
     try {
       setUpdatingStatus(true);
       const token = localStorage.getItem('token');
-      
-      // Get the selected deposit data
-      const deposit = deposits.find(d => d._id === depositId);
-      
-      if (!deposit) {
-        setError('Deposit not found');
-        return;
-      }
+      const deposit = deposits.find((d) => d._id === depositId);
+      if (!deposit) { setError('Deposit not found'); return; }
 
-      // Prepare payload for the callback endpoint
       const payload = {
-        success: success, // true for approved, false for rejected
+        success,
         userIdentifyAddress: deposit.paymentId || deposit.userIdentifyAddress || `order-${deposit.userId?._id || 'unknown'}-${Date.now()}`,
         amount: deposit.amount,
         trxid: deposit.transactionId || `MANUAL_${Date.now()}`,
         adminNotes: notes,
         manualUpdate: true,
-        updatedBy: 'admin'
+        updatedBy: 'admin',
       };
 
-      // Send request to your callback endpoint
       const response = await axios.put(
         `${API_BASE_URL}/api/admin/deposits/${depositId}/status`,
         payload,
@@ -167,104 +158,70 @@ const Pendingdeposit = () => {
       );
 
       if (response.data.success) {
-        // Refresh the deposits list
         fetchDeposits();
         fetchStats();
-        
-        // Close modals
         setShowStatusUpdateModal(false);
         setShowDepositDetails(false);
-        
-        // Show success message
-        alert(`Deposit ${success ? 'approved' : 'rejected'} successfully!`);
       } else {
         setError(`Failed to update status: ${response.data.message}`);
       }
     } catch (err) {
-      console.error('Error updating deposit status:', err);
       setError(`Failed to update deposit status: ${err.response?.data?.message || err.message}`);
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  // Manual update deposit status with custom data
   const manualUpdateStatus = async () => {
     try {
       setUpdatingStatus(true);
       const token = localStorage.getItem('token');
-      
-      // Send request to your callback endpoint
       const response = await axios.put(
         `${API_BASE_URL}/api/admin/deposits/${selectedDeposit._id}/status`,
         updateForm,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       if (response.data.success) {
-        // Refresh the deposits list
         fetchDeposits();
         fetchStats();
-        
-        // Close modal
         setShowStatusUpdateModal(false);
-        
-        // Reset form
-        setUpdateForm({
-          success: true,
-          userIdentifyAddress: '',
-          amount: 0,
-          trxid: ''
-        });
-        
-        // Show success message
-        alert(`Deposit status updated successfully! Applied: ${response.data.applied}`);
+        setUpdateForm({ success: true, userIdentifyAddress: '', amount: 0, trxid: '' });
       } else {
         setError(`Failed to update status: ${response.data.message}`);
       }
     } catch (err) {
-      console.error('Error updating deposit status:', err);
       setError(`Failed to update deposit status: ${err.response?.data?.message || err.message}`);
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  // Open status update modal with deposit data
   const openStatusUpdateModal = (deposit) => {
     setSelectedDeposit(deposit);
     setUpdateForm({
       success: true,
       userIdentifyAddress: deposit.paymentId || deposit.userIdentifyAddress || '',
       amount: deposit.amount,
-      trxid: deposit.transactionId || ''
+      trxid: deposit.transactionId || '',
     });
     setShowStatusUpdateModal(true);
   };
 
-  // Edit deposit (basic info)
   const editDeposit = async (depositId, updates) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(
-        `${API_BASE_URL}/api/admin/deposits/${depositId}`,
-        updates,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.put(`${API_BASE_URL}/api/admin/deposits/${depositId}`, updates, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       fetchDeposits();
       setShowEditModal(false);
-      alert('Deposit updated successfully!');
     } catch (err) {
-      console.error('Error editing deposit:', err);
       setError('Failed to edit deposit.');
     }
   };
 
-  // Delete deposit
   const deleteDeposit = async (depositId) => {
-    if (!window.confirm('Are you sure you want to delete this deposit? This action cannot be undone.')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to delete this deposit? This action cannot be undone.')) return;
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${API_BASE_URL}/api/admin/deposits/${depositId}`, {
@@ -273,26 +230,25 @@ const Pendingdeposit = () => {
       fetchDeposits();
       fetchStats();
       setShowDepositDetails(false);
-      alert('Deposit deleted successfully!');
     } catch (err) {
-      console.error('Error deleting deposit:', err);
       setError('Failed to delete deposit.');
     }
   };
 
-  // Sort deposits
   const sortedDeposits = React.useMemo(() => {
     let sortableItems = [...deposits];
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
-        let aValue = sortConfig.key.includes('.') ? sortConfig.key.split('.').reduce((o, i) => o?.[i], a) : a[sortConfig.key];
-        let bValue = sortConfig.key.includes('.') ? sortConfig.key.split('.').reduce((o, i) => o?.[i], b) : b[sortConfig.key];
-
+        let aValue = sortConfig.key.includes('.')
+          ? sortConfig.key.split('.').reduce((o, i) => o?.[i], a)
+          : a[sortConfig.key];
+        let bValue = sortConfig.key.includes('.')
+          ? sortConfig.key.split('.').reduce((o, i) => o?.[i], b)
+          : b[sortConfig.key];
         if (sortConfig.key === 'createdAt' || sortConfig.key === 'processedAt') {
           aValue = aValue ? new Date(aValue) : new Date(0);
           bValue = bValue ? new Date(bValue) : new Date(0);
         }
-
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
         return 0;
@@ -301,101 +257,55 @@ const Pendingdeposit = () => {
     return sortableItems;
   }, [deposits, sortConfig]);
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
     setSortConfig({ key, direction });
   };
 
-  // Get sort icon
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
-    return <FaSortDown className="text-orange-500" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-600 inline ml-1" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-amber-400 inline ml-1" />;
+    return <FaSortDown className="text-amber-400 inline ml-1" />;
   };
 
-  // View deposit details
-  const viewDepositDetails = (deposit) => {
-    setSelectedDeposit(deposit);
-    setShowDepositDetails(true);
-  };
+  const viewDepositDetails = (deposit) => { setSelectedDeposit(deposit); setShowDepositDetails(true); };
+  const closeDepositDetails = () => { setShowDepositDetails(false); setSelectedDeposit(null); };
 
-  // Close deposit details modal
-  const closeDepositDetails = () => {
-    setShowDepositDetails(false);
-    setSelectedDeposit(null);
-  };
-
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-BD', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleString('en-BD', {
+      timeZone: 'Asia/Dhaka', year: 'numeric', month: 'short',
+      day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   };
 
-  // Format currency (BDT)
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount || 0);
 
-  // Get status icon and color
   const getStatusInfo = (status) => {
     switch (status) {
-      case 'approved':
-      case 'completed':
-        return { icon: <FaCheckCircle className="text-green-500" />, color: 'bg-green-100 text-green-800 border-green-200' };
+      case 'approved': case 'completed':
+        return { icon: <FaCheckCircle className="text-emerald-400" />, badge: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
       case 'pending':
-        return { icon: <FaClock className="text-yellow-500" />, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-      case 'rejected':
-      case 'cancelled':
-        return { icon: <FaTimesCircle className="text-red-500" />, color: 'bg-red-100 text-red-800 border-red-200' };
+        return { icon: <FaClock className="text-amber-400" />, badge: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' };
+      case 'rejected': case 'cancelled':
+        return { icon: <FaTimesCircle className="text-rose-400" />, badge: 'bg-rose-500/10 text-rose-400 border border-rose-500/20' };
       default:
-        return { icon: <FaExclamationTriangle className="text-gray-500" />, color: 'bg-gray-100 text-gray-800 border-gray-200' };
+        return { icon: <FaExclamationTriangle className="text-gray-400" />, badge: 'bg-gray-500/10 text-gray-400 border border-gray-500/20' };
     }
   };
 
-  // Get method display name
   const getMethodName = (method) => {
-    switch (method) {
-      case 'bkash':
-        return 'bKash';
-      case 'nagad':
-        return 'Nagad';
-      case 'rocket':
-        return 'Rocket';
-      case 'upay':
-        return 'Upay';
-      case 'bank':
-        return 'Bank Transfer';
-      case 'card':
-        return 'Card Payment';
-      case 'opay':
-        return 'OPay';
-      case 'external_gateway':
-        return 'External Gateway';
-      default:
-        return method?.charAt(0).toUpperCase() + method?.slice(1) || 'Unknown';
-    }
+    const map = { bkash: 'bKash', nagad: 'Nagad', rocket: 'Rocket', upay: 'Upay', bank: 'Bank Transfer', card: 'Card', opay: 'OPay', external_gateway: 'External Gateway' };
+    return map[method] || (method ? method.charAt(0).toUpperCase() + method.slice(1) : 'Unknown');
   };
 
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, methodFilter, dateRange]);
+  const getMethodColor = (method) => {
+    const map = { bkash: 'text-pink-400', nagad: 'text-orange-400', rocket: 'text-purple-400', upay: 'text-blue-400', bank: 'text-teal-400', card: 'text-indigo-400', opay: 'text-cyan-400', external_gateway: 'text-gray-400' };
+    return map[method] || 'text-gray-400';
+  };
 
-  // Export to CSV
   const exportToCSV = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -406,526 +316,390 @@ const Pendingdeposit = () => {
       if (methodFilter !== 'all') params.append('method', methodFilter);
       if (dateRange.start) params.append('startDate', dateRange.start);
       if (dateRange.end) params.append('endDate', dateRange.end);
-
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
-      });
-
+      if (params.toString()) url += `?${params.toString()}`;
+      const response = await axios.get(url, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' });
       const blob = new Blob([response.data], { type: 'text/csv' });
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `deposit_history_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `pending_deposits_${new Date().toISOString().split('T')[0]}.csv`;
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      console.error('Error exporting CSV:', err);
-      setError('Failed to export CSV. Please try again.');
+      setError('Failed to export CSV.');
     }
   };
 
-  if (loading && deposits.length === 0) {
-    return (
-      <section className="font-nunito h-screen">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
-            <div className="flex items-center justify-center h-full">
-              <div className="flex justify-center items-center py-8">
-                <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  // Smart pagination with ellipsis
+  const totalPages = Math.ceil(stats.total / itemsPerPage);
+  const getPaginationPages = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [];
+    pages.push(1);
+    if (currentPage > 3) pages.push('...');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500';
+
+  const CloseIcon = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
 
   return (
-    <section className="font-nunito h-screen">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
-        <main
-          className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
-          }`}
-        >
-          <div className="w-full mx-auto">
-            {/* Error Message */}
-            {error && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-                <span className="block sm:inline">{error}</span>
-                <button className="absolute top-0 right-0 p-3" onClick={() => setError(null)}>
-                  <span className="text-red-700">×</span>
-                </button>
-              </div>
-            )}
+        <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
 
-            {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Deposit Management</h1>
-                <p className="text-sm text-gray-600 mt-1">Track and manage all deposit transactions</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={exportToCSV}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 flex items-center"
-                >
-                  <FaDownload className="mr-2" />
-                  Export CSV
-                </button>
-              </div>
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 px-4 py-3 rounded text-sm flex justify-between items-center">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-300 ml-4 text-lg leading-none">×</button>
             </div>
+          )}
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Deposits</h3>
-                <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-              </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Approved</h3>
-                <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
-              </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Pending</h3>
-                <p className="text-2xl font-bold text-gray-800">{stats.pending}</p>
-              </div>
-              <div className="bg-white p-4 rounded-[5px] shadow-sm border-[1px] border-gray-200">
-                <h3 className="text-sm font-medium text-gray-600">Total Amount</h3>
-                <p className="text-2xl font-bold text-gray-800">{formatCurrency(stats.totalAmount)}</p>
-              </div>
-            </div>
-
-            {/* Filters Section */}
-            <div className="bg-white rounded-[5px] p-4 mb-6 border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                  <FaFilter className="mr-2 text-orange-500" />
-                  Filters & Search
-                </h2>
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('pending');
-                    setMethodFilter('all');
-                    setDateRange({ start: '', end: '' });
-                  }}
-                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center"
-                >
-                  Clear All Filters
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="Search username, ID or transaction..."
-                  />
-                </div>
-
-                <div>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="all">All Status</option>
-                    {statuses
-                      .filter((status) => status !== 'all')
-                      .map((status, index) => (
-                        <option key={index} value={status}>
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div>
-                  <select
-                    value={methodFilter}
-                    onChange={(e) => setMethodFilter(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="all">All Methods</option>
-                    {methods
-                      .filter((method) => method !== 'all')
-                      .map((method, index) => (
-                        <option key={index} value={method}>
-                          {getMethodName(method)}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div>
-                  <select
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    value={sortConfig.key || ''}
-                    onChange={(e) => requestSort(e.target.value)}
-                  >
-                    <option value="">Sort By</option>
-                    <option value="createdAt">Date</option>
-                    <option value="amount">Amount</option>
-                    <option value="userId.username">Username</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                  <div className="flex flex-col md:flex-row gap-2">
-                    <input
-                      type="date"
-                      value={dateRange.start}
-                      onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    <span className="self-center text-gray-500 hidden md:inline">to</span>
-                    <input
-                      type="date"
-                      value={dateRange.end}
-                      onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Results Count */}
-            <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-              <p className="text-gray-600">
-                Showing {deposits.length} of {stats.total} deposits
-              </p>
-              <p className="text-green-600 font-medium">
-                Approved Amount: {formatCurrency(stats.completedAmount)}
+          {/* Page Header */}
+          <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Pending Deposits</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                <FaCalendarAlt className="text-amber-500" /> Review and process pending deposit requests
               </p>
             </div>
-
-            {/* Deposits Table */}
-            <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-4 text-nowrap text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('createdAt')}
-                      >
-                        Date & Time 
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('userId.username')}
-                      >
-                        Player ID / Username
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Method
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('amount')}
-                      >
-                        Amount
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Phone 
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Payment ID
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {sortedDeposits.length > 0 ? (
-                      sortedDeposits.map((deposit) => {
-                        const statusInfo = getStatusInfo(deposit.status);
-                        return (
-                          <tr key={deposit._id} className="hover:bg-gray-50 transition-colors duration-150">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-700">{formatDate(deposit.createdAt)}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-semibold text-gray-700 font-mono">{deposit.userId?.player_id || 'N/A'}</div>
-                              <div className="text-xs text-gray-500">{deposit.userId?.username || 'Unknown'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-700">{getMethodName(deposit.method)}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-bold text-gray-900">{formatCurrency(deposit.amount)}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-700">{deposit.phoneNumber || 'N/A'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-700 font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200 truncate max-w-[150px]">
-                                {deposit.paymentId || deposit.transactionId || 'N/A'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className={`px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full border ${statusInfo.color}`}>
-                                {statusInfo.icon}
-                                <span className="ml-1 capitalize">{deposit.status}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                              <button
-                                className="p-2 px-[8px] py-[7px] bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700"
-                                title="View details"
-                                onClick={() => viewDepositDetails(deposit)}
-                              >
-                                <FaEye />
-                              </button>
-                              <button
-                                className="p-2 px-[8px] py-[7px] bg-green-600 text-white rounded-[3px] text-[16px] hover:bg-green-700"
-                                title="Update status"
-                                onClick={() => openStatusUpdateModal(deposit)}
-                              >
-                                <FaCheckCircle />
-                              </button>
-                              <button
-                                className="p-2 px-[8px] py-[7px] bg-yellow-600 text-white rounded-[3px] text-[16px] hover:bg-yellow-700"
-                                title="Edit deposit"
-                                onClick={() => {
-                                  setSelectedDeposit(deposit);
-                                  setShowEditModal(true);
-                                }}
-                              >
-                                <FaEdit />
-                              </button>
-                              <button
-                                className="p-2 px-[8px] py-[7px] bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700"
-                                title="Delete deposit"
-                                onClick={() => deleteDeposit(deposit._id)}
-                              >
-                                <FaTrash />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan="8" className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center justify-center text-gray-400">
-                            <FaSearch className="text-5xl mb-3 opacity-30" />
-                            <p className="text-lg font-medium text-gray-500">No deposits found</p>
-                            <p className="text-sm">Try adjusting your search or filters</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <div className="flex gap-3 mt-4 md:mt-0">
+              <button
+                onClick={() => { fetchDeposits(); fetchStats(); }}
+                className="bg-[#1F2937] hover:bg-amber-600/30 border border-gray-700 hover:border-amber-500/40 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400"
+              >
+                <FiRefreshCw className={loading ? 'animate-spin' : ''} /> REFRESH
+              </button>
             </div>
-
-            {/* Pagination */}
-            {stats.total > itemsPerPage && (
-              <div className="flex items-center justify-between mt-4 px-4 py-3">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">{Math.min(currentPage * itemsPerPage, stats.total)}</span> of{' '}
-                      <span className="font-medium">{stats.total}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                          currentPage === 1 ? 'bg-gray-50 text-gray-800 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Previous
-                      </button>
-                      {Array.from({ length: Math.ceil(stats.total / itemsPerPage) }, (_, i) => i + 1).map((page) => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page ? 'z-10 bg-orange-500 text-white' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, Math.ceil(stats.total / itemsPerPage)))}
-                        disabled={currentPage === Math.ceil(stats.total / itemsPerPage)}
-                        className={`relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                          currentPage === Math.ceil(stats.total / itemsPerPage)
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Next
-                      </button>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'TOTAL', value: stats.total, color: 'border-indigo-500', valueClass: 'text-white' },
+              { label: 'APPROVED', value: stats.completed, color: 'border-emerald-500', valueClass: 'text-emerald-400' },
+              { label: 'PENDING', value: stats.pending, color: 'border-amber-500', valueClass: 'text-amber-400' },
+              { label: 'TOTAL AMOUNT', value: `৳${formatCurrency(stats.totalAmount)}`, color: 'border-rose-500', valueClass: 'text-rose-400' },
+            ].map((card, i) => (
+              <div key={i} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                <div className="flex justify-between items-start mb-3">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{card.label}</p>
+                  <FiTrendingUp className="text-gray-700" />
+                </div>
+                <h2 className={`text-xl font-bold mt-1 leading-none ${card.valueClass}`}>{card.value}</h2>
+              </div>
+            ))}
+          </div>
+
+          {/* Approved Amount Banner */}
+          <div className="bg-[#161B22] border border-gray-800 rounded mb-6 px-5 py-3 flex items-center justify-between">
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Approved Amount</span>
+            <span className="text-emerald-400 font-black text-sm">৳{formatCurrency(stats.completedAmount)}</span>
+          </div>
+
+          {/* Filters */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                <div className="w-1 h-4 bg-amber-500"></div> Filters & Search
+              </h2>
+              <button
+                onClick={() => { setSearchTerm(''); setStatusFilter('pending'); setMethodFilter('all'); setDateRange({ start: '', end: '' }); }}
+                className="text-[10px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
+              >
+                Clear All
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`${inputClass} pl-8`}
+                  placeholder="Search username, ID or TXN..."
+                />
+              </div>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
+                <option value="all">All Status</option>
+                {statuses.filter((s) => s !== 'all').map((s, i) => (
+                  <option key={i} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                ))}
+              </select>
+              <select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)} className={selectClass}>
+                <option value="all">All Methods</option>
+                {methods.filter((m) => m !== 'all').map((m, i) => (
+                  <option key={i} value={m}>{getMethodName(m)}</option>
+                ))}
+              </select>
+              <select className={selectClass} value={sortConfig.key || ''} onChange={(e) => requestSort(e.target.value)}>
+                <option value="">Sort By</option>
+                <option value="createdAt">Date</option>
+                <option value="amount">Amount</option>
+                <option value="userId.username">Username</option>
+              </select>
+            </div>
+
+            <div className="mt-3 flex flex-col md:flex-row gap-2 items-center md:w-2/3">
+              <input type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className={inputClass} />
+              <span className="text-gray-600 text-xs hidden md:block">→</span>
+              <input type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className={inputClass} />
+            </div>
+          </div>
+
+          {/* Results Info */}
+          <div className="mb-3 flex justify-between items-center">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+              Showing {deposits.length} of {stats.total} deposits
+            </p>
+          </div>
+
+          {/* Table */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 font-black text-[10px] text-amber-400 uppercase tracking-widest">
+              Pending Deposit Transactions
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>Date & Time {getSortIcon('createdAt')}</th>
+                    <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('userId.username')}>Player {getSortIcon('userId.username')}</th>
+                    <th className="px-5 py-3">Method</th>
+                    <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('amount')}>Amount {getSortIcon('amount')}</th>
+                    <th className="px-5 py-3">Phone</th>
+                    <th className="px-5 py-3">Payment ID</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {loading ? (
+                    <tr>
+                      <td colSpan="8" className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center gap-3 text-gray-600">
+                          <FaSpinner className="animate-spin text-amber-400 text-2xl" />
+                          <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading deposits...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : sortedDeposits.length > 0 ? (
+                    sortedDeposits.map((deposit) => {
+                      const statusInfo = getStatusInfo(deposit.status);
+                      return (
+                        <tr key={deposit._id} className="hover:bg-[#1F2937] transition-colors">
+                          <td className="px-5 py-4 text-xs text-gray-400 whitespace-nowrap">{formatDate(deposit.createdAt)}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-sm font-bold text-white font-mono">{deposit.userId?.player_id || 'N/A'}</div>
+                            <div className="text-[10px] text-gray-500">{deposit.userId?.username || 'Unknown'}</div>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className={`text-xs font-bold ${getMethodColor(deposit.method)}`}>{getMethodName(deposit.method)}</span>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className="text-sm font-black text-emerald-400">৳{formatCurrency(deposit.amount)}</span>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap text-xs text-gray-400">{deposit.phoneNumber || 'N/A'}</td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className="text-xs font-mono text-gray-400 bg-[#0F111A] px-2 py-1 rounded border border-gray-800 block truncate max-w-[140px]">
+                              {deposit.paymentId || deposit.transactionId || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase flex items-center gap-1 w-fit ${statusInfo.badge}`}>
+                              {statusInfo.icon} {deposit.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => viewDepositDetails(deposit)}
+                                className="p-1.5 bg-indigo-500/10 hover:bg-indigo-500/30 border border-indigo-500/20 text-indigo-400 rounded text-xs transition-all"
+                                title="View"
+                              ><FaEye /></button>
+                              <button
+                                onClick={() => openStatusUpdateModal(deposit)}
+                                className="p-1.5 bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 rounded text-xs transition-all"
+                                title="Update Status"
+                              ><FaCheckCircle /></button>
+                              <button
+                                onClick={() => { setSelectedDeposit(deposit); setShowEditModal(true); }}
+                                className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 rounded text-xs transition-all"
+                                title="Edit"
+                              ><FaEdit /></button>
+                              <button
+                                onClick={() => deleteDeposit(deposit._id)}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
+                                title="Delete"
+                              ><FaTrash /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center text-gray-600">
+                          <FaSearch className="text-4xl mb-3 opacity-20" />
+                          <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">No deposits found</p>
+                          <p className="text-xs mt-1">Try adjusting your search or filters</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                Page {currentPage} of {totalPages} &nbsp;·&nbsp; {stats.total} total
+              </p>
+              <nav className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === 1 ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                >← Prev</button>
+
+                {getPaginationPages().map((page, idx) =>
+                  page === '...' ? (
+                    <span key={`e-${idx}`} className="px-2 py-1.5 text-xs text-gray-600 font-bold select-none">···</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === page ? 'bg-amber-600 border-amber-500 text-white' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                    >{page}</button>
+                  )
+                )}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === totalPages ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                >Next →</button>
+              </nav>
+            </div>
+          )}
         </main>
       </div>
 
       {/* Deposit Details Modal */}
       {showDepositDetails && selectedDeposit && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Deposit Details</h3>
-              <button onClick={closeDepositDetails} className="text-gray-400 hover:text-gray-500">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Deposit Details</h3>
+              <button onClick={closeDepositDetails} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
             </div>
-            <div className="px-6 py-4">
+            <div className="px-6 py-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Information</h4>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-3">Transaction Info</p>
                   <dl className="space-y-2">
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Deposit ID:</dt>
-                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit._id}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Transaction ID:</dt>
-                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit.transactionId || 'N/A'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Payment ID:</dt>
-                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit.paymentId || 'N/A'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Date & Time:</dt>
-                      <dd className="text-sm text-gray-900">{formatDate(selectedDeposit.createdAt)}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Payment Method:</dt>
-                      <dd className="text-sm text-gray-900">{getMethodName(selectedDeposit.method)}</dd>
-                    </div>
-                    {selectedDeposit.processedAt && (
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">Processed At:</dt>
-                        <dd className="text-sm text-gray-900">{formatDate(selectedDeposit.processedAt)}</dd>
+                    {[
+                      ['Deposit ID', selectedDeposit._id],
+                      ['Transaction ID', selectedDeposit.transactionId || 'N/A'],
+                      ['Payment ID', selectedDeposit.paymentId || 'N/A'],
+                      ['Date & Time', formatDate(selectedDeposit.createdAt)],
+                      ['Payment Method', getMethodName(selectedDeposit.method)],
+                      ...(selectedDeposit.processedAt ? [['Processed At', formatDate(selectedDeposit.processedAt)]] : []),
+                    ].map(([label, val]) => (
+                      <div key={label} className="flex justify-between gap-4">
+                        <dt className="text-xs text-gray-500 shrink-0">{label}:</dt>
+                        <dd className="text-xs font-medium text-gray-200 text-right truncate max-w-[180px]">{val}</dd>
                       </div>
-                    )}
+                    ))}
                   </dl>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">User Information</h4>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-3">User Info</p>
                   <dl className="space-y-2">
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Player ID:</dt>
-                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit.userId?.player_id || 'N/A'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Username:</dt>
-                      <dd className="text-sm text-gray-900">{selectedDeposit.userId?.username || 'Unknown'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">Phone Number:</dt>
-                      <dd className="text-sm text-gray-900">{selectedDeposit.phoneNumber || 'N/A'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-sm text-gray-600">User ID:</dt>
-                      <dd className="text-sm font-medium text-gray-900">{selectedDeposit.userId?._id || 'N/A'}</dd>
-                    </div>
+                    {[
+                      ['Player ID', selectedDeposit.userId?.player_id || 'N/A'],
+                      ['Username', selectedDeposit.userId?.username || 'Unknown'],
+                      ['Phone', selectedDeposit.phoneNumber || 'N/A'],
+                      ['User ID', selectedDeposit.userId?._id || 'N/A'],
+                    ].map(([label, val]) => (
+                      <div key={label} className="flex justify-between gap-4">
+                        <dt className="text-xs text-gray-500">{label}:</dt>
+                        <dd className="text-xs font-medium text-gray-200 text-right">{val}</dd>
+                      </div>
+                    ))}
                   </dl>
                 </div>
               </div>
-              <div className="bg-gray-50 p-4 rounded-md mb-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Amount Details</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Amount:</span>
-                    <span className="text-lg font-bold text-gray-900">{formatCurrency(selectedDeposit.amount)}</span>
-                  </div>
+
+              <div className="bg-[#0F111A] border border-gray-800 p-4 rounded mb-5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Amount</span>
+                  <span className="text-2xl font-black text-emerald-400">৳{formatCurrency(selectedDeposit.amount)}</span>
                 </div>
               </div>
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Status</h4>
-                <div className={`px-4 py-2 inline-flex items-center rounded-md border ${getStatusInfo(selectedDeposit.status).color}`}>
-                  {getStatusInfo(selectedDeposit.status).icon}
-                  <span className="ml-2 capitalize font-medium">{selectedDeposit.status}</span>
-                </div>
+
+              <div className="mb-5 flex items-center gap-3">
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Status:</span>
+                <span className={`text-[9px] px-3 py-1 rounded font-bold uppercase flex items-center gap-1 ${getStatusInfo(selectedDeposit.status).badge}`}>
+                  {getStatusInfo(selectedDeposit.status).icon} {selectedDeposit.status}
+                </span>
               </div>
+
               {selectedDeposit.adminNotes && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Admin Notes</h4>
-                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">{selectedDeposit.adminNotes}</p>
+                <div className="mb-5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Admin Notes</p>
+                  <p className="text-xs text-gray-400 bg-[#0F111A] border border-gray-800 p-3 rounded">{selectedDeposit.adminNotes}</p>
                 </div>
               )}
+
               {selectedDeposit.status === 'pending' && (
-                <div className="mt-6 space-x-3">
+                <div className="flex flex-wrap gap-3 mt-5">
                   <button
                     onClick={() => updateDepositStatus(selectedDeposit._id, true, 'Deposit approved by admin')}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={updatingStatus}
+                    className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 rounded text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2"
                   >
-                    {updatingStatus ? 'Processing...' : 'Approve Deposit'}
+                    {updatingStatus ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />} Approve
                   </button>
                   <button
                     onClick={() => updateDepositStatus(selectedDeposit._id, false, 'Deposit rejected by admin')}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={updatingStatus}
+                    className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/30 text-rose-400 rounded text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2"
                   >
-                    {updatingStatus ? 'Processing...' : 'Reject Deposit'}
+                    {updatingStatus ? <FaSpinner className="animate-spin" /> : <FaTimesCircle />} Reject
                   </button>
                   <button
-                    onClick={() => {
-                      setShowDepositDetails(false);
-                      openStatusUpdateModal(selectedDeposit);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                    onClick={() => { setShowDepositDetails(false); openStatusUpdateModal(selectedDeposit); }}
+                    className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/30 text-amber-400 rounded text-xs font-bold uppercase tracking-wider transition-all"
                   >
                     Manual Update
                   </button>
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
-              <button
-                onClick={closeDepositDetails}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-400 focus:outline-none"
-              >
+            <div className="px-6 py-4 border-t border-gray-800 bg-[#1C2128] flex justify-end">
+              <button onClick={closeDepositDetails} className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all">
                 Close
               </button>
             </div>
@@ -935,100 +709,93 @@ const Pendingdeposit = () => {
 
       {/* Manual Status Update Modal */}
       {showStatusUpdateModal && selectedDeposit && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Update Deposit Status</h3>
-              <button onClick={() => setShowStatusUpdateModal(false)} className="text-gray-400 hover:text-gray-500">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Update Deposit Status</h3>
+              <button onClick={() => setShowStatusUpdateModal(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
             </div>
-            <div className="px-6 py-4">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  manualUpdateStatus();
-                }}
-              >
-                <div className="space-y-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Info</label>
-                    <div className="bg-gray-50 p-3 rounded-md">
-                      <p className="text-sm text-gray-700">User: {selectedDeposit.userId?.username}</p>
-                      <p className="text-sm text-gray-700">Amount: {formatCurrency(selectedDeposit.amount)}</p>
-                      <p className="text-sm text-gray-700">Method: {getMethodName(selectedDeposit.method)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="success"
-                      checked={updateForm.success}
-                      onChange={(e) => setUpdateForm({...updateForm, success: e.target.checked})}
-                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="success" className="ml-2 block text-sm text-gray-900">
-                      Success (Check for approval, uncheck for rejection)
+            <div className="px-6 py-5">
+              {/* Deposit Info Preview */}
+              <div className="bg-[#0F111A] border border-gray-800 rounded p-3 mb-5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Deposit Info</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-300">User: <span className="text-white font-bold">{selectedDeposit.userId?.username}</span></p>
+                  <p className="text-xs text-gray-300">Amount: <span className="text-emerald-400 font-black">৳{formatCurrency(selectedDeposit.amount)}</span></p>
+                  <p className="text-xs text-gray-300">Method: <span className={`font-bold ${getMethodColor(selectedDeposit.method)}`}>{getMethodName(selectedDeposit.method)}</span></p>
+                </div>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); manualUpdateStatus(); }}>
+                <div className="space-y-4">
+                  {/* Success Toggle */}
+                  <div className="flex items-center gap-3 bg-[#0F111A] border border-gray-800 rounded px-3 py-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={updateForm.success}
+                        onChange={(e) => setUpdateForm({ ...updateForm, success: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
+                    <span className={`text-xs font-bold ${updateForm.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {updateForm.success ? '✓ Approve (Success)' : '✕ Reject (Failed)'}
+                    </span>
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">User Identify Address (Payment ID)</label>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Payment ID (User Identify Address)</label>
                     <input
                       type="text"
                       value={updateForm.userIdentifyAddress}
-                      onChange={(e) => setUpdateForm({...updateForm, userIdentifyAddress: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      onChange={(e) => setUpdateForm({ ...updateForm, userIdentifyAddress: e.target.value })}
+                      className={inputClass}
                       placeholder="order-xxx-xxx or paymentId"
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-1">This should match the paymentId in the deposit record</p>
+                    <p className="text-[9px] text-gray-600 mt-1">Must match the paymentId in the deposit record</p>
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Amount</label>
                     <input
                       type="number"
                       value={updateForm.amount}
-                      onChange={(e) => setUpdateForm({...updateForm, amount: parseFloat(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      onChange={(e) => setUpdateForm({ ...updateForm, amount: parseFloat(e.target.value) })}
+                      className={inputClass}
                       min="0"
                       step="0.01"
                       required
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID (trxid)</label>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Transaction ID (trxid)</label>
                     <input
                       type="text"
                       value={updateForm.trxid}
-                      onChange={(e) => setUpdateForm({...updateForm, trxid: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      onChange={(e) => setUpdateForm({ ...updateForm, trxid: e.target.value })}
+                      className={inputClass}
                       placeholder="TX123456789"
                       required
                     />
                   </div>
                 </div>
-                
-                <div className="mt-6 flex justify-end space-x-3">
+
+                <div className="mt-6 flex justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => setShowStatusUpdateModal(false)}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-400"
                     disabled={updatingStatus}
-                  >
-                    Cancel
-                  </button>
+                    className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all disabled:opacity-50"
+                  >Cancel</button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={updatingStatus}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
                   >
-                    {updatingStatus ? 'Processing...' : 'Update Status'}
+                    {updatingStatus ? <><FaSpinner className="animate-spin" /> Processing...</> : 'Update Status'}
                   </button>
                 </div>
               </form>
@@ -1037,113 +804,59 @@ const Pendingdeposit = () => {
         </div>
       )}
 
-      {/* Edit Deposit Modal (Basic Info) */}
+      {/* Edit Deposit Modal */}
       {showEditModal && selectedDeposit && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Edit Deposit Info</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-500">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Edit Deposit Info</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
             </div>
-            <div className="px-6 py-4">
+            <div className="px-6 py-5">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
-                  const updates = {
+                  editDeposit(selectedDeposit._id, {
                     amount: parseFloat(formData.get('amount')),
                     method: formData.get('method'),
                     phoneNumber: formData.get('phoneNumber'),
                     transactionId: formData.get('transactionId'),
                     paymentId: formData.get('paymentId'),
                     adminNotes: formData.get('adminNotes'),
-                  };
-                  editDeposit(selectedDeposit._id, updates);
+                  });
                 }}
               >
                 <div className="space-y-4">
+                  {[
+                    { label: 'Amount (BDT)', name: 'amount', type: 'number', defaultValue: selectedDeposit.amount, extra: { min: 300, max: 50000 } },
+                    { label: 'Phone Number', name: 'phoneNumber', type: 'text', defaultValue: selectedDeposit.phoneNumber },
+                    { label: 'Transaction ID', name: 'transactionId', type: 'text', defaultValue: selectedDeposit.transactionId },
+                    { label: 'Payment ID', name: 'paymentId', type: 'text', defaultValue: selectedDeposit.paymentId },
+                  ].map((f) => (
+                    <div key={f.name}>
+                      <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">{f.label}</label>
+                      <input type={f.type} name={f.name} defaultValue={f.defaultValue} className={inputClass} {...(f.extra || {})} />
+                    </div>
+                  ))}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount (BDT)</label>
-                    <input
-                      type="number"
-                      name="amount"
-                      defaultValue={selectedDeposit.amount}
-                      min="300"
-                      max="50000"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
-                    <select
-                      name="method"
-                      defaultValue={selectedDeposit.method}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    >
-                      {methods
-                        .filter((method) => method !== 'all')
-                        .map((method, index) => (
-                          <option key={index} value={method}>
-                            {getMethodName(method)}
-                          </option>
-                        ))}
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Method</label>
+                    <select name="method" defaultValue={selectedDeposit.method} className={selectClass}>
+                      {methods.filter((m) => m !== 'all').map((m, i) => (
+                        <option key={i} value={m}>{getMethodName(m)}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                    <input
-                      type="text"
-                      name="phoneNumber"
-                      defaultValue={selectedDeposit.phoneNumber}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-                    <input
-                      type="text"
-                      name="transactionId"
-                      defaultValue={selectedDeposit.transactionId}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment ID</label>
-                    <input
-                      type="text"
-                      name="paymentId"
-                      defaultValue={selectedDeposit.paymentId}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Admin Notes</label>
-                    <textarea
-                      name="adminNotes"
-                      defaultValue={selectedDeposit.adminNotes}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Admin Notes</label>
+                    <textarea name="adminNotes" defaultValue={selectedDeposit.adminNotes} rows={3} className={inputClass} />
                   </div>
                 </div>
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-400"
-                  >
+                <div className="mt-6 flex justify-end gap-3">
+                  <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700"
-                  >
+                  <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-all">
                     Save Changes
                   </button>
                 </div>

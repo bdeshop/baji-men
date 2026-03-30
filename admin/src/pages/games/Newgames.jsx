@@ -117,7 +117,7 @@ const Newgames = () => {
     return (
       <div className="relative w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             {label}
           </label>
         )}
@@ -126,13 +126,13 @@ const Newgames = () => {
             type="button"
             onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
             disabled={loading || disabled}
-            className={`w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 flex items-center justify-between transition-all duration-200 hover:border-orange-400 ${
-              disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+            className={`w-full px-4 py-3 text-left bg-[#161B22] border border-gray-700 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 flex items-center justify-between transition-all duration-200 hover:border-indigo-400 ${
+              disabled ? 'bg-gray-800 cursor-not-allowed opacity-60' : ''
             }`}
           >
             <div className="flex items-center space-x-3">
               {Icon && <Icon className="text-gray-400 text-lg" />}
-              <span className={selectedOption ? "text-gray-900" : "text-gray-500"}>
+              <span className={selectedOption ? "text-gray-200" : "text-gray-500"}>
                 {loading ? `Loading ${placeholder}...` : 
                  selectedOption ? getDisplayName(selectedOption) : 
                  disabled ? 'Select a category first' : 
@@ -150,7 +150,7 @@ const Newgames = () => {
           </button>
           
           {dropdownOpen && !disabled && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 w-full mt-1 bg-[#1F2937] border border-gray-700 rounded-xl shadow-lg max-h-60 overflow-auto">
               {options.length === 0 ? (
                 <div className="px-4 py-3 text-gray-500 text-sm">
                   {loading ? 'Loading...' : 'No providers available for this category'}
@@ -165,14 +165,14 @@ const Newgames = () => {
                     }}
                     className={`px-4 py-3 cursor-pointer flex items-center space-x-3 transition-colors duration-150 ${
                       value === (option._id || option.value)
-                        ? 'bg-orange-50 text-orange-600'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-indigo-900 text-indigo-300'
+                        : 'hover:bg-gray-700 text-gray-300'
                     }`}
                   >
                     {value === (option._id || option.value) ? (
-                      <MdCheckBox className="text-orange-500 text-lg" />
+                      <MdCheckBox className="text-indigo-400 text-lg" />
                     ) : (
-                      <MdCheckBoxOutlineBlank className="text-gray-400 text-lg" />
+                      <MdCheckBoxOutlineBlank className="text-gray-500 text-lg" />
                     )}
                     <span>{getDisplayName(option)}</span>
                   </div>
@@ -204,7 +204,7 @@ const Newgames = () => {
     
     return (
       <div className="relative w-full">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
           {label} <span className="text-red-500">*</span>
           <span className="text-xs text-gray-500 ml-2">(Select multiple)</span>
         </label>
@@ -212,11 +212,11 @@ const Newgames = () => {
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full px-4 py-3 text-left bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 flex items-center justify-between transition-all duration-200 hover:border-orange-400"
+            className="w-full px-4 py-3 text-left bg-[#161B22] border border-gray-700 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 flex items-center justify-between transition-all duration-200 hover:border-indigo-400"
           >
             <div className="flex items-center space-x-3">
               <MdCategory className="text-gray-400 text-lg" />
-              <span className={value.length > 0 ? "text-gray-900" : "text-gray-500"}>
+              <span className={value.length > 0 ? "text-gray-200" : "text-gray-500"}>
                 {value.length > 0 ? getSelectedNames() : "Select categories"}
               </span>
             </div>
@@ -231,7 +231,7 @@ const Newgames = () => {
           </button>
           
           {dropdownOpen && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 w-full mt-1 bg-[#1F2937] border border-gray-700 rounded-xl shadow-lg max-h-60 overflow-auto">
               {options.length === 0 ? (
                 <div className="px-4 py-3 text-gray-500 text-sm">
                   No categories available
@@ -241,15 +241,15 @@ const Newgames = () => {
                   <div
                     key={category._id}
                     onClick={() => toggleCategory(category._id)}
-                    className="px-4 py-3 cursor-pointer flex items-center space-x-3 transition-colors duration-150 hover:bg-gray-50"
+                    className="px-4 py-3 cursor-pointer flex items-center space-x-3 transition-colors duration-150 hover:bg-gray-700"
                   >
                     {value.includes(category._id) ? (
-                      <MdCheckBox className="text-orange-500 text-lg" />
+                      <MdCheckBox className="text-indigo-400 text-lg" />
                     ) : (
-                      <MdCheckBoxOutlineBlank className="text-gray-400 text-lg" />
+                      <MdCheckBoxOutlineBlank className="text-gray-500 text-lg" />
                     )}
                     <div>
-                      <span className="text-gray-900">{category.name}</span>
+                      <span className="text-gray-200">{category.name}</span>
                       {category.description && (
                         <p className="text-xs text-gray-500 mt-0.5">{category.description}</p>
                       )}
@@ -266,7 +266,7 @@ const Newgames = () => {
 
   // Custom Checkbox Component
   const CustomCheckbox = ({ id, checked, onChange, label, description }) => (
-    <div className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors duration-150">
+    <div className="flex items-start space-x-3 p-3 hover:bg-gray-800 rounded-lg transition-colors duration-150">
       <div className="relative flex items-center h-5 mt-0.5">
         <input
           id={id}
@@ -278,8 +278,8 @@ const Newgames = () => {
         <label htmlFor={id} className="cursor-pointer">
           <div className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-200 ${
             checked 
-              ? 'bg-orange-500 border-orange-500' 
-              : 'bg-white border-gray-300 hover:border-orange-400'
+              ? 'bg-indigo-500 border-indigo-500' 
+              : 'bg-[#161B22] border-gray-600 hover:border-indigo-400'
           }`}>
             {checked && (
               <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,7 +290,7 @@ const Newgames = () => {
         </label>
       </div>
       <div className="flex-1">
-        <label htmlFor={id} className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+        <label htmlFor={id} className="text-sm font-medium text-gray-300 cursor-pointer select-none">
           {label}
         </label>
         {description && (
@@ -304,7 +304,7 @@ const Newgames = () => {
   const SearchBar = () => (
     <div className="relative">
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <FaSearch className="h-5 w-5 text-gray-400" />
+        <FaSearch className="h-5 w-5 text-gray-500" />
       </div>
       <input
         type="text"
@@ -314,7 +314,7 @@ const Newgames = () => {
           setCurrentPage(1);
         }}
         placeholder="Search games by name..."
-        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+        className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
       />
       {searchTerm && (
         <button
@@ -324,7 +324,7 @@ const Newgames = () => {
           }}
           className="absolute inset-y-0 right-0 pr-3 flex items-center"
         >
-          <FaTimes className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+          <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
         </button>
       )}
     </div>
@@ -368,8 +368,8 @@ const Newgames = () => {
           disabled={currentPage === 1}
           className={`p-2 rounded-lg border transition-all duration-200 ${
             currentPage === 1
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
-              : 'bg-white text-gray-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 border-gray-300'
+              ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
+              : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:border-indigo-500 hover:text-indigo-300 border-gray-700'
           }`}
         >
           <FaChevronLeft className="w-4 h-4" />
@@ -383,10 +383,10 @@ const Newgames = () => {
               disabled={page === '...'}
               className={`min-w-[40px] h-10 px-3 rounded-lg font-medium transition-all duration-200 ${
                 page === currentPage
-                  ? 'bg-orange-500 text-white shadow-md'
+                  ? 'bg-indigo-600 text-white shadow-md'
                   : page === '...'
-                  ? 'cursor-default text-gray-600'
-                  : 'bg-white text-gray-700 hover:bg-orange-50 hover:text-orange-600 border border-gray-300'
+                  ? 'cursor-default text-gray-500'
+                  : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:text-indigo-300 border border-gray-700'
               }`}
             >
               {page}
@@ -399,8 +399,8 @@ const Newgames = () => {
           disabled={currentPage === totalPages}
           className={`p-2 rounded-lg border transition-all duration-200 ${
             currentPage === totalPages
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
-              : 'bg-white text-gray-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 border-gray-300'
+              ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
+              : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:border-indigo-500 hover:text-indigo-300 border-gray-700'
           }`}
         >
           <FaChevronRight className="w-4 h-4" />
@@ -1362,10 +1362,10 @@ const Newgames = () => {
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, delete it!',
       cancelButtonText: 'Cancel',
-      background: '#fff',
+      background: '#1F2937',
       customClass: {
-        popup: 'rounded-2xl',
-        title: 'text-xl font-bold',
+        popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
+        title: 'text-xl font-bold text-gray-200',
         confirmButton: 'px-6 py-2 rounded-lg font-medium',
         cancelButton: 'px-6 py-2 rounded-lg font-medium'
       }
@@ -1382,10 +1382,10 @@ const Newgames = () => {
             title: 'Deleted!',
             text: `"${gameToDelete.gameName || gameToDelete.name}" has been removed successfully.`,
             icon: 'success',
-            confirmButtonColor: '#f97316',
-            background: '#fff',
+            confirmButtonColor: '#6366f1',
+            background: '#1F2937',
             customClass: {
-              popup: 'rounded-2xl',
+              popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
               confirmButton: 'px-6 py-2 rounded-lg font-medium'
             }
           });
@@ -1441,10 +1441,10 @@ const Newgames = () => {
           title: 'Error!',
           text: error.response?.data?.error || error.response?.data?.message || 'Failed to delete game',
           icon: 'error',
-          confirmButtonColor: '#f97316',
-          background: '#fff',
+          confirmButtonColor: '#6366f1',
+          background: '#1F2937',
           customClass: {
-            popup: 'rounded-2xl',
+            popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
             confirmButton: 'px-6 py-2 rounded-lg font-medium'
           }
         });
@@ -1475,10 +1475,10 @@ const Newgames = () => {
       cancelButtonColor: '#3085d6',
       confirmButtonText: `Yes, delete ${selectedSavedGames.length} game${selectedSavedGames.length !== 1 ? 's' : ''}!`,
       cancelButtonText: 'Cancel',
-      background: '#fff',
+      background: '#1F2937',
       customClass: {
-        popup: 'rounded-2xl',
-        title: 'text-xl font-bold',
+        popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
+        title: 'text-xl font-bold text-gray-200',
         confirmButton: 'px-6 py-2 rounded-lg font-medium',
         cancelButton: 'px-6 py-2 rounded-lg font-medium'
       }
@@ -1553,10 +1553,10 @@ const Newgames = () => {
           title: 'Partial Success!',
           html: `✅ ${results.successful.length} games deleted successfully<br/>❌ ${results.failed.length} games failed to delete`,
           icon: 'warning',
-          confirmButtonColor: '#f97316',
-          background: '#fff',
+          confirmButtonColor: '#6366f1',
+          background: '#1F2937',
           customClass: {
-            popup: 'rounded-2xl',
+            popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
             confirmButton: 'px-6 py-2 rounded-lg font-medium'
           }
         });
@@ -1565,10 +1565,10 @@ const Newgames = () => {
           title: 'Deleted!',
           text: `${results.successful.length} game${results.successful.length !== 1 ? 's' : ''} have been removed successfully.`,
           icon: 'success',
-          confirmButtonColor: '#f97316',
-          background: '#fff',
+          confirmButtonColor: '#6366f1',
+          background: '#1F2937',
           customClass: {
-            popup: 'rounded-2xl',
+            popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
             confirmButton: 'px-6 py-2 rounded-lg font-medium'
           }
         });
@@ -1591,10 +1591,10 @@ const Newgames = () => {
         title: 'Confirmation Required',
         text: 'Please type "DELETE ALL ADDED GAMES" to confirm deletion',
         icon: 'warning',
-        confirmButtonColor: '#f97316',
-        background: '#fff',
+        confirmButtonColor: '#6366f1',
+        background: '#1F2937',
         customClass: {
-          popup: 'rounded-2xl',
+          popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
           confirmButton: 'px-6 py-2 rounded-lg font-medium'
         }
       });
@@ -1603,17 +1603,17 @@ const Newgames = () => {
 
     const result = await Swal.fire({
       title: 'Delete All Added Games?',
-      html: `Are you absolutely sure you want to delete <strong>ALL ${savedGamesCount} games</strong> that have been added to your platform?<br/><br/><span class="text-red-600">This action cannot be undone!</span>`,
+      html: `Are you absolutely sure you want to delete <strong>ALL ${savedGamesCount} games</strong> that have been added to your platform?<br/><br/><span class="text-red-400">This action cannot be undone!</span>`,
       icon: 'error',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, delete all!',
       cancelButtonText: 'Cancel',
-      background: '#fff',
+      background: '#1F2937',
       customClass: {
-        popup: 'rounded-2xl',
-        title: 'text-xl font-bold',
+        popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
+        title: 'text-xl font-bold text-gray-200',
         confirmButton: 'px-6 py-2 rounded-lg font-medium',
         cancelButton: 'px-6 py-2 rounded-lg font-medium'
       }
@@ -1630,10 +1630,10 @@ const Newgames = () => {
             title: 'Deleted!',
             text: `${response.data.details.gamesDeleted} games have been removed successfully.`,
             icon: 'success',
-            confirmButtonColor: '#f97316',
-            background: '#fff',
+            confirmButtonColor: '#6366f1',
+            background: '#1F2937',
             customClass: {
-              popup: 'rounded-2xl',
+              popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
               confirmButton: 'px-6 py-2 rounded-lg font-medium'
             }
           });
@@ -1677,10 +1677,10 @@ const Newgames = () => {
           title: 'Error!',
           text: error.response?.data?.error || error.response?.data?.message || 'Failed to delete games',
           icon: 'error',
-          confirmButtonColor: '#f97316',
-          background: '#fff',
+          confirmButtonColor: '#6366f1',
+          background: '#1F2937',
           customClass: {
-            popup: 'rounded-2xl',
+            popup: 'rounded-2xl bg-[#1F2937] text-gray-200',
             confirmButton: 'px-6 py-2 rounded-lg font-medium'
           }
         });
@@ -1720,47 +1720,44 @@ const Newgames = () => {
   };
 
   return (
-    <section className="font-nunito min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
 
       <Toaster/>
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
         <main
-          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto min-h-[90vh] ${
+          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto h-[90vh] ${
             isSidebarOpen ? "md:ml-[40%] lg:ml-[28%] xl:ml-[17%]" : "ml-0"
           }`}
         >
           <div className="w-full mx-auto">
             {/* Header Section with Delete All Added Games Button */}
-            <div className="mb-8 flex justify-between items-center">
+            <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-                  Manage Games
-                </h1>
-                <p className="text-gray-600">
-                  Add new games or update existing games from providers
-                </p>
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Manage Games</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1">Add new games or update existing games from providers</p>
               </div>
               
               {/* Delete All Added Games Button - Only shows if there are saved games */}
               {savedGamesCount > 0 && (
                 <button
                   onClick={() => setShowDeleteAllModal(true)}
-                  className="px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors duration-200 flex items-center shadow-md"
+                  className="w-full md:w-auto mt-4 md:mt-0 bg-[#1F2937] hover:bg-red-600 border border-gray-700 px-6 py-3 cursor-pointer rounded font-bold text-xs transition-all flex items-center justify-center gap-2"
                 >
-                  <FaTrash className="mr-2" />
-                  Delete All Added Games ({savedGamesCount})
+                  <FaTrash /> Delete All Added Games ({savedGamesCount})
                 </button>
               )}
             </div>
 
             {/* Filter Card */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-8 shadow-sm">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">Filter Games</h2>
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+           Filter Games
+                </h3>
                 {selectedProvider && (
-                  <div className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+                  <div className="px-3 py-1 bg-indigo-900 text-indigo-300 rounded-full text-xs font-medium">
                     Provider: {selectedProviderName}
                   </div>
                 )}
@@ -1795,60 +1792,38 @@ const Newgames = () => {
                   disabled={!selectedCategory}
                 />
               </div>
-
-              {selectedCategory && providers.length === 0 && (
-                <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <p className="text-sm text-yellow-800 flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    No providers found for the selected category. Please select a different category or add providers to this category.
-                  </p>
-                </div>
-              )}
-
-              {selectedCategory && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
-                  <p className="text-sm text-orange-800 flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                    New games can be assigned to <span className="font-semibold ml-1">multiple categories</span>. Select categories when adding/editing games.
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Selection and Action Bar */}
             {!loadingGames && filteredGames.length > 0 && (
-              <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="p-4 bg-gradient-to-r from-orange-50 to-white border-b border-gray-200">
+              <div className="mb-6 bg-[#161B22] rounded-xl border border-gray-800 overflow-hidden">
+                <div className="p-4 bg-[#1C2128] border-b border-gray-800">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center space-x-4">
                       <button
                         onClick={toggleSelectAll}
-                        className="flex items-center space-x-2 text-gray-700 hover:text-orange-600 transition-colors"
+                        className="flex items-center space-x-2 text-gray-400 hover:text-indigo-400 transition-colors"
                         disabled={currentPageUnsavedGames.length === 0 && currentPageSavedGames.length === 0}
                       >
                         {selectAll ? (
-                          <FaCheckCircle className="text-orange-500 text-xl" />
+                          <FaCheckCircle className="text-indigo-500 text-xl" />
                         ) : (
-                          <FaRegCircle className="text-gray-400 text-xl" />
+                          <FaRegCircle className="text-gray-500 text-xl" />
                         )}
-                        <span className="font-medium">
+                        <span className="font-medium text-sm">
                           {selectAll ? 'Deselect All on Page' : 'Select All on Page'}
                         </span>
                       </button>
                       {selectedGames.size > 0 && (
                         <>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-gray-500">
                             {currentPageSelectedCount + currentPageSelectedSavedCount} of {paginatedGames.length} on this page • 
-                            {selectedUnsavedCount > 0 && <span className="text-orange-600 ml-1">{selectedUnsavedCount} new</span>}
-                            {selectedSavedCount > 0 && <span className="text-green-600 ml-1">{selectedSavedCount} saved</span>}
+                            {selectedUnsavedCount > 0 && <span className="text-indigo-400 ml-1">{selectedUnsavedCount} new</span>}
+                            {selectedSavedCount > 0 && <span className="text-green-500 ml-1">{selectedSavedCount} saved</span>}
                           </span>
                           <button
                             onClick={clearSelections}
-                            className="text-sm text-red-600 hover:text-red-800 transition-colors"
+                            className="text-sm text-red-400 hover:text-red-300 transition-colors"
                           >
                             Clear All
                           </button>
@@ -1861,7 +1836,7 @@ const Newgames = () => {
                       {selectedSavedCount > 0 && (
                         <button
                           onClick={() => setShowDeleteSelectedModal(true)}
-                          className="px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors duration-200 flex items-center shadow-md"
+                          className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center shadow-md text-sm"
                         >
                           <FaTrash className="mr-2" />
                           Delete Selected ({selectedSavedCount})
@@ -1872,7 +1847,7 @@ const Newgames = () => {
                       {selectedUnsavedCount > 0 && (
                         <button
                           onClick={handleBulkAction}
-                          className="px-4 py-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center shadow-md"
+                          className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center shadow-md text-sm"
                         >
                           <FaPlusCircle className="mr-2" />
                           Add Selected ({selectedUnsavedCount})
@@ -1882,7 +1857,7 @@ const Newgames = () => {
                       {/* Add All Unsaved Button */}
                       <button
                         onClick={openBulkModal}
-                        className="px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors duration-200 flex items-center shadow-md"
+                        className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center shadow-md text-sm"
                         disabled={unsavedGamesCount === 0}
                       >
                         <FaList className="mr-2" />
@@ -1893,8 +1868,8 @@ const Newgames = () => {
                 </div>
                 
                 {selectedGames.size > 0 && (
-                  <div className="px-4 py-2 bg-blue-50 text-sm text-blue-700 flex items-center">
-                    <FaCheckCircle className="mr-2 text-blue-500" />
+                  <div className="px-4 py-2 bg-indigo-900/30 text-sm text-indigo-300 flex items-center">
+                    <FaCheckCircle className="mr-2 text-indigo-400" />
                     {selectedUnsavedCount} unsaved • {selectedSavedCount} saved games selected
                   </div>
                 )}
@@ -1905,10 +1880,10 @@ const Newgames = () => {
             {loadingGames && (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="relative">
-                  <FaSpinner className="animate-spin text-orange-500 text-5xl" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-transparent blur-xl"></div>
+                  <FaSpinner className="animate-spin text-indigo-500 text-5xl" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-transparent blur-xl"></div>
                 </div>
-                <p className="mt-4 text-gray-600 font-medium">Loading games from provider...</p>
+                <p className="mt-4 text-gray-400 font-medium">Loading games from provider...</p>
                 <p className="text-sm text-gray-500">Fetching all available games</p>
               </div>
             )}
@@ -1918,20 +1893,20 @@ const Newgames = () => {
               <div id="games-grid">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-800">
+                    <h3 className="text-xl font-semibold text-white">
                       {searchTerm ? 'Search Results' : 'Available Games'}
                     </h3>
-                    <p className="text-gray-600 mt-1">
+                    <p className="text-gray-400 mt-1 text-sm">
                       {searchTerm ? (
                         <>
-                          Found <span className="font-semibold text-orange-600">{filteredGames.length}</span> game{filteredGames.length === 1 ? '' : 's'} matching "{searchTerm}"
+                          Found <span className="font-semibold text-indigo-400">{filteredGames.length}</span> game{filteredGames.length === 1 ? '' : 's'} matching "{searchTerm}"
                         </>
                       ) : (
                         <>
-                          Showing <span className="font-semibold text-orange-600">{paginatedGames.length}</span> of <span className="font-semibold">{filteredGames.length}</span> games from {selectedProviderName}
+                          Showing <span className="font-semibold text-indigo-400">{paginatedGames.length}</span> of <span className="font-semibold">{filteredGames.length}</span> games from {selectedProviderName}
                           <span className="ml-2 text-sm">
-                            (<span className="text-green-600">{filteredGames.filter(g => g.isSaved).length} saved</span> • 
-                            <span className="text-orange-600"> {unsavedGamesCount} new</span>)
+                            (<span className="text-green-500">{filteredGames.filter(g => g.isSaved).length} saved</span> • 
+                            <span className="text-indigo-400"> {unsavedGamesCount} new</span>)
                           </span>
                         </>
                       )}
@@ -1941,14 +1916,14 @@ const Newgames = () => {
                     {searchTerm && (
                       <button
                         onClick={() => setSearchTerm("")}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+                        className="px-4 py-2 text-sm font-medium text-gray-300 bg-[#1F2937] hover:bg-gray-700 rounded-lg transition-colors duration-200"
                       >
                         Clear Search
                       </button>
                     )}
                     
                     {!searchTerm && (
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-gray-500">
                         Page {currentPage} of {totalPages}
                       </div>
                     )}
@@ -1998,13 +1973,13 @@ const Newgames = () => {
                       <div
                         id={`game-${game.uniqueId}`}
                         key={game.uniqueId}
-                        className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${
+                        className={`bg-[#161B22] rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${
                           game.isSaved 
-                            ? 'border-green-300 hover:border-green-400' 
-                            : 'border-orange-300 hover:border-orange-400'
-                        } ${editingGame === game.uniqueId ? 'ring-4 ring-orange-300' : ''} ${
-                          selectedGames.has(game.uniqueId) && !game.isSaved ? 'ring-2 ring-blue-400' : ''
-                        } ${selectedGames.has(game.uniqueId) && game.isSaved ? 'ring-2 ring-red-400' : ''}`}
+                            ? 'border-green-700 hover:border-green-600' 
+                            : 'border-indigo-700 hover:border-indigo-600'
+                        } ${editingGame === game.uniqueId ? 'ring-4 ring-indigo-500' : ''} ${
+                          selectedGames.has(game.uniqueId) && !game.isSaved ? 'ring-2 ring-blue-500' : ''
+                        } ${selectedGames.has(game.uniqueId) && game.isSaved ? 'ring-2 ring-red-500' : ''}`}
                       >
                         {/* Selection Checkbox */}
                         <div className="absolute top-2 left-2 z-10">
@@ -2013,9 +1988,9 @@ const Newgames = () => {
                             className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 ${
                               selectedGames.has(game.uniqueId)
                                 ? game.isSaved
-                                  ? 'bg-red-500 text-white shadow-lg'
-                                  : 'bg-blue-500 text-white shadow-lg'
-                                : 'bg-white text-gray-400 border-2 border-gray-300 hover:border-blue-400'
+                                  ? 'bg-red-600 text-white shadow-lg'
+                                  : 'bg-blue-600 text-white shadow-lg'
+                                : 'bg-[#0F111A] text-gray-500 border-2 border-gray-600 hover:border-blue-500'
                             }`}
                           >
                             {selectedGames.has(game.uniqueId) ? (
@@ -2032,7 +2007,7 @@ const Newgames = () => {
                             <button
                               onClick={() => handleDeleteGame(game.uniqueId)}
                               disabled={deletingGameId === game.uniqueId}
-                              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 bg-red-500 text-white hover:bg-red-600 shadow-lg ${
+                              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 bg-red-600 text-white hover:bg-red-700 shadow-lg ${
                                 deletingGameId === game.uniqueId ? 'opacity-50 cursor-wait' : ''
                               }`}
                             >
@@ -2048,36 +2023,36 @@ const Newgames = () => {
                         {/* Game Header */}
                         <div className={`p-4 bg-gradient-to-r ${
                           game.isSaved 
-                            ? 'from-green-50 to-white' 
-                            : 'from-orange-50 to-white'
+                            ? 'from-green-900/30 to-[#161B22]' 
+                            : 'from-indigo-900/30 to-[#161B22]'
                         }`}>
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-bold text-gray-900 truncate pr-2">
+                            <h3 className="text-lg font-bold text-white truncate pr-2">
                               {game.gameName || game.name}
                             </h3>
                             {game.isSaved ? (
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 flex items-center">
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-900 text-green-300 flex items-center">
                                 <FaCheck className="mr-1 text-xs" /> Added
                               </span>
                             ) : (
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-900 text-indigo-300">
                                 New Game
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600 space-y-1">
+                          <div className="text-sm text-gray-400 space-y-1">
                             <p className="flex items-center">
                               <span className="font-medium mr-2">Provider:</span>
                               {game.provider?.providerName || game.provider?.name}
                             </p>
                             <p className="flex items-center">
                               <span className="font-medium mr-2">Game Code:</span>
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              <span className="text-xs bg-[#0F111A] px-2 py-1 rounded text-gray-400">
                                 {game.game_code || game.code}
                               </span>
                             </p>
                             {game.isSaved && game.existingGameData && (
-                              <p className="flex items-center text-xs text-green-600 mt-1">
+                              <p className="flex items-center text-xs text-green-500 mt-1">
                                 <span className="font-medium mr-2">Status:</span>
                                 {game.existingGameData.status ? 'Active' : 'Inactive'}
                               </p>
@@ -2087,7 +2062,7 @@ const Newgames = () => {
 
                         {/* Game Preview */}
                         <div className="p-4">
-                          <div className="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden group">
+                          <div className="relative h-40 bg-gradient-to-br from-[#0F111A] to-[#1A1F2E] rounded-xl overflow-hidden group">
                             <img
                               src={imageSource || 'https://via.placeholder.com/300x200?text=No+Image'}
                               alt={game.gameName || game.name}
@@ -2096,16 +2071,16 @@ const Newgames = () => {
                                 e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
                               }}
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             
                             {useDefaultImage[game.uniqueId] && (
-                              <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                              <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full flex items-center">
                                 <FaImage className="mr-1" /> Default
                               </div>
                             )}
                             
                             {!useDefaultImage[game.uniqueId] && game.localPortraitPreview && (
-                              <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                              <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center">
                                 <FaImage className="mr-1" /> New Image
                               </div>
                             )}
@@ -2115,7 +2090,7 @@ const Newgames = () => {
                             <div className="mt-3">
                               <button
                                 onClick={() => handleEditGame(game)}
-                                className="w-full px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center"
+                                className="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
                               >
                                 <FaEdit className="mr-2" /> Edit Game
                               </button>
@@ -2125,11 +2100,11 @@ const Newgames = () => {
                           {editingGame === game.uniqueId && (
                             <>
                               <div className="mt-3 flex items-center justify-between">
-                                <span className="text-sm text-gray-600">Use Default Image:</span>
+                                <span className="text-sm text-gray-400">Use Default Image:</span>
                                 <button
                                   onClick={() => toggleUseDefaultImage(game.uniqueId)}
                                   className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
-                                    useDefaultImage[game.uniqueId] ? 'bg-orange-500' : 'bg-gray-300'
+                                    useDefaultImage[game.uniqueId] ? 'bg-indigo-600' : 'bg-gray-600'
                                   }`}
                                 >
                                   <span
@@ -2141,11 +2116,11 @@ const Newgames = () => {
                               </div>
 
                               <div className="mt-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
                                   Assign Categories <span className="text-red-500">*</span>
                                   <span className="text-xs text-gray-500 ml-2">(Select multiple)</span>
                                 </label>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50">
+                                <div className="flex flex-wrap gap-2 max-h-32 p-2">
                                   {categories
                                     .filter(cat => cat.status)
                                     .map((category) => (
@@ -2154,8 +2129,8 @@ const Newgames = () => {
                                         onClick={() => handleCategoryToggle(game.uniqueId, category._id)}
                                         className={`px-3 py-1.5 text-sm rounded-full border transition-all duration-200 ${
                                           (game.localCategories || []).includes(category._id)
-                                            ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                                            : 'bg-white text-gray-700 border-gray-300 hover:border-orange-400'
+                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                            : 'bg-[#161B22] text-gray-400 border-gray-700 hover:border-indigo-500'
                                         }`}
                                       >
                                         {category.name}
@@ -2194,13 +2169,10 @@ const Newgames = () => {
                               {!useDefaultImage[game.uniqueId] && (
                                 <div className="mt-6">
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Upload Custom Image
-                                      <span className="text-xs text-gray-500 ml-2">(Will be used for both portrait and landscape)</span>
-                                    </label>
+                              
                                     {game.localPortraitPreview ? (
                                       <div className="relative group">
-                                        <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden">
+                                        <div className="h-32 bg-gradient-to-br from-[#0F111A] to-[#1A1F2E] rounded-xl overflow-hidden">
                                           <img
                                             src={game.localPortraitPreview}
                                             alt="Game Image"
@@ -2210,19 +2182,19 @@ const Newgames = () => {
                                         <button
                                           type="button"
                                           onClick={() => removeImage(game.uniqueId)}
-                                          className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                          className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors opacity-0 group-hover:opacity-100"
                                         >
                                           <FaTimes className="w-3 h-3" />
                                         </button>
                                       </div>
                                     ) : (
                                       <label className="block cursor-pointer">
-                                        <div className="h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
-                                          <FaUpload className="text-gray-400 text-xl mb-2 group-hover:text-orange-500 transition-colors" />
-                                          <span className="text-sm font-medium text-gray-500 group-hover:text-orange-600 transition-colors">
+                                        <div className="h-32 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-indigo-500 hover:bg-indigo-900/20 group">
+                                          <FaUpload className="text-gray-500 text-xl mb-2 group-hover:text-indigo-400 transition-colors" />
+                                          <span className="text-sm font-medium text-gray-500 group-hover:text-indigo-400 transition-colors">
                                             Upload Game Image
                                           </span>
-                                          <span className="text-xs text-gray-400 mt-1">PNG, JPG up to 10MB</span>
+                                          <span className="text-xs text-gray-600 mt-1">PNG, JPG up to 10MB</span>
                                         </div>
                                         <input
                                           type="file"
@@ -2235,21 +2207,11 @@ const Newgames = () => {
                                   </div>
                                 </div>
                               )}
-
-                              {useDefaultImage[game.uniqueId] && (
-                                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                  <p className="text-xs text-blue-700 flex items-center">
-                                    <FaImage className="mr-2" />
-                                    Using default image from provider. Toggle switch above to upload custom image.
-                                  </p>
-                                </div>
-                              )}
-
-                              <div className="mt-6 pt-4 border-t border-gray-200 flex gap-2">
+                              <div className="mt-6 pt-4 border-t border-gray-800 flex gap-2">
                                 <button
                                   type="button"
                                   onClick={() => handleCancelEdit()}
-                                  className="flex-1 px-4 py-3 bg-gray-500 text-white font-semibold rounded-xl hover:bg-gray-600 transition-colors duration-200"
+                                  className="flex-1 px-4 py-3 bg-gray-700 text-white font-semibold rounded-xl hover:bg-gray-600 transition-colors duration-200"
                                 >
                                   Cancel
                                 </button>
@@ -2264,8 +2226,8 @@ const Newgames = () => {
                                   }
                                   className={`flex-1 px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
                                     updatingGameId === game.uniqueId || savingGameId === game.uniqueId
-                                      ? 'bg-gray-400 cursor-wait' 
-                                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                                      ? 'bg-gray-600 cursor-wait' 
+                                      : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
                                   } ${
                                     (!game.localCategories || game.localCategories.length === 0 || (!useDefaultImage[game.uniqueId] && !game.localPortraitImage)) 
                                       ? 'opacity-50 cursor-not-allowed' 
@@ -2291,7 +2253,7 @@ const Newgames = () => {
                             <div className="mt-3">
                               <button
                                 onClick={() => handleSingleGameAdd(game)}
-                                className="w-full px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors duration-200 flex items-center justify-center"
+                                className="w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center justify-center"
                               >
                                 <FaPlusCircle className="mr-2" /> Add Game
                               </button>
@@ -2313,17 +2275,17 @@ const Newgames = () => {
 
             {/* Search Results Empty State */}
             {!loadingGames && selectedProvider && searchTerm && filteredGames.length === 0 && (
-              <div className="text-center py-16 bg-white rounded-2xl shadow-lg border border-gray-200">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
-                  <FaSearch className="text-gray-400 text-3xl" />
+              <div className="text-center py-16 bg-[#161B22] rounded-2xl shadow-lg border border-gray-800">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center">
+                  <FaSearch className="text-gray-500 text-3xl" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">No Search Results</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-6">
+                <h3 className="text-xl font-semibold text-white mb-2">No Search Results</h3>
+                <p className="text-gray-400 max-w-md mx-auto mb-6">
                   No games found matching "<span className="font-semibold">{searchTerm}</span>" in {selectedProviderName}.
                 </p>
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors duration-200"
+                  className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors duration-200"
                 >
                   Clear Search
                 </button>
@@ -2332,52 +2294,35 @@ const Newgames = () => {
 
             {/* Empty State - No games found */}
             {!loadingGames && selectedProvider && !searchTerm && filteredGames.length === 0 && (
-              <div className="text-center py-16 bg-white rounded-2xl shadow-lg border border-gray-200">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
-                  <FaGamepad className="text-gray-400 text-3xl" />
+              <div className="text-center py-16 bg-[#161B22] rounded-2xl shadow-lg border border-gray-800">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center">
+                  <FaGamepad className="text-gray-500 text-3xl" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">No Games Found</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-6">
+                <h3 className="text-xl font-semibold text-white mb-2">No Games Found</h3>
+                <p className="text-gray-400 max-w-md mx-auto mb-6">
                   No games available from <span className="font-semibold">{selectedProviderName}</span> at this time.
                 </p>
                 <button
                   onClick={() => setSelectedProvider("")}
-                  className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors duration-200"
+                  className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors duration-200"
                 >
                   Select Different Provider
                 </button>
               </div>
             )}
-
-            {/* Initial State - No category or provider selected */}
-            {!loadingGames && !selectedCategory && (
-              <div className="text-center py-20">
-                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-orange-100 to-orange-50 rounded-full flex items-center justify-center">
-                  <FaFilter className="text-orange-400 text-4xl" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">Select a Category</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-8">
-                  First select a category to see available providers for that category.
-                </p>
-                <div className="inline-flex items-center px-4 py-2 bg-orange-100 text-orange-800 rounded-full font-medium">
-                  ⚡ Category must be selected before choosing a provider
-                </div>
-              </div>
-            )}
-
             {/* Category selected but no providers */}
             {!loadingGames && selectedCategory && providers.length === 0 && (
               <div className="text-center py-20">
-                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-full flex items-center justify-center">
-                  <FaGamepad className="text-yellow-400 text-4xl" />
+                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-yellow-900/30 to-yellow-800/10 rounded-full flex items-center justify-center">
+                  <FaGamepad className="text-yellow-500 text-4xl" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">No Providers Found</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-8">
+                <h3 className="text-2xl font-bold text-white mb-3">No Providers Found</h3>
+                <p className="text-gray-400 max-w-md mx-auto mb-8">
                   No providers available for the selected category. Please select a different category or add providers to this category.
                 </p>
                 <button
                   onClick={() => setSelectedCategory("")}
-                  className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors duration-200"
+                  className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors duration-200"
                 >
                   Select Different Category
                 </button>
@@ -2389,20 +2334,19 @@ const Newgames = () => {
 
       {/* Bulk Add Modal */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-[10000] overflow-y-auto bg-[rgba(0,0,0,0.4)]">
+        <div className="fixed inset-0 z-[10000] overflow-y-auto bg-[rgba(0,0,0,0.8)]">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+            <div className="inline-block align-bottom bg-[#161B22] rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-gray-800">
+              <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <FaList className="text-white text-2xl mr-3" />
                     <div>
                       <h3 className="text-xl font-bold text-white">
-                        {bulkActionMode ? 'Add Selected Games' : 'Bulk Add Games'}
+                        {bulkActionMode ? 'Add Selected Games' : 'Add Games'}
                       </h3>
-                      <p className="text-orange-100 text-sm mt-1">
+                      <p className="text-indigo-200 text-sm mt-1">
                         Adding {bulkGames.length} game{bulkGames.length !== 1 ? 's' : ''} from {selectedProviderName}
                       </p>
                     </div>
@@ -2412,7 +2356,7 @@ const Newgames = () => {
                       setShowBulkModal(false);
                       resetBulkState();
                     }}
-                    className="text-white hover:text-orange-200 transition-colors"
+                    className="text-white hover:text-indigo-200 transition-colors"
                   >
                     <FaTimes className="w-6 h-6" />
                   </button>
@@ -2436,11 +2380,11 @@ const Newgames = () => {
                   </div>
 
                   {/* Image Source Toggle */}
-                  <div className="bg-gray-50 p-4 rounded-xl">
+                  <div className="bg-[#0F111A] p-4 rounded-xl border border-gray-800">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-medium text-gray-900">Image Source</h4>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <h4 className="font-medium text-gray-300">Image Source</h4>
+                        <p className="text-sm text-gray-500 mt-1">
                           {bulkUseDefaultImage 
                             ? "Using default images from provider for all games" 
                             : "Using a single custom image for all games"}
@@ -2455,7 +2399,7 @@ const Newgames = () => {
                           }
                         }}
                         className={`relative inline-flex items-center h-8 rounded-full w-14 transition-colors focus:outline-none ${
-                          bulkUseDefaultImage ? 'bg-orange-500' : 'bg-gray-400'
+                          bulkUseDefaultImage ? 'bg-indigo-600' : 'bg-gray-600'
                         }`}
                       >
                         <span
@@ -2470,12 +2414,12 @@ const Newgames = () => {
                   {/* Bulk Image Upload - Only show if not using default images */}
                   {!bulkUseDefaultImage && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
                         Upload Custom Image (Will be used for all games) <span className="text-red-500">*</span>
                       </label>
                       {bulkImagePreview ? (
                         <div className="relative group">
-                          <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300">
+                          <div className="h-48 bg-gradient-to-br from-[#0F111A] to-[#1A1F2E] rounded-xl overflow-hidden border-2 border-dashed border-gray-700">
                             <img
                               src={bulkImagePreview}
                               alt="Bulk Game Image"
@@ -2485,19 +2429,19 @@ const Newgames = () => {
                           <button
                             type="button"
                             onClick={removeBulkImage}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                            className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full shadow-lg hover:bg-red-700 transition-colors"
                           >
                             <FaTimes className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (
                         <label className="block cursor-pointer">
-                          <div className="h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-orange-400 hover:bg-orange-50 group">
-                            <FaUpload className="text-gray-400 text-3xl mb-3 group-hover:text-orange-500 transition-colors" />
-                            <span className="text-sm font-medium text-gray-600 group-hover:text-orange-600 transition-colors">
+                          <div className="h-48 border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center transition-all duration-200 hover:border-indigo-500 hover:bg-indigo-900/20 group">
+                            <FaUpload className="text-gray-500 text-3xl mb-3 group-hover:text-indigo-400 transition-colors" />
+                            <span className="text-sm font-medium text-gray-500 group-hover:text-indigo-400 transition-colors">
                               Click to upload image
                             </span>
-                            <span className="text-xs text-gray-400 mt-2">PNG, JPG up to 10MB</span>
+                            <span className="text-xs text-gray-600 mt-2">PNG, JPG up to 10MB</span>
                           </div>
                           <input
                             type="file"
@@ -2511,8 +2455,8 @@ const Newgames = () => {
                   )}
 
                   {/* Bulk Settings */}
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Game Settings</h4>
+                  <div className="bg-[#0F111A] rounded-xl p-4 border border-gray-800">
+                    <h4 className="font-medium text-gray-300 mb-3">Game Settings</h4>
                     <CustomCheckbox
                       id="bulk-featured"
                       checked={bulkFeatured}
@@ -2539,23 +2483,23 @@ const Newgames = () => {
                   {/* Progress Bar with Game Name */}
                   {bulkSaving && (
                     <div className="mt-4 space-y-3">
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <div className="flex justify-between text-sm text-gray-400 mb-1">
                         <span className="font-medium">Adding games...</span>
-                        <span className="text-orange-600 font-semibold">{bulkProgress.current} / {bulkProgress.total}</span>
+                        <span className="text-indigo-400 font-semibold">{bulkProgress.current} / {bulkProgress.total}</span>
                       </div>
                       
                       {currentAddingGame && (
-                        <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
-                          <p className="text-sm text-orange-700 flex items-center">
-                            <FaSpinner className="animate-spin mr-2 text-orange-500" />
+                        <div className="bg-indigo-900/30 p-3 rounded-lg border border-indigo-700">
+                          <p className="text-sm text-indigo-300 flex items-center">
+                            <FaSpinner className="animate-spin mr-2 text-indigo-400" />
                             Currently adding: <span className="font-semibold ml-1 truncate">{currentAddingGame}</span>
                           </p>
                         </div>
                       )}
                       
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
                         <div 
-                          className="bg-gradient-to-r from-orange-400 to-orange-600 h-3 rounded-full transition-all duration-300 relative"
+                          className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-3 rounded-full transition-all duration-300 relative"
                           style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
                         >
                           <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
@@ -2571,7 +2515,7 @@ const Newgames = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+              <div className="bg-[#0F111A] px-6 py-4 flex justify-end space-x-3 border-t border-gray-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -2579,7 +2523,7 @@ const Newgames = () => {
                     resetBulkState();
                   }}
                   disabled={bulkSaving}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-gray-700 text-gray-300 text-[14px] font-medium rounded-lg hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -2592,10 +2536,10 @@ const Newgames = () => {
                     (!bulkUseDefaultImage && !bulkImage) ||
                     (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
                   }
-                  className={`px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
+                  className={`px-6 py-2  text-[14px] bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
                     bulkSaving || bulkCategories.length === 0 || (!bulkUseDefaultImage && !bulkImage) || (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
                       ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:from-orange-600 hover:to-orange-700'
+                      : 'hover:from-indigo-700 hover:to-indigo-800'
                   }`}
                 >
                   {bulkSaving ? (
@@ -2605,7 +2549,6 @@ const Newgames = () => {
                     </>
                   ) : (
                     <>
-                      <FaPlusCircle className="mr-2" />
                       Add {bulkGames.length} Game{bulkGames.length !== 1 ? 's' : ''}
                     </>
                   )}
@@ -2630,18 +2573,18 @@ const Newgames = () => {
 
       {/* Delete All Added Games Modal */}
       {showDeleteAllModal && (
-        <div className="fixed inset-0 z-[10000] overflow-y-auto bg-[rgba(0,0,0,0.4)]">
+        <div className="fixed inset-0 z-[10000] overflow-y-auto bg-[rgba(0,0,0,0.8)]">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+            <div className="inline-block align-bottom bg-[#161B22] rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-800">
+              <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <FaExclamationTriangle className="text-white text-2xl mr-3" />
                     <div>
                       <h3 className="text-xl font-bold text-white">Delete All Added Games</h3>
-                      <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
+                      <p className="text-red-200 text-sm mt-1">This action cannot be undone</p>
                     </div>
                   </div>
                   <button
@@ -2658,21 +2601,21 @@ const Newgames = () => {
 
               <div className="px-6 py-6">
                 <div className="space-y-4">
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                    <p className="text-red-800 font-medium mb-2">⚠️ Warning</p>
-                    <p className="text-sm text-red-700">
+                  <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
+                    <p className="text-red-300 font-medium mb-2">⚠️ Warning</p>
+                    <p className="text-sm text-red-300">
                       You are about to delete all <span className="font-bold">{savedGamesCount}</span> games that have been added to your platform. 
                       This will permanently remove these games from your database including any custom images. 
                       This action cannot be reversed.
                     </p>
-                    <p className="text-sm text-red-700 mt-2">
+                    <p className="text-sm text-red-300 mt-2">
                       <strong>Note:</strong> This will only delete games that have been added to your platform. 
                       Games from the Oracle API that haven't been added yet will remain visible.
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Type "DELETE ALL ADDED GAMES" to confirm
                     </label>
                     <input
@@ -2680,14 +2623,14 @@ const Newgames = () => {
                       value={deleteConfirmText}
                       onChange={(e) => setDeleteConfirmText(e.target.value)}
                       placeholder="DELETE ALL ADDED GAMES"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                      className="w-full px-4 py-3 bg-[#0F111A] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-200 placeholder-gray-600 transition-all duration-200"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+              <div className="bg-[#0F111A] px-6 py-4 flex justify-end space-x-3 border-t border-gray-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -2695,7 +2638,7 @@ const Newgames = () => {
                     setDeleteConfirmText("");
                   }}
                   disabled={deletingAll}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-gray-700 text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -2703,10 +2646,10 @@ const Newgames = () => {
                   type="button"
                   onClick={handleDeleteAllAddedGames}
                   disabled={deletingAll || deleteConfirmText !== "DELETE ALL ADDED GAMES"}
-                  className={`px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
+                  className={`px-6 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
                     deletingAll || deleteConfirmText !== "DELETE ALL ADDED GAMES"
                       ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:from-red-600 hover:to-red-700'
+                      : 'hover:from-red-700 hover:to-red-800'
                   }`}
                 >
                   {deletingAll ? (

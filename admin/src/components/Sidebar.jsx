@@ -1,33 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  FiChevronRight, 
-  FiHome,
-  FiUsers,
-  FiSettings,
-  FiBell,
-  FiActivity,
-  FiTrendingUp,
-  FiBarChart2,
-  FiLayers,
-  FiCreditCard,
-  FiCalendar,
-  FiBox,
-  FiMessageSquare,
-  FiLogIn,
-  FiFileText,
-  FiShare2,
-  FiGift,
-  FiUserPlus,
-  FiDollarSign,
-  FiCheckCircle,
-  FiXCircle
+  FiChevronRight, FiHome, FiUsers, FiSettings, FiBell, FiActivity, FiTrendingUp, 
+  FiBarChart2, FiLayers, FiCreditCard, FiCalendar, FiBox, FiMessageSquare, 
+  FiLogIn, FiFileText, FiShare2, FiGift, FiUserPlus, FiDollarSign, FiCheckCircle, FiXCircle
 } from 'react-icons/fi';
 import { RiCoinsLine, RiRefund2Line } from 'react-icons/ri';
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 
-// Environment variable for base URL
 const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
 const Sidebar = ({ isOpen }) => {
@@ -36,31 +17,12 @@ const Sidebar = ({ isOpen }) => {
   const [notifications, setNotifications] = useState(5);
   const navigate = useNavigate();
   
-  // State for withdrawal counts
-  const [withdrawalCounts, setWithdrawalCounts] = useState({
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    history: 0
-  });
-
-  // State for deposit counts
-  const [depositCounts, setDepositCounts] = useState({
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    history: 0
-  });
-
-  // State for affiliate counts
-  const [affiliateCounts, setAffiliateCounts] = useState({
-    pendingRegistrations: 0,
-    total: 0,
-    active: 0,
-    pendingPayouts: 0,
-    masterAffiliates: 0,
-    superAffiliates: 0
-  });
+  const sidebarRef = useRef(null);
+  const activeMenuItemRef = useRef(null);
+  
+  const [withdrawalCounts, setWithdrawalCounts] = useState({ pending: 0, approved: 0, rejected: 0, history: 0 });
+  const [depositCounts, setDepositCounts] = useState({ pending: 0, approved: 0, rejected: 0, history: 0 });
+  const [affiliateCounts, setAffiliateCounts] = useState({ pendingRegistrations: 0, total: 0, active: 0, pendingPayouts: 0, masterAffiliates: 0, superAffiliates: 0 });
 
   const logout = () => {
     localStorage.removeItem("admin");
@@ -68,188 +30,157 @@ const Sidebar = ({ isOpen }) => {
     navigate("/login");
   };
 
-  // Fetch counts on component mount and when location changes
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        // Fetch withdrawal counts
         const withdrawalResponse = await axios.get(`${base_url}/api/admin/withdrawals/counts`);
-        if (withdrawalResponse.data.success) {
-          setWithdrawalCounts({
-            pending: withdrawalResponse.data.counts.pending,
-            approved: withdrawalResponse.data.counts.approved,
-            rejected: withdrawalResponse.data.counts.rejected,
-            history: withdrawalResponse.data.counts.history
-          });
-        }
-
-        // Fetch deposit counts
+        if (withdrawalResponse.data.success) setWithdrawalCounts(withdrawalResponse.data.counts);
         const depositResponse = await axios.get(`${base_url}/api/admin/deposits/counts`);
-        if (depositResponse.data.success) {
-          setDepositCounts({
-            pending: depositResponse.data.counts.pending,
-            approved: depositResponse.data.counts.approved,
-            rejected: depositResponse.data.counts.rejected,
-            history: depositResponse.data.counts.history
-          });
-        }
-
-        // Fetch affiliate counts
+        if (depositResponse.data.success) setDepositCounts(depositResponse.data.counts);
         const affiliateResponse = await axios.get(`${base_url}/api/admin/affiliates/counts`);
-        if (affiliateResponse.data.success) {
-          setAffiliateCounts({
-            pendingRegistrations: affiliateResponse.data.counts.pendingRegistrations,
-            total: affiliateResponse.data.counts.total,
-            active: affiliateResponse.data.counts.active,
-            pendingPayouts: affiliateResponse.data.counts.pendingPayouts,
-            masterAffiliates: affiliateResponse.data.counts.masterAffiliates,
-            superAffiliates: affiliateResponse.data.counts.superAffiliates
-          });
-        }
+        if (affiliateResponse.data.success) setAffiliateCounts(affiliateResponse.data.counts);
       } catch (error) {
         console.error('Error fetching counts:', error);
       }
     };
-
     fetchCounts();
-    
-    // Refresh counts every 30 seconds
     const intervalId = setInterval(fetchCounts, 30000);
-    
     return () => clearInterval(intervalId);
   }, [location]);
 
-  // Set active menu based on current path
   useEffect(() => {
     const path = location.pathname;
+    const menuMapping = {
+      '/deposit-bonus': 'depositBonus',
+      '/users': 'users',
+      '/withdraw': 'withdraw',
+      '/deposit': 'deposit',
+      '/bet-logs': 'betLogs',
+      '/games-management': 'games',
+      '/affiliate': 'affiliate',
+      '/login-logs': 'loginLogs',
+      '/content': 'content',
+      '/notifications': 'notifications',
+      '/opay': 'opay',
+      '/event-management': 'event',
+      '/notice-management': 'notice',
+      '/social-address': 'social',
+      '/payment-method': 'method'
+    };
+    const matchedKey = Object.keys(menuMapping).find(key => path.startsWith(key));
+    // Only update openMenu if it's different to avoid unnecessary re-renders
+    const newOpenMenu = matchedKey ? menuMapping[matchedKey] : null;
+    if (newOpenMenu !== openMenu) {
+      setOpenMenu(newOpenMenu);
+    }
+  }, [location.pathname]); // Removed openMenu from dependencies to avoid loop
+
+  // Auto-scroll to active menu item when location changes
+  useEffect(() => {
+    // Small delay to ensure DOM is updated
+    const timeoutId = setTimeout(() => {
+      if (activeMenuItemRef.current && sidebarRef.current) {
+        const sidebarContainer = sidebarRef.current;
+        const activeElement = activeMenuItemRef.current;
+        
+        // Get the position of the active element relative to the sidebar container
+        const scrollTop = activeElement.offsetTop - (sidebarContainer.clientHeight / 2) + (activeElement.clientHeight / 2);
+        
+        // Smooth scroll to the calculated position
+        sidebarContainer.scrollTo({
+          top: Math.max(0, scrollTop),
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
     
-    if (path.startsWith('/deposit-bonus')) setOpenMenu('depositBonus');
-    else if (path.startsWith('/turnover')) setOpenMenu('turnover');
-    else if (path.startsWith('/dashboard/sports')) setOpenMenu('sports');
-    else if (path.startsWith('/dashboard/betting')) setOpenMenu('betting');
-    else if (path.startsWith('/content')) setOpenMenu('content');
-    else if (path.startsWith('/dashboard/bonuses')) setOpenMenu('bonuses');
-    else if (path.startsWith('/dashboard/finance')) setOpenMenu('finance');
-    else if (path.startsWith('/users')) setOpenMenu('users');
-    else if (path.startsWith('/dashboard/security')) setOpenMenu('security');
-    else if (path.startsWith('/dashboard/reports')) setOpenMenu('reports');
-    else if (path.startsWith('/withdraw')) setOpenMenu('withdraw');
-    else if (path.startsWith('/deposit')) setOpenMenu('deposit');
-    else if (path.startsWith('/bet-logs')) setOpenMenu('betLogs');
-    else if (path.startsWith('/games-management')) setOpenMenu('games');
-    else if (path.startsWith('/notifications')) setOpenMenu('notifications');
-    else if (path.startsWith('/affiliate')) setOpenMenu('affiliate');
-    else if (path.startsWith('/login-logs')) setOpenMenu('loginLogs');
-    else if (path.startsWith('/system')) setOpenMenu('system');
-    else if (path.startsWith('/reports')) setOpenMenu('reports');
-    else if (path.startsWith('/bonus')) setOpenMenu('bonus');
-    else if (path.startsWith('/payment-method')) setOpenMenu('method');
-    else if (path.startsWith('/social-address')) setOpenMenu('social');
-    else if (path.startsWith('/notice-management')) setOpenMenu('notice');
-    else if (path.startsWith('/opay')) setOpenMenu('opay');
-    else setOpenMenu(null);
-  }, [location]);
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname, openMenu]);
 
   const handleToggle = (menu) => {
+    // Toggle the menu - don't close when clicking submenu items
     setOpenMenu(prev => (prev === menu ? null : menu));
   };
+  
+  const formatCount = (count) => (count > 99 ? '99+' : count);
 
-  // Function to format count (show +99 if more than 99)
-  const formatCount = (count) => {
-    if (count > 99) return '99+';
-    return count;
-  };
-
-  // Function to get badge color based on count
   const getBadgeColor = (count, type = 'default') => {
-    if (count === 0) return 'bg-gray-600';
-    
+    if (count === 0) return 'bg-gray-700';
     switch(type) {
-      case 'pending':
-        return 'bg-orange-600 animate-pulse';
-      case 'warning':
-        return 'bg-yellow-600';
-      case 'success':
-        return 'bg-green-600';
-      case 'danger':
-        return 'bg-red-600';
-      case 'info':
-        return 'bg-blue-600';
-      case 'affiliate':
-        return 'bg-purple-600 animate-pulse';
-      default:
-        return 'bg-orange-600';
+      case 'pending': return 'bg-yellow-600 animate-pulse';
+      case 'success': return 'bg-green-600';
+      case 'danger': return 'bg-red-600';
+      default: return 'bg-[#d4af37] text-[#1a1c23]';
     }
   };
 
-  // Function to render count badge
-  const CountBadge = ({ count, type = 'default' }) => {
-    if (!count || count === 0) return null;
+  // Helper to render Category Titles
+  const SectionTitle = ({ title }) => (
+    <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-3 mt-6 px-3">
+      {title}
+    </p>
+  );
+
+  // Function to render each menu item (to keep code clean)
+  function renderMenuItem({ label, icon, key, links, count: menuCount }) {
+    const isMenuOpen = openMenu === key;
     
     return (
-      <span className={`ml-auto text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ${getBadgeColor(count, type)}`}>
-        {formatCount(count)}
-      </span>
-    );
-  };
-
-  return (
-    <aside
-      className={`transition-all no-scrollbar duration-300 overflow-y-auto fixed w-[70%] md:w-[40%] lg:w-[28%] xl:w-[17%] h-full z-[999] border-r border-orange-800 text-sm shadow-2xl pt-[12vh] p-4 ${
-        isOpen ? 'left-0 top-0' : 'left-[-120%] top-0'
-      } bg-[#101828] text-white`}
-    >
-      {/* Admin Header */}
-      <div className="flex items-center justify-between mb-6 p-3 rounded-lg border border-orange-800/50 backdrop-blur-sm">
-        <div className="flex items-center">
-          <div className="w-10 h-10 rounded-full bg-theme_color flex items-center justify-center mr-3">
-            <span className="font-bold text-xs">AD</span>
-          </div>
-          <div>
-            <p className="font-medium text-sm">Admin User</p>
-            <p className="text-xs text-orange-400">Super Admin</p>
+      <div key={key} className="mb-2">
+        <div 
+          onClick={() => handleToggle(key)} 
+          className={`flex items-center justify-between w-full px-3 py-2.5 text-[14px] cursor-pointer transition-all duration-300 ${isMenuOpen ? 'bg-[#252831] text-[#d4af37] border-l-4 border-[#d4af37]' : 'text-gray-400 hover:bg-[#1a1c23] hover:text-gray-200'}`}
+        >
+          <span className="flex items-center gap-3">{icon} {label}</span>
+          <div className="flex items-center gap-2">
+            {menuCount > 0 && <span className="bg-[#d4af37] text-[#1a1c23] text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">{formatCount(menuCount)}</span>}
+            <FiChevronRight className={`transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : ''}`} />
           </div>
         </div>
-        <div className="relative">
-          <FiBell className="text-xl text-orange-200 hover:text-orange-400 transition-colors duration-200" />
-          {notifications > 0 && (
-            <span className="absolute -top-2 -right-2 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-              {formatCount(notifications)}
-            </span>
-          )}
+        <div className={`ml-6 overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-96 mt-2' : 'max-h-0'}`}>
+          {links.map(({ to, text, count, type }) => (
+            <NavLink 
+              key={text} 
+              to={to} 
+              ref={(el) => {
+                // Set ref if this link is active
+                if (el && location.pathname === to) {
+                  activeMenuItemRef.current = el;
+                }
+              }}
+              className={({ isActive }) => `flex items-center px-3 py-2 text-[13px] rounded-md transition-colors ${isActive ? 'text-[#d4af37] font-bold' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              <div className={`w-1 h-1 rounded-full mr-3 ${location.pathname === to ? 'bg-[#d4af37]' : 'bg-gray-700'}`}></div>
+              {text}
+              {count > 0 && <span className={`ml-auto text-[10px] px-1.5 rounded-full text-white ${getBadgeColor(count, type)}`}>{formatCount(count)}</span>}
+            </NavLink>
+          ))}
         </div>
       </div>
+    );
+  }
 
-      {/* Dashboard */}
+  return (
+    <aside ref={sidebarRef} className={`transition-all no-scrollbar duration-300 overflow-y-auto fixed w-[70%] md:w-[40%] lg:w-[28%] xl:w-[17%] h-full z-[999] border-r border-gray-800 text-sm shadow-2xl pt-[12vh] p-4 ${isOpen ? 'left-0 top-0' : 'left-[-120%] top-0'} bg-[#161B22] text-white`}>
+      
       <div className="mb-3">
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) =>
-            `flex items-center justify-between w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 group ${
-              isActive
-                ? 'bg-orange-700 text-white font-semibold shadow-lg shadow-orange-900/30'
-                : 'hover:bg-orange-800/40 hover:text-white text-orange-400 hover:translate-x-1'
-            }`
-          }
+        <NavLink 
+          to="/dashboard" 
+          ref={(el) => {
+            if (el && location.pathname === '/dashboard') {
+              activeMenuItemRef.current = el;
+            }
+          }}
+          className={({ isActive }) => `flex items-center justify-between w-full px-3 py-2.5 text-[15px] cursor-pointer rounded-lg transition-all duration-300 ${isActive ? 'bg-[#d4af37] text-[#1a1c23] font-bold shadow-lg' : 'hover:bg-[#252831] text-gray-400 hover:text-[#d4af37]'}`}
         >
-          <span className="flex items-center gap-3">
-            <FiHome className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
-            Dashboard
-            {affiliateCounts.pendingRegistrations > 0 && (
-              <span className="ml-auto bg-purple-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                {formatCount(affiliateCounts.pendingRegistrations)}
-              </span>
-            )}
-          </span>
+          <span className="flex items-center gap-3"><FiHome className="text-[18px]" /> Dashboard</span>
         </NavLink>
       </div>
 
-      {/* Sidebar Menus */}
+      <SectionTitle title="Gaming & Logs" />
       {[
         {
-          label: 'Games Management',
-          icon: <FiBox className="text-[18px]" />,
-          key: 'games',
+          label: 'Games Management', icon: <FiBox />, key: 'games',
           links: [
             { to: '/games-management/new-game', text: 'New Game' },
             { to: '/games-management/all-games', text: 'All Games' },
@@ -261,99 +192,43 @@ const Sidebar = ({ isOpen }) => {
           ],
         },
         {
-          label: 'Bet Logs',
-          icon: <FiActivity className="text-[18px]" />,
-          key: 'betLogs',
+          label: 'Bet Logs', icon: <FiActivity />, key: 'betLogs',
           links: [
             { to: '/bet-logs/bet-logs', text: 'All Bets' },
             { to: '/bet-logs/hight-stakes-bet-logs', text: 'High Stakes Bets' },
           ],
         },
+      ].map((item) => renderMenuItem(item))}
+
+      <SectionTitle title="Finance" />
+      {[
         {
-          label: 'User Management',
-          icon: <FiUsers className="text-[18px]" />,
-          key: 'users',
+          label: 'Deposit Management', icon: <RiCoinsLine />, key: 'deposit',
           links: [
-            { to: '/users/all-users', text: 'All Users' },
-            { to: '/users/active-users', text: 'Active Users' },
-            { to: '/users/inactive-users', text: 'Inactive Users' },
+            { to: '/deposit/pending', text: 'Pending Deposits', count: depositCounts.pending, type: 'pending' },
+            { to: '/deposit/approved', text: 'Approved Deposits', count: depositCounts.approved, type: 'success' },
+            { to: '/deposit/rejected', text: 'Rejected Deposits', count: depositCounts.rejected, type: 'danger' },
+            { to: '/deposit/history', text: 'Deposit History', count: depositCounts.history },
           ],
         },
         {
-          label: 'Deposit Management',
-          icon: <RiCoinsLine className="text-[18px]" />,
-          key: 'deposit',
+          label: 'Withdrawal Management', icon: <RiRefund2Line />, key: 'withdraw',
           links: [
-            { 
-              to: '/deposit/pending', 
-              text: 'Pending Deposits',
-              count: depositCounts.pending,
-              type: 'pending'
-            },
-            { 
-              to: '/deposit/approved', 
-              text: 'Approved Deposits',
-              count: depositCounts.approved,
-              type: 'success'
-            },
-            { 
-              to: '/deposit/rejected', 
-              text: 'Rejected Deposits',
-              count: depositCounts.rejected,
-              type: 'danger'
-            },
-            { 
-              to: '/deposit/history', 
-              text: 'Deposit History',
-              count: depositCounts.history,
-              type: 'info'
-            },
+            { to: '/withdraw/pending', text: 'Pending Withdrawals', count: withdrawalCounts.pending, type: 'pending' },
+            { to: '/withdraw/approved', text: 'Approved Withdrawals', count: withdrawalCounts.approved, type: 'success' },
+            { to: '/withdraw/rejected', text: 'Rejected Withdrawals', count: withdrawalCounts.rejected, type: 'danger' },
+            { to: '/withdraw/history', text: 'Withdraw History', count: withdrawalCounts.history },
           ],
         },
         {
-          label: 'Withdrawal Management',
-          icon: <RiRefund2Line className="text-[18px]" />,
-          key: 'withdraw',
-          links: [
-            { 
-              to: '/withdraw/pending', 
-              text: 'Pending Withdrawals',
-              count: withdrawalCounts.pending,
-              type: 'pending'
-            },
-            { 
-              to: '/withdraw/approved', 
-              text: 'Approved Withdrawals',
-              count: withdrawalCounts.approved,
-              type: 'success'
-            },
-            { 
-              to: '/withdraw/rejected', 
-              text: 'Rejected Withdrawals',
-              count: withdrawalCounts.rejected,
-              type: 'danger'
-            },
-            { 
-              to: '/withdraw/history', 
-              text: 'Withdraw History',
-              count: withdrawalCounts.history,
-              type: 'info'
-            },
-          ],
-        },
-        {
-          label: 'Deposit Bonus System',
-          icon: <FiGift className="text-[18px]" />,
-          key: 'depositBonus',
+          label: 'Deposit Bonus System', icon: <FiGift />, key: 'depositBonus',
           links: [
             { to: '/deposit-bonus/create-bonus', text: 'Create Bonus' },
             { to: '/deposit-bonus/all-bonuses', text: 'All Bonuses' },
           ],
         },
         {
-          label: 'Payment Method',
-          icon: <FiCreditCard className="text-[18px]" />,
-          key: 'method',
+          label: 'Payment Method', icon: <FiCreditCard />, key: 'method',
           links: [
             { to: '/payment-method/all-deposit-method', text: 'Deposit Method' },
             { to: '/payment-method/new-deposit-method', text: 'New Deposit Method' },
@@ -362,75 +237,58 @@ const Sidebar = ({ isOpen }) => {
           ],
         },
         {
-          label: 'Event Management',
-          icon: <FiCalendar className="text-[18px]" />,
-          key: 'event',
-          links: [
-            { to: '/event-management/create-event', text: 'Create Event' },
-            { to: '/event-management/all-events', text: 'All Events' },
-          ],
-        },
-        {
-          label: 'Notice Management',
-          icon: <FiFileText className="text-[18px]" />,
-          key: 'notice',
-          links: [
-            { to: '/notice-management/create-notice', text: 'Create Notice' },
-          ],
-        },
-        {
-          label: 'Opay Setting',
-          icon: <FiSettings className="text-[18px]" />,
-          key: 'opay',
+          label: 'Opay Setting', icon: <FiSettings />, key: 'opay',
           links: [
             { to: '/opay/api-settings', text: 'Opay Api' },
             { to: '/opay/device-monitoring', text: 'Device Monitoring' },
             { to: '/opay/deposit', text: 'Opay Deposit' },
           ],
         },
+      ].map((item) => renderMenuItem(item))}
+
+      <SectionTitle title="User & Access" />
+      {[
         {
-          label: 'Affiliate Management',
-          icon: <FiTrendingUp className="text-[18px]" />,
-          key: 'affiliate',
-          count: affiliateCounts.pendingRegistrations, // Show count on main menu item
+          label: 'User Management', icon: <FiUsers />, key: 'users',
           links: [
-            { 
-              to: '/affiliates/all-affiliates', 
-              text: 'All Affiliates',
-              count: affiliateCounts.total,
-              type: 'info'
-            },
-            { 
-              to: '/affiliates/manage-commission', 
-              text: 'Manage Commission'
-            },
-            { 
-              to: '/affiliates/payout', 
-              text: 'Payouts',
-              count: affiliateCounts.pendingPayouts,
-              type: 'warning'
-            },
-            // { 
-            //   to: '/affiliates/set-affilaite-payout-amount', 
-            //   text: 'Payout Settings'
-            // },
+            { to: '/users/all-users', text: 'All Users' },
+            { to: '/users/active-users', text: 'Active Users' },
+            { to: '/users/inactive-users', text: 'Inactive Users' },
           ],
         },
         {
-          label: 'Login Logs & Security',
-          icon: <FiLogIn className="text-[18px]" />,
-          key: 'loginLogs',
+          label: 'Affiliate Management', icon: <FiTrendingUp />, key: 'affiliate',
+          count: affiliateCounts.pendingRegistrations,
+          links: [
+            { to: '/affiliates/all-affiliates', text: 'All Affiliates', count: affiliateCounts.total },
+            { to: '/affiliates/manage-commission', text: 'Manage Commission' },
+            { to: '/affiliates/payout', text: 'Payouts', count: affiliateCounts.pendingPayouts, type: 'pending' },
+          ],
+        },
+        {
+          label: 'Login Logs & Security', icon: <FiLogIn />, key: 'loginLogs',
           links: [
             { to: '/login-logs/all-logs', text: 'All Login Logs' },
             { to: '/login-logs/failed-logins', text: 'Failed Login Attempts' },
-            { to: '/login-logs/ip-whitelist', text: 'IP Whitelist' },
-            { to: '/login-logs/device-management', text: 'Device Management' },
+          ],
+        },
+      ].map((item) => renderMenuItem(item))}
+
+      <SectionTitle title="App Settings" />
+      {[
+        {
+          label: 'Event Management', icon: <FiCalendar />, key: 'event',
+          links: [
+            { to: '/event-management/create-event', text: 'Create Event' },
+            { to: '/event-management/all-events', text: 'All Events' },
           ],
         },
         {
-          label: 'Content Management',
-          icon: <FiLayers className="text-[18px]" />,
-          key: 'content',
+          label: 'Notice Management', icon: <FiFileText />, key: 'notice',
+          links: [{ to: '/notice-management/create-notice', text: 'Create Notice' }],
+        },
+        {
+          label: 'Content Management', icon: <FiLayers />, key: 'content',
           links: [
             { to: '/content/banner-and-sliders', text: 'Banners & Sliders' },
             { to: '/content/promotional-content', text: 'Promotional Content' },
@@ -440,150 +298,37 @@ const Sidebar = ({ isOpen }) => {
           ],
         },
         {
-          label: 'Notification Management',
-          icon: <FiBell className="text-[18px]" />,
-          key: 'notifications',
+          label: 'Notification Management', icon: <FiBell />, key: 'notifications',
           links: [
             { to: '/notifications/send-notification', text: 'Send Notification' },
             { to: '/notifications/all-notifications', text: 'All Notifications' },
           ],
         },
         {
-          label: 'Social Address',
-          icon: <FiShare2 className="text-[18px]" />,
-          key: 'social',
-          links: [
-            { to: '/social-address/social-links', text: 'All Social Links' },
-          ],
+          label: 'Social Address', icon: <FiShare2 />, key: 'social',
+          links: [{ to: '/social-address/social-links', text: 'All Social Links' }],
         },
-        
-      ].map(({ label, icon, key, links, count: menuCount }) => (
-        <div key={key} className="mb-2">
-          <div
-            onClick={() => handleToggle(key)}
-            className={`flex items-center justify-between w-full px-3 py-2.5 text-[13px] md:text-[14px] text-nowrap cursor-pointer rounded-lg transition-all duration-300 group ${
-              openMenu === key
-                ? 'bg-orange-700 text-white font-semibold shadow-lg shadow-orange-900/30'
-                : 'text-orange-200 hover:bg-orange-800/40 hover:text-white hover:translate-x-1'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <span className="group-hover:scale-110 transition-transform duration-300">
-                {icon}
-              </span>
-              {label}
-            </span>
-            <div className="flex items-center gap-2">
-              {menuCount > 0 && (
-                <span className={`text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ${getBadgeColor(menuCount, key === 'affiliate' ? 'affiliate' : 'default')}`}>
-                  {formatCount(menuCount)}
-                </span>
-              )}
-              <FiChevronRight
-                className={`transition-all duration-300 ${
-                  openMenu === key ? 'rotate-90' : ''
-                } group-hover:scale-110`}
-              />
-            </div>
-          </div>
-          <div
-            className={`ml-4 overflow-hidden transition-all duration-500 ${
-              openMenu === key ? 'max-h-96' : 'max-h-0'
-            }`}
-          >
-            {links.map(({ to, text, count, type }) => (
-              <NavLink
-                key={text}
-                to={to}
-                className={({ isActive }) => 
-                  `flex items-center px-3 py-2 text-sm rounded-md mt-1 transition-all duration-300 group ${
-                    isActive 
-                      ? 'text-orange-400 font-medium ' 
-                      : 'text-orange-200/80 hover:text-orange-500'
-                  }`
-                }
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-3 group-hover:scale-125 transition-transform duration-300"></div>
-                {text}
-                {count > 0 && (
-                  <span className={`ml-auto text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ${getBadgeColor(count, type)}`}>
-                    {formatCount(count)}
-                  </span>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        </div>
-      ))}
+      ].map((item) => renderMenuItem(item))}
+
+      {/* Profile & Support Section */}
+      <SectionTitle title="Support" />
       <div className="mb-3">
-        <NavLink
-          to="/admin-profile"
-          className={({ isActive }) =>
-            `flex items-center justify-between w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 group ${
-              isActive
-                ? 'bg-orange-700 text-white font-semibold shadow-lg shadow-orange-900/30'
-                : 'hover:bg-orange-800/40 hover:text-white text-orange-400 hover:translate-x-1'
-            }`
-          }
+        <NavLink 
+          to="/admin-profile" 
+          ref={(el) => {
+            if (el && location.pathname === '/admin-profile') {
+              activeMenuItemRef.current = el;
+            }
+          }}
+          className={({ isActive }) => `flex items-center justify-between w-full px-3 py-2.5 text-[15px] cursor-pointer rounded-lg transition-all ${isActive ? 'bg-[#d4af37] text-[#1a1c23] font-bold' : 'text-gray-400 hover:text-[#d4af37]'}`}
         >
-          <span className="flex items-center gap-3">
-            <FiUsers className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
-            Admin Profile
-          </span>
+          <span className="flex items-center gap-3"><FiUsers /> Admin Profile</span>
         </NavLink>
       </div>
-      {/* Support Section */}
-      <div className="mt-8 pt-4 border-t border-gray-700">
-        <NavLink
-          to="/dashboard/support"
-          className={({ isActive }) =>
-            `flex items-center w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 mb-2 group ${
-              isActive
-                ? 'bg-orange-800/40 text-white font-semibold'
-                : 'text-orange-200 hover:bg-orange-800/40 hover:text-white hover:translate-x-1'
-            }`
-          }
-        >
-          <span className="flex items-center gap-3">
-            <FiMessageSquare className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
-            Support Tickets
-          </span>
-        </NavLink>
-        
-        {/* Statistics Summary (Optional) */}
-        <div className="mt-4 p-3 rounded-lg border border-orange-800/30 bg-orange-900/10">
-          <p className="text-xs font-medium text-orange-300 mb-2">Quick Stats:</p>
-          <div className="space-y-1">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-orange-200">Pending Affiliates:</span>
-              <span className={`px-2 py-0.5 rounded-full ${getBadgeColor(affiliateCounts.pendingRegistrations, 'affiliate')} text-white`}>
-                {affiliateCounts.pendingRegistrations}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-orange-200">Pending Deposits:</span>
-              <span className={`px-2 py-0.5 rounded-full ${getBadgeColor(depositCounts.pending, 'pending')} text-white`}>
-                {depositCounts.pending}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-orange-200">Pending Withdrawals:</span>
-              <span className={`px-2 py-0.5 rounded-full ${getBadgeColor(withdrawalCounts.pending, 'pending')} text-white`}>
-                {withdrawalCounts.pending}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Logout Button */}
-        <button 
-          onClick={logout} 
-          className="flex items-center w-full px-3 py-2.5 text-[15px] lg:text-[16px] cursor-pointer rounded-lg transition-all duration-300 text-orange-200 hover:bg-orange-800/40 hover:text-white hover:translate-x-1 mt-4 group"
-        >
-          <span className="flex items-center gap-3">
-            <FiSettings className="text-[18px] group-hover:scale-110 transition-transform duration-300" />
-            Logout
-          </span>
+
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <button onClick={logout} className="flex items-center w-full px-3 py-2.5 text-gray-400 hover:text-red-500 transition-colors">
+          <FiSettings className="mr-3" /> Logout
         </button>
       </div>
     </aside>

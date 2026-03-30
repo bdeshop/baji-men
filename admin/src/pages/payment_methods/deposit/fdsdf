@@ -207,7 +207,7 @@ const Alldepositmethods = () => {
   return (
     <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
-      <Toaster toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
         <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
@@ -364,7 +364,7 @@ const Alldepositmethods = () => {
                         ৳{gateway.minAmount} - ৳{gateway.maxAmount}
                             </div>
                             <div className="text-[10px] text-gray-500">
-                                 Charge: ৳{gateway.fixedCharge} + {gateway.percentCharge}%
+                              {/* Charge: ৳{gateway.fixedCharge?.toFixed(2)} + {gateway.percentCharge}% */}
                             </div>
                           </td>
                           {/* Status */}

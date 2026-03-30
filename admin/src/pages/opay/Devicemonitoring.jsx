@@ -26,15 +26,16 @@ import {
   FaRegClock,
   FaSignal
 } from 'react-icons/fa';
-import { FiWifiOff, FiRefreshCw, FiWifi } from 'react-icons/fi';
+import { FiWifiOff, FiRefreshCw, FiWifi, FiTrendingUp } from 'react-icons/fi';
 import { IoStatsChart, IoBatteryFull, IoBatteryHalf, IoBatteryDead } from 'react-icons/io5';
 import { MdDevices, MdHistory, MdLocationOn, MdMemory } from 'react-icons/md';
 import { TbDeviceMobile, TbDeviceDesktop, TbDeviceTablet } from 'react-icons/tb';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { io } from 'socket.io-client';
+import { FaSpinner } from "react-icons/fa";
 
 const DeviceMonitoring = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -50,7 +51,7 @@ const DeviceMonitoring = () => {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [showDeviceDetails, setShowDeviceDetails] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
-  const [apiKey, setApiKey] = useState('sk_sub_b91d321aaed628d707bebc001b5e09a4de01973ebf0a19a56bf825010ae1a515');
+  const [apiKey, setApiKey] = useState('');
   const [validationStatus, setValidationStatus] = useState({
     valid: false,
     loading: false
@@ -109,6 +110,7 @@ const DeviceMonitoring = () => {
         }
       }
     } catch (error) {
+      console.error('Failed to load settings:', error);
     } finally {
       setIsInitializing(false);
     }
@@ -165,26 +167,26 @@ const DeviceMonitoring = () => {
   // Get device type icon
   const getDeviceTypeIcon = (type) => {
     const typeLower = type?.toLowerCase() || '';
-    if (typeLower.includes('desktop')) return <FaDesktop className="text-blue-500" />;
-    if (typeLower.includes('mobile')) return <FaMobileAlt className="text-purple-500" />;
-    if (typeLower.includes('tablet')) return <FaTabletAlt className="text-green-500" />;
+    if (typeLower.includes('desktop')) return <FaDesktop className="text-blue-400" />;
+    if (typeLower.includes('mobile')) return <FaMobileAlt className="text-purple-400" />;
+    if (typeLower.includes('tablet')) return <FaTabletAlt className="text-emerald-400" />;
     return <MdDevices className="text-gray-500" />;
   };
 
   // Get battery icon based on percentage
   const getBatteryIcon = (percentage) => {
     if (!percentage) return null;
-    if (percentage >= 80) return <IoBatteryFull className="text-green-500" />;
-    if (percentage >= 30) return <IoBatteryHalf className="text-yellow-500" />;
-    return <IoBatteryDead className="text-red-500" />;
+    if (percentage >= 80) return <IoBatteryFull className="text-emerald-400" />;
+    if (percentage >= 30) return <IoBatteryHalf className="text-amber-400" />;
+    return <IoBatteryDead className="text-rose-400" />;
   };
 
   // Get signal strength icon
   const getSignalIcon = (strength) => {
     if (!strength) return null;
-    if (strength >= 70) return <FaSignal className="text-green-500" />;
-    if (strength >= 40) return <FaSignal className="text-yellow-500" />;
-    return <FaSignal className="text-red-500" />;
+    if (strength >= 70) return <FaSignal className="text-emerald-400" />;
+    if (strength >= 40) return <FaSignal className="text-amber-400" />;
+    return <FaSignal className="text-rose-400" />;
   };
 
   // Add activity log entry
@@ -210,6 +212,8 @@ const DeviceMonitoring = () => {
       case 'error': return '❌';
       case 'reconnected': return '✅';
       case 'refresh': return '🔄';
+      case 'snapshot': return '📸';
+      case 'export': return '💾';
       default: return '📝';
     }
   };
@@ -531,7 +535,7 @@ const DeviceMonitoring = () => {
     return () => {
       clearInterval(uptimeIntervalRef.current);
     };
-  }, [apiKey, validationStatus.valid, integrationRunning, updateDeviceStats]);
+  }, [apiKey, validationStatus.valid, integrationRunning, updateDeviceStats, formatLastSeen]);
 
   // Load settings on mount
   useEffect(() => {
@@ -637,9 +641,9 @@ const DeviceMonitoring = () => {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-    if (sortConfig.direction === 'asc') return <FaSortUp className="text-blue-500" />;
-    return <FaSortDown className="text-blue-500" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-600 inline ml-1" />;
+    if (sortConfig.direction === 'asc') return <FaSortUp className="text-amber-400 inline ml-1" />;
+    return <FaSortDown className="text-amber-400 inline ml-1" />;
   };
 
   // Manual refresh function
@@ -696,6 +700,7 @@ const DeviceMonitoring = () => {
       }
     } catch (error) {
       console.error('Failed to toggle integration:', error);
+      toast.error('Failed to update running state');
     }
   };
 
@@ -758,641 +763,481 @@ const DeviceMonitoring = () => {
   // Get status badge class
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case 'online': return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
-      case 'offline': return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'online': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      case 'offline': return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      default: return 'bg-gray-500/10 text-gray-400 border border-gray-500/20';
     }
   };
 
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500';
+
+  const CloseIcon = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+
   return (
-    <section className="font-nunito min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
-
-      <div className="flex pt-16">
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
+      <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
-
-        <main
-          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto min-h-[calc(100vh-64px)] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
-          }`}
-        >
-          <div className="w-full mx-auto">
-            {/* Page Header */}
-            <div className="mb-8">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Device Monitoring Dashboard</h1>
-                  <p className="text-gray-600 mt-2 flex items-center flex-wrap gap-2">
-                    <span>Real-time monitoring and management of connected devices</span>
-                    <span className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-                    {socketConnected && (
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                        Live
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-                    socketConnected 
-                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-800' 
-                      : 'bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-800'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    <span className="font-medium">{socketConnected ? 'Connected' : 'Disconnected'}</span>
-                  </div>
-                  <button 
-                    onClick={handleRefresh}
-                    disabled={isLoading}
-                    className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                    title="Refresh"
-                  >
-                    <FiRefreshCw className={`text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Connection Status Banner */}
-              {socketError && (
-                <div className="bg-gradient-to-r from-red-50 to-pink-50 border-l-4 border-red-500 rounded-r-lg p-4 mb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex items-center">
-                      <FaExclamationTriangle className="text-red-500 mr-3 text-xl flex-shrink-0" />
-                      <div>
-                        <p className="text-red-800 font-medium">Connection Error</p>
-                        <p className="text-red-600 text-sm break-words">{socketError}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleActivateIntegration}
-                      className="sm:ml-auto bg-red-100 hover:bg-red-200 text-red-800 font-medium py-2 px-4 rounded-lg transition-colors text-sm flex-shrink-0"
-                    >
-                      Reconnect
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Integration Requirements Warning */}
-              {(!apiKey || !validationStatus.valid || !integrationRunning) && (
-                <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-500 rounded-r-lg p-4 mb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex items-center">
-                      <FaExclamationTriangle className="text-yellow-500 mr-3 text-xl flex-shrink-0" />
-                      <div>
-                        <p className="text-yellow-800 font-medium">Integration Requirements</p>
-                        <p className="text-yellow-600 text-sm">
-                          {!apiKey ? 'API key is missing' : 
-                           !validationStatus.valid ? 'API key validation failed' : 
-                           'Integration is not running'}
-                        </p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleActivateIntegration}
-                      className="sm:ml-auto bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-medium py-2 px-4 rounded-lg transition-colors text-sm flex-shrink-0"
-                    >
-                      Activate Integration
-                    </button>
-                  </div>
-                </div>
-              )}
+        <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+          
+          {/* Page Header */}
+          <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Device Monitoring Dashboard</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                <FaWifi className="text-amber-500" /> Real-time monitoring and management of connected devices
+                <span className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                {socketConnected && (
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">LIVE</span>
+                )}
+              </p>
             </div>
-
-            {/* Connection Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 md:p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-600 font-medium mb-1">Uptime</p>
-                    <p className="text-xl md:text-2xl font-bold text-blue-800">{formatUptime(connectionStats.uptime)}</p>
-                  </div>
-                  <div className="bg-blue-100 p-2 md:p-3 rounded-full">
-                    <FaRegClock className="text-blue-600 text-lg md:text-xl" />
-                  </div>
-                </div>
-                <p className="text-xs text-blue-500 mt-2">Time connected to server</p>
+            <div className="flex gap-3 mt-4 md:mt-0">
+              <div className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-bold ${
+                socketConnected 
+                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                  : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+                {socketConnected ? 'CONNECTED' : 'DISCONNECTED'}
               </div>
-
-              <div className="bg-gradient-to-br from-green-50 to-emerald-100 border border-green-200 rounded-xl p-4 md:p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-600 font-medium mb-1">Messages</p>
-                    <p className="text-xl md:text-2xl font-bold text-green-800">{connectionStats.messageCount}</p>
-                  </div>
-                  <div className="bg-green-100 p-2 md:p-3 rounded-full">
-                    <IoStatsChart className="text-green-600 text-lg md:text-xl" />
-                  </div>
-                </div>
-                <p className="text-xs text-green-500 mt-2">Updates received</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 md:p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-purple-600 font-medium mb-1">Online Devices</p>
-                    <p className="text-xl md:text-2xl font-bold text-purple-800">{deviceStats.online}</p>
-                  </div>
-                  <div className="bg-purple-100 p-2 md:p-3 rounded-full">
-                    <FaWifi className="text-purple-600 text-lg md:text-xl" />
-                  </div>
-                </div>
-                <p className="text-xs text-purple-500 mt-2">Currently active</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-4 md:p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 font-medium mb-1">Total Devices</p>
-                    <p className="text-xl md:text-2xl font-bold text-gray-800">{deviceStats.total}</p>
-                  </div>
-                  <div className="bg-gray-100 p-2 md:p-3 rounded-full">
-                    <MdDevices className="text-gray-600 text-lg md:text-xl" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">All registered devices</p>
-              </div>
+              <button 
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="bg-[#1F2937] hover:bg-amber-600/30 border border-gray-700 hover:border-amber-500/40 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400 disabled:opacity-50"
+              >
+                <FiRefreshCw className={isLoading ? 'animate-spin' : ''} /> REFRESH
+              </button>
             </div>
+          </div>
 
-            {/* Main Dashboard Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-              {/* Left Column - Device List */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                  <div className="p-4 md:p-6 border-b border-gray-200">
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <h2 className="text-xl font-bold text-gray-800">Connected Devices</h2>
-                        <p className="text-gray-600 text-sm mt-1">
-                          {filteredAndSortedDevices.length} of {deviceStats.total} devices
-                        </p>
+          {/* Connection Status Banner */}
+          {socketError && (
+            <div className="mb-6 bg-rose-500/10 border border-rose-500/30 text-rose-400 px-4 py-3 rounded text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <FaExclamationTriangle className="text-rose-400" />
+                <span className="text-xs font-bold uppercase tracking-wider">Connection Error: {socketError}</span>
+              </div>
+              <button 
+                onClick={handleActivateIntegration}
+                className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-400 font-bold py-1.5 px-4 rounded text-[10px] uppercase transition-all"
+              >
+                Reconnect
+              </button>
+            </div>
+          )}
+
+          {/* Integration Requirements Warning */}
+          {(!apiKey || !validationStatus.valid || !integrationRunning) && (
+            <div className="mb-6 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-4 py-3 rounded text-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <FaExclamationTriangle className="text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  {!apiKey ? 'API key is missing' : !validationStatus.valid ? 'API key validation failed' : 'Integration is not running'}
+                </span>
+              </div>
+              <button 
+                onClick={handleActivateIntegration}
+                className="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-400 font-bold py-1.5 px-4 rounded text-[10px] uppercase transition-all"
+              >
+                Activate Integration
+              </button>
+            </div>
+          )}
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'UPTIME', value: formatUptime(connectionStats.uptime), color: 'border-blue-500', icon: <FaRegClock className="text-blue-400" />, valueClass: 'text-blue-400' },
+              { label: 'MESSAGES', value: connectionStats.messageCount, color: 'border-emerald-500', icon: <IoStatsChart className="text-emerald-400" />, valueClass: 'text-emerald-400' },
+              { label: 'ONLINE DEVICES', value: deviceStats.online, color: 'border-emerald-500', icon: <FaWifi className="text-emerald-400" />, valueClass: 'text-emerald-400' },
+              { label: 'TOTAL DEVICES', value: deviceStats.total, color: 'border-amber-500', icon: <MdDevices className="text-amber-400" />, valueClass: 'text-white' },
+            ].map((card, i) => (
+              <div key={i} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                <div className="flex justify-between items-start mb-3">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{card.label}</p>
+                  {card.icon}
+                </div>
+                <h2 className={`text-xl font-bold mt-1 leading-none ${card.valueClass}`}>{card.value}</h2>
+              </div>
+            ))}
+          </div>
+
+          {/* Main Dashboard Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Left Column - Device List */}
+            <div className="lg:col-span-2">
+              <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-lg">
+                <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <h2 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Connected Devices</h2>
+                      <p className="text-[9px] text-gray-500 mt-0.5">
+                        {filteredAndSortedDevices.length} of {deviceStats.total} devices
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                        <input
+                          type="text"
+                          placeholder="Search devices..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className={inputClass}
+                        />
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search devices..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      <div className="flex gap-2">
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className={selectClass}
+                        >
+                          <option value="all">All Status</option>
+                          <option value="online">Online</option>
+                          <option value="offline">Offline</option>
+                        </select>
+                        <select
+                          value={deviceTypeFilter}
+                          onChange={(e) => setDeviceTypeFilter(e.target.value)}
+                          className={selectClass}
+                        >
+                          <option value="all">All Types</option>
+                          <option value="desktop">Desktop</option>
+                          <option value="mobile">Mobile</option>
+                          <option value="tablet">Tablet</option>
+                        </select>
+                        {(searchQuery || statusFilter !== 'all' || deviceTypeFilter !== 'all') && (
+                          <button
+                            onClick={clearFilters}
+                            className="text-[9px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
                           >
-                            <option value="all">All Status</option>
-                            <option value="online">Online</option>
-                            <option value="offline">Offline</option>
-                          </select>
-                          <select
-                            value={deviceTypeFilter}
-                            onChange={(e) => setDeviceTypeFilter(e.target.value)}
-                            className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          >
-                            <option value="all">All Types</option>
-                            <option value="desktop">Desktop</option>
-                            <option value="mobile">Mobile</option>
-                            <option value="tablet">Tablet</option>
-                          </select>
-                          {(searchQuery || statusFilter !== 'all' || deviceTypeFilter !== 'all') && (
-                            <button
-                              onClick={clearFilters}
-                              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
+                            Clear
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left">
+                    <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
+                      <tr>
+                        <th className="px-5 py-3">Device</th>
+                        <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('status')}>
+                          Status {getSortIcon('status')}
+                        </th>
+                        <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('rawLastSeen')}>
+                          Last Seen {getSortIcon('rawLastSeen')}
+                        </th>
+                        <th className="px-5 py-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {isLoading ? (
                         <tr>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Device
-                          </th>
-                          <th 
-                            className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('status')}
-                          >
-                            <div className="flex items-center">
-                              Status
-                              {getSortIcon('status')}
+                          <td colSpan="4" className="px-6 py-16 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <FaSpinner className="animate-spin text-amber-400 text-2xl" />
+                              <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading devices...</p>
                             </div>
-                          </th>
-                          <th 
-                            className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('rawLastSeen')}
-                          >
-                            <div className="flex items-center">
-                              Last Seen
-                              {getSortIcon('rawLastSeen')}
-                            </div>
-                          </th>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                       {isLoading ? (
-  <tr>
-    <td colSpan="4" className="px-4 md:px-6 py-8 md:py-12 text-center">
-      <div className="flex flex-col items-center justify-center space-y-6">
-        {/* Main Spinner */}
-        <div className="relative">
-          {/* Outer ring */}
-          <div className="w-16 h-16 md:w-20 md:h-20 border-4 border-blue-100 rounded-full"></div>
-          
-          {/* Animated gradient ring */}
-          <div className="absolute top-0 left-0 w-16 h-16 md:w-20 md:h-20 border-4 border-transparent rounded-full 
-            border-t-blue-500 border-r-blue-400 border-b-cyan-500 border-l-cyan-400 animate-spin"></div>
-          
-          {/* Inner dot */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
-            w-4 h-4 md:w-6 md:h-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full 
-            animate-pulse shadow-lg shadow-blue-200"></div>
-        </div>
-
-        {/* Loading text with animation */}
-        <div className="space-y-2">
-          <p className="text-gray-700 font-medium text-lg">Loading Devices</p>
-          <div className="flex items-center justify-center space-x-1">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-          </div>
-          
-          {/* Status messages */}
-          <div className="mt-4 space-y-1">
-            {isInitializing ? (
-              <div className="flex items-center justify-center text-sm text-blue-600">
-                <div className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></div>
-                Loading integration settings
-              </div>
-            ): (
-              <div className="text-sm text-gray-500">
-                
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </td>
-  </tr>
-): filteredAndSortedDevices.length === 0 ? (
-                          <tr>
-                            <td colSpan="4" className="px-4 md:px-6 py-8 md:py-12 text-center">
-                              <div className="flex flex-col items-center">
-                                <div className="text-gray-400 text-4xl md:text-5xl mb-3">
-                                  {searchQuery ? '🔍' : (socketConnected ? '📱' : '🔌')}
+                      ) : filteredAndSortedDevices.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="px-6 py-16 text-center">
+                            <div className="flex flex-col items-center text-gray-600">
+                              {searchQuery ? '🔍' : (socketConnected ? '📱' : '🔌')}
+                              <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mt-3">
+                                {searchQuery ? 'No devices match your search' : 
+                                 !socketConnected ? 'Not connected to monitoring service' : 
+                                 'No devices found'}
+                              </p>
+                              <p className="text-[10px] mt-1 text-gray-600">
+                                {searchQuery ? 'Try adjusting your search criteria' : 
+                                 !socketConnected ? 'Activate integration to start monitoring' : 
+                                 'Devices will appear here when they connect'}
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredAndSortedDevices.map((device) => (
+                          <tr key={device.id} className="hover:bg-[#1F2937] transition-colors group">
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-[#0F111A] border border-gray-700">
+                                  {getDeviceTypeIcon(device.deviceType)}
                                 </div>
-                                <p className="text-gray-600 font-medium">
-                                  {searchQuery ? 'No devices match your search' : 
-                                   !socketConnected ? 'Not connected to monitoring service' : 
-                                   'No devices found'}
-                                </p>
-                                <p className="text-gray-500 text-sm mt-1 max-w-md">
-                                  {searchQuery ? 'Try adjusting your search criteria' : 
-                                   !socketConnected ? 'Activate integration to start monitoring' : 
-                                   'Devices will appear here when they connect'}
-                                </p>
+                                <div>
+                                  <div className="text-sm font-bold text-white">{device.name}</div>
+                                  {device.userName && (
+                                    <div className="text-[10px] text-gray-500 flex items-center gap-1">
+                                      <FaUserCircle className="text-[9px]" /> {device.userName}
+                                    </div>
+                                  )}
+                                  <div className="text-[9px] text-gray-600 font-mono mt-0.5">
+                                    {device.os} • {device.deviceId?.substring(0, 8)}...
+                                  </div>
+                                </div>
                               </div>
                             </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase w-fit ${getStatusBadgeClass(device.status)}`}>
+                                  {device.status === 'online' ? <FaWifi className="inline mr-1 text-[9px]" /> : <FiWifiOff className="inline mr-1 text-[9px]" />}
+                                  {device.status}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {device.battery && (
+                                    <span className="text-[9px] text-gray-500 flex items-center gap-1">
+                                      {getBatteryIcon(device.battery)}
+                                      {device.battery}%
+                                    </span>
+                                  )}
+                                  {device.signal && (
+                                    <span className="text-[9px] text-gray-500 flex items-center gap-1">
+                                      {getSignalIcon(device.signal)}
+                                      {device.signal}%
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <div className="text-xs text-gray-400">
+                                {device.lastSeen}
+                              </div>
+                              {device.location && device.location !== 'Unknown' && (
+                                <div className="text-[9px] text-gray-600 flex items-center gap-1 mt-0.5">
+                                  <MdLocationOn className="text-[9px]" /> {device.location}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <button
+                                onClick={() => handleViewDeviceDetails(device)}
+                                className="p-1.5 bg-indigo-500/10 hover:bg-indigo-500/30 border border-indigo-500/20 text-indigo-400 rounded text-xs transition-all"
+                                title="View Details"
+                              >
+                                <FaEye />
+                              </button>
+                            </td>
                           </tr>
-                        ) : (
-                          filteredAndSortedDevices.map((device) => (
-                            <tr key={device.id} className="hover:bg-gray-50 transition-colors group">
-                              <td className="px-4 md:px-6 py-4">
-                                <div className="flex items-center">
-                                  <div className="flex-shrink-0 mr-3">
-                                    <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-gray-200 transition-colors">
-                                      {getDeviceTypeIcon(device.deviceType)}
-                                    </div>
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="font-medium text-gray-900 truncate">{device.name}</div>
-                                    {device.userName && (
-                                      <div className="text-sm text-gray-500 truncate flex items-center">
-                                        <FaUserCircle className="mr-1 flex-shrink-0" />
-                                        <span className="truncate">{device.userName}</span>
-                                      </div>
-                                    )}
-                                    <div className="text-xs text-gray-400 font-mono truncate mt-1">
-                                      {device.os} • {device.deviceId?.substring(0, 8)}...
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 md:px-6 py-4">
-                                <div className="flex flex-col">
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium w-fit ${getStatusBadgeClass(device.status)}`}>
-                                    {device.status === 'online' ? 
-                                      <FaWifi className="mr-1 text-xs" /> : 
-                                      <FiWifiOff className="mr-1 text-xs" />
-                                    }
-                                    {device.status.charAt(0).toUpperCase() + device.status.slice(1)}
-                                  </span>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    {device.battery && (
-                                      <span className="text-xs text-gray-500 flex items-center">
-                                        {getBatteryIcon(device.battery)}
-                                        <span className="ml-1">{device.battery}%</span>
-                                      </span>
-                                    )}
-                                    {device.signal && (
-                                      <span className="text-xs text-gray-500 flex items-center">
-                                        {getSignalIcon(device.signal)}
-                                        <span className="ml-1">{device.signal}%</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 md:px-6 py-4">
-                                <div className="text-gray-600 text-sm">
-                                  {device.lastSeen}
-                                </div>
-                                {device.location && device.location !== 'Unknown' && (
-                                  <div className="text-xs text-gray-400 truncate flex items-center mt-1">
-                                    <MdLocationOn className="mr-1 flex-shrink-0" />
-                                    <span className="truncate">{device.location}</span>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="px-4 md:px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                      <div className="text-sm text-gray-600">
-                        Showing <span className="font-medium">{filteredAndSortedDevices.length}</span> of {deviceStats.total} devices
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => setShowActivityLog(true)}
-                          className="flex items-center space-x-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors text-sm"
-                        >
-                          <MdHistory />
-                          <span>Activity Log</span>
-                        </button>
-                        <button
-                          onClick={handleExportData}
-                          disabled={devices.length === 0}
-                          className="flex items-center space-x-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <FaDownload />
-                          <span>Export</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
 
-              {/* Right Column - Status & Activity */}
-              <div className="space-y-6">
-                {/* Integration Status Card */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 md:p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-gray-800 mb-4">Integration Status</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center">
-                        <div className={`p-2 rounded-full mr-3 ${
-                          integrationRunning ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                          <FaPlug className={integrationRunning ? 'text-green-600' : 'text-red-600'} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-700">Integration</p>
-                          <p className="text-sm text-gray-500">Monitoring service</p>
-                        </div>
-                      </div>
+                <div className="px-5 py-4 border-t border-gray-800 bg-[#1C2128]">
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <div className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">
+                      Showing {filteredAndSortedDevices.length} of {deviceStats.total} devices
+                    </div>
+                    <div className="flex items-center gap-3">
                       <button
-                        onClick={toggleIntegration}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          integrationRunning ? 'bg-green-500' : 'bg-gray-300'
-                        }`}
+                        onClick={() => setShowActivityLog(true)}
+                        className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 hover:text-amber-400 transition-colors"
                       >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            integrationRunning ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
+                        <MdHistory /> Activity Log
                       </button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center">
-                        <div className={`p-2 rounded-full mr-3 ${
-                          apiKey ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                          <FaKey className={apiKey ? 'text-green-600' : 'text-red-600'} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-700">API Key</p>
-                          <p className="text-sm text-gray-500">Authentication</p>
-                        </div>
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        apiKey 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {apiKey ? 'Configured' : 'Missing'}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center">
-                        <div className={`p-2 rounded-full mr-3 ${
-                          validationStatus.valid ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                          {validationStatus.valid ? 
-                            <FaCheckCircle className="text-green-600" /> : 
-                            <FaTimesCircle className="text-red-600" />
-                          }
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-700">Validation</p>
-                          <p className="text-sm text-gray-500">System check</p>
-                        </div>
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        validationStatus.valid 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {validationStatus.valid ? 'Passed' : 'Failed'}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center">
-                        <div className={`p-2 rounded-full mr-3 ${
-                          socketConnected ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                          {socketConnected ? 
-                            <FaWifi className="text-green-600" /> : 
-                            <FiWifiOff className="text-red-600" />
-                          }
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-700">Connection</p>
-                          <p className="text-sm text-gray-500">Real-time socket</p>
-                        </div>
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        socketConnected 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {socketConnected ? 'Connected' : 'Disconnected'}
-                      </div>
+                      <button
+                        onClick={handleExportData}
+                        disabled={devices.length === 0}
+                        className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 hover:text-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FaDownload /> Export
+                      </button>
                     </div>
                   </div>
-
-                  {!integrationRunning && (
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={handleActivateIntegration}
-                        disabled={!apiKey || validationStatus.loading}
-                        className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 rounded-lg transition-all hover:shadow-lg"
-                      >
-                        {validationStatus.loading ? 'Validating...' : 'Activate Integration'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
+
+            {/* Right Column - Status & Activity */}
+            <div className="space-y-6">
+              {/* Integration Status Card */}
+              <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 shadow-lg">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-1 h-4 bg-amber-500"></div>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Integration Status</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${integrationRunning ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
+                        <FaPlug className={integrationRunning ? 'text-emerald-400' : 'text-rose-400'} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Integration</p>
+                        <p className="text-[9px] text-gray-600">Monitoring service</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={toggleIntegration}
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${integrationRunning ? 'bg-emerald-600' : 'bg-gray-700'}`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${integrationRunning ? 'translate-x-5' : 'translate-x-1'}`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${apiKey ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
+                        <FaKey className={apiKey ? 'text-emerald-400' : 'text-rose-400'} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">API Key</p>
+                        <p className="text-[9px] text-gray-600">Authentication</p>
+                      </div>
+                    </div>
+                    <div className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${apiKey ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {apiKey ? 'Configured' : 'Missing'}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${validationStatus.valid ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
+                        {validationStatus.valid ? <FaCheckCircle className="text-emerald-400" /> : <FaTimesCircle className="text-rose-400" />}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Validation</p>
+                        <p className="text-[9px] text-gray-600">System check</p>
+                      </div>
+                    </div>
+                    <div className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${validationStatus.valid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {validationStatus.valid ? 'Passed' : 'Failed'}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-[#0F111A] rounded-lg border border-gray-800">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${socketConnected ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
+                        {socketConnected ? <FaWifi className="text-emerald-400" /> : <FiWifiOff className="text-rose-400" />}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Connection</p>
+                        <p className="text-[9px] text-gray-600">Real-time socket</p>
+                      </div>
+                    </div>
+                    <div className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${socketConnected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {socketConnected ? 'Connected' : 'Disconnected'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
+
         </main>
       </div>
 
       {/* Device Details Modal */}
       {showDeviceDetails && selectedDevice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800">Device Details</h3>
-                <button
-                  onClick={() => setShowDeviceDetails(false)}
-                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 rounded-xl bg-gray-100">
-                    {getDeviceTypeIcon(selectedDevice.deviceType)}
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-bold text-gray-800 truncate">{selectedDevice.name}</h4>
-                    {selectedDevice.userName && (
-                      <p className="text-gray-600 truncate">{selectedDevice.userName}</p>
-                    )}
-                  </div>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128] sticky top-0 z-10">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                <MdDevices /> Device Details
+              </h3>
+              <button onClick={() => setShowDeviceDetails(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
+            <div className="px-6 py-5">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 rounded-xl bg-[#0F111A] border border-gray-800">
+                  {getDeviceTypeIcon(selectedDevice.deviceType)}
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-500">Status</p>
-                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${getStatusBadgeClass(selectedDevice.status)}`}>
-                      {selectedDevice.status === 'online' ? 
-                        <FaWifi className="mr-1 text-xs" /> : 
-                        <FiWifiOff className="mr-1 text-xs" />
-                      }
-                      {selectedDevice.status.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-500">Device Type</p>
-                    <p className="font-medium text-gray-800 capitalize">{selectedDevice.deviceType}</p>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-500">OS</p>
-                    <p className="font-medium text-gray-800">{selectedDevice.os}</p>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-500">Last Seen</p>
-                    <p className="font-medium text-gray-800">{selectedDevice.lastSeen}</p>
-                  </div>
-                </div>
-
                 <div>
-                  <h5 className="font-medium text-gray-700 mb-3">Additional Information</h5>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Device ID</span>
-                      <code className="text-sm bg-gray-100 px-2 py-1 rounded truncate max-w-[200px]">{selectedDevice.deviceId}</code>
-                    </div>
-                    {selectedDevice.location && selectedDevice.location !== 'Unknown' && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Location</span>
-                        <span className="font-medium flex items-center">
-                          <MdLocationOn className="mr-1" />
-                          {selectedDevice.location}
-                        </span>
-                      </div>
-                    )}
-                    {selectedDevice.battery && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Battery</span>
-                        <span className="font-medium flex items-center">
-                          {getBatteryIcon(selectedDevice.battery)}
-                          <span className="ml-1">{selectedDevice.battery}%</span>
-                        </span>
-                      </div>
-                    )}
-                    {selectedDevice.signal && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Signal</span>
-                        <span className="font-medium flex items-center">
-                          {getSignalIcon(selectedDevice.signal)}
-                          <span className="ml-1">{selectedDevice.signal}%</span>
-                        </span>
-                      </div>
-                    )}
-                    {selectedDevice.model && selectedDevice.model !== 'Unknown' && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Model</span>
-                        <span className="font-medium">{selectedDevice.model}</span>
-                      </div>
-                    )}
-                    {selectedDevice.version && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Version</span>
-                        <span className="font-medium">{selectedDevice.version}</span>
-                      </div>
-                    )}
+                  <h4 className="text-lg font-bold text-white truncate">{selectedDevice.name}</h4>
+                  {selectedDevice.userName && (
+                    <p className="text-xs text-gray-500 truncate">{selectedDevice.userName}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-[#0F111A] p-3 rounded-lg border border-gray-800">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Status</p>
+                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-[9px] font-bold uppercase mt-1 ${getStatusBadgeClass(selectedDevice.status)}`}>
+                    {selectedDevice.status === 'online' ? <FaWifi className="mr-1 text-[9px]" /> : <FiWifiOff className="mr-1 text-[9px]" />}
+                    {selectedDevice.status.toUpperCase()}
                   </div>
                 </div>
+                <div className="bg-[#0F111A] p-3 rounded-lg border border-gray-800">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Device Type</p>
+                  <p className="text-xs font-medium text-gray-300 capitalize mt-1">{selectedDevice.deviceType}</p>
+                </div>
+                <div className="bg-[#0F111A] p-3 rounded-lg border border-gray-800">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">OS</p>
+                  <p className="text-xs font-medium text-gray-300 mt-1">{selectedDevice.os}</p>
+                </div>
+                <div className="bg-[#0F111A] p-3 rounded-lg border border-gray-800">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Last Seen</p>
+                  <p className="text-xs font-medium text-gray-300 mt-1">{selectedDevice.lastSeen}</p>
+                </div>
+              </div>
 
-                <div className="pt-6 border-t border-gray-200">
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => setShowDeviceDetails(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Close
-                    </button>
-                    <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-colors">
-                      Manage Device
-                    </button>
+              <div>
+                <h5 className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-3">Additional Information</h5>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                    <span className="text-[10px] text-gray-500">Device ID</span>
+                    <code className="text-[10px] bg-[#0F111A] px-2 py-1 rounded font-mono text-gray-400">{selectedDevice.deviceId}</code>
                   </div>
+                  {selectedDevice.location && selectedDevice.location !== 'Unknown' && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-[10px] text-gray-500">Location</span>
+                      <span className="text-[10px] font-medium text-gray-300 flex items-center gap-1">
+                        <MdLocationOn className="text-amber-400" /> {selectedDevice.location}
+                      </span>
+                    </div>
+                  )}
+                  {selectedDevice.battery && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-[10px] text-gray-500">Battery</span>
+                      <span className="text-[10px] font-medium text-gray-300 flex items-center gap-1">
+                        {getBatteryIcon(selectedDevice.battery)} {selectedDevice.battery}%
+                      </span>
+                    </div>
+                  )}
+                  {selectedDevice.signal && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-[10px] text-gray-500">Signal</span>
+                      <span className="text-[10px] font-medium text-gray-300 flex items-center gap-1">
+                        {getSignalIcon(selectedDevice.signal)} {selectedDevice.signal}%
+                      </span>
+                    </div>
+                  )}
+                  {selectedDevice.model && selectedDevice.model !== 'Unknown' && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                      <span className="text-[10px] text-gray-500">Model</span>
+                      <span className="text-[10px] font-medium text-gray-300">{selectedDevice.model}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-6 mt-4 border-t border-gray-800">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowDeviceDetails(false)}
+                    className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
@@ -1402,43 +1247,39 @@ const DeviceMonitoring = () => {
 
       {/* Activity Log Modal */}
       {showActivityLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800">Activity Log</h3>
-                <button
-                  onClick={() => setShowActivityLog(false)}
-                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-              
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128] sticky top-0 z-10">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                <MdHistory /> Activity Log
+              </h3>
+              <button onClick={() => setShowActivityLog(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
+            <div className="px-6 py-5">
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
                 {activityLog.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <MdHistory className="text-4xl mx-auto mb-3 text-gray-300" />
-                    <p>No activity yet</p>
-                    <p className="text-sm mt-1">Activity will appear here as events occur</p>
+                  <div className="text-center py-12">
+                    <MdHistory className="text-gray-700 text-4xl mx-auto mb-3" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">No activity yet</p>
+                    <p className="text-[9px] text-gray-600 mt-1">Activity will appear here as events occur</p>
                   </div>
                 ) : (
                   activityLog.map((log) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
-                      <div className="text-xl mt-1">{log.icon}</div>
+                    <div key={log.id} className="flex items-start gap-3 p-3 hover:bg-[#0F111A] rounded-lg transition-colors border border-gray-800">
+                      <div className="text-lg mt-0.5">{log.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700">{log.message}</p>
-                        <p className="text-xs text-gray-500 mt-1 flex items-center">
-                          <FaRegClock className="mr-1" />
+                        <p className="text-xs text-gray-300">{log.message}</p>
+                        <p className="text-[9px] text-gray-500 mt-1 flex items-center gap-2">
+                          <FaRegClock className="text-[9px]" />
                           {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           {' • '}
                           {new Date(log.timestamp).toLocaleDateString()}
                         </p>
                         {log.details && Object.keys(log.details).length > 0 && (
-                          <div className="mt-2 text-xs text-gray-400">
+                          <div className="mt-1 text-[9px] text-gray-600">
                             {Object.entries(log.details).map(([key, value]) => (
                               <span key={key} className="mr-2">
-                                {key}: <span className="font-medium">{String(value)}</span>
+                                {key}: <span className="text-gray-400">{String(value)}</span>
                               </span>
                             ))}
                           </div>
@@ -1450,14 +1291,14 @@ const DeviceMonitoring = () => {
               </div>
               
               {activityLog.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="mt-6 pt-4 border-t border-gray-800">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">
+                    <span className="text-[9px] text-gray-500 uppercase tracking-wider">
                       {activityLog.length} log entries
                     </span>
                     <button
                       onClick={() => setActivityLog([])}
-                      className="text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1 rounded-lg transition-colors"
+                      className="text-[9px] text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider"
                     >
                       Clear All
                     </button>

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaCalendarAlt, FaPercentage, FaDice, FaGift, FaSpinner, FaSave, FaTimes, FaInfoCircle } from 'react-icons/fa';
+import { FaCalendarAlt, FaPercentage, FaGift, FaSpinner, FaTimes, FaInfoCircle } from 'react-icons/fa';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import toast, { Toaster } from 'react-hot-toast';
 import { FaBangladeshiTakaSign } from "react-icons/fa6";
 
 const Editbonus = () => {
@@ -14,330 +13,130 @@ const Editbonus = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
-
-  const [bonusTypes, setBonusTypes] = useState([
-    'welcome', 'deposit', 'reload', 'cashback', 'free_spin', 'special', 'manual'
-  ]);
-
-  const [applicableToOptions, setApplicableToOptions] = useState([
-    'all', 'new', 'existing'
-  ]);
+  const bonusTypes = ['welcome', 'deposit', 'reload', 'cashback', 'free_spin', 'special', 'manual'];
 
   const [formData, setFormData] = useState({
-    name: '',
-    bonusCode: '',
-    bonusType: 'deposit',
-    amount: 0,
-    percentage: 0,
-    minDeposit: 0,
-    maxBonus: null,
-    wageringRequirement: 0,
-    validityDays: 30,
-    status: 'active',
-    applicableTo: 'all',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: '',
-    createdBy: null
+    name: '', bonusCode: '', bonusType: 'deposit', amount: 0, percentage: 0,
+    minDeposit: 0, maxBonus: null, wageringRequirement: 0, validityDays: 30,
+    status: 'active', applicableTo: 'all', startDate: new Date().toISOString().split('T')[0], endDate: '', createdBy: null,
   });
-
   const [errors, setErrors] = useState({});
   const [originalData, setOriginalData] = useState(null);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Fetch bonus data on component mount
   useEffect(() => {
     const fetchBonusData = async () => {
       try {
         setLoading(true);
         const response = await fetch(`${base_url}/api/admin/bonuses/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-          }
+          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
         });
-
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch bonus data');
-        }
-
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch bonus data');
         if (data.success && data.bonus) {
           const bonus = data.bonus;
-          
-          // Format dates for input fields
-          const startDate = bonus.startDate 
-            ? new Date(bonus.startDate).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
-            
-          const endDate = bonus.endDate 
-            ? new Date(bonus.endDate).toISOString().split('T')[0]
-            : '';
-
-          setFormData({
-            name: bonus.name || '',
-            bonusCode: bonus.bonusCode || '',
-            bonusType: bonus.bonusType || 'deposit',
-            amount: bonus.amount || 0,
-            percentage: bonus.percentage || 0,
-            minDeposit: bonus.minDeposit || 0,
-            maxBonus: bonus.maxBonus !== undefined ? bonus.maxBonus : null,
-            wageringRequirement: bonus.wageringRequirement || 0,
-            validityDays: bonus.validityDays || 30,
-            status: bonus.status || 'active',
-            applicableTo: bonus.applicableTo || 'all',
-            startDate: startDate,
-            endDate: endDate,
-            createdBy: bonus.createdBy || null
-          });
-
+          const startDate = bonus.startDate ? new Date(bonus.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          const endDate = bonus.endDate ? new Date(bonus.endDate).toISOString().split('T')[0] : '';
+          setFormData({ name: bonus.name || '', bonusCode: bonus.bonusCode || '', bonusType: bonus.bonusType || 'deposit', amount: bonus.amount || 0, percentage: bonus.percentage || 0, minDeposit: bonus.minDeposit || 0, maxBonus: bonus.maxBonus !== undefined ? bonus.maxBonus : null, wageringRequirement: bonus.wageringRequirement || 0, validityDays: bonus.validityDays || 30, status: bonus.status || 'active', applicableTo: bonus.applicableTo || 'all', startDate, endDate, createdBy: bonus.createdBy || null });
           setOriginalData(bonus);
         }
       } catch (error) {
         toast.error(error.message || 'Failed to load bonus data');
-        console.error('Error fetching bonus:', error);
-        // Redirect to bonuses list if not found
-        setTimeout(() => navigate('/admin/bonuses'), 2000);
+        setTimeout(() => navigate(-1), 2000);
       } finally {
         setLoading(false);
       }
     };
-
-    if (id) {
-      fetchBonusData();
-    }
+    if (id) fetchBonusData();
   }, [id, base_url, navigate]);
 
-  // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
-    
-    // Convert number inputs to appropriate types
     let processedValue;
-    if (type === 'number') {
-      processedValue = value === '' ? '' : parseFloat(value);
-      // Handle NaN cases
-      if (isNaN(processedValue)) processedValue = '';
-    } else {
-      processedValue = value;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      [name]: processedValue
-    }));
-
-    // Clear error for this field
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (type === 'number') { processedValue = value === '' ? '' : parseFloat(value); if (isNaN(processedValue)) processedValue = ''; }
+    else processedValue = value;
+    setFormData((prev) => ({ ...prev, [name]: processedValue }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  // Handle radio button changes
-  const handleRadioChange = (name, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Validate form
   const validateForm = () => {
     const newErrors = {};
-
-    // Name validation
-    if (!formData.name.trim()) {
-      newErrors.name = 'Bonus name is required';
-    } else if (formData.name.length < 3) {
-      newErrors.name = 'Bonus name must be at least 3 characters';
-    }
-
-    // Amount or percentage validation
-    if (formData.amount <= 0 && formData.percentage <= 0) {
-      newErrors.amount = 'Either amount or percentage must be greater than 0';
-      newErrors.percentage = 'Either amount or percentage must be greater than 0';
-    }
-
-    // Amount validation
-    if (formData.amount < 0) {
-      newErrors.amount = 'Amount cannot be negative';
-    }
-
-    // Percentage validation
-    if (formData.percentage < 0) {
-      newErrors.percentage = 'Percentage cannot be negative';
-    } else if (formData.percentage > 500) {
-      newErrors.percentage = 'Percentage cannot exceed 500%';
-    }
-
-    // Min deposit validation
-    if (formData.minDeposit < 0) {
-      newErrors.minDeposit = 'Minimum deposit cannot be negative';
-    }
-
-    // Max bonus validation
-    if (formData.maxBonus !== null && formData.maxBonus < 0) {
-      newErrors.maxBonus = 'Maximum bonus cannot be negative';
-    }
-
-    // Wagering requirement validation
-    if (formData.wageringRequirement < 0) {
-      newErrors.wageringRequirement = 'Wagering requirement cannot be negative';
-    } else if (formData.wageringRequirement > 100) {
-      newErrors.wageringRequirement = 'Wagering requirement cannot exceed 100x';
-    }
-
-    // Validity days validation
-    if (formData.validityDays <= 0) {
-      newErrors.validityDays = 'Validity days must be greater than 0';
-    } else if (formData.validityDays > 365) {
-      newErrors.validityDays = 'Validity days cannot exceed 365 days';
-    }
-
-    // Date validation
-    if (formData.endDate && new Date(formData.endDate) <= new Date(formData.startDate)) {
-      newErrors.endDate = 'End date must be after start date';
-    }
-
+    if (!formData.name.trim()) newErrors.name = 'Bonus name is required';
+    else if (formData.name.length < 3) newErrors.name = 'Bonus name must be at least 3 characters';
+    if (formData.amount <= 0 && formData.percentage <= 0) { newErrors.amount = 'Either amount or percentage must be greater than 0'; newErrors.percentage = 'Either amount or percentage must be greater than 0'; }
+    if (formData.amount < 0) newErrors.amount = 'Amount cannot be negative';
+    if (formData.percentage < 0) newErrors.percentage = 'Percentage cannot be negative';
+    else if (formData.percentage > 500) newErrors.percentage = 'Percentage cannot exceed 500%';
+    if (formData.minDeposit < 0) newErrors.minDeposit = 'Minimum deposit cannot be negative';
+    if (formData.maxBonus !== null && formData.maxBonus < 0) newErrors.maxBonus = 'Maximum bonus cannot be negative';
+    if (formData.wageringRequirement < 0) newErrors.wageringRequirement = 'Wagering requirement cannot be negative';
+    else if (formData.wageringRequirement > 100) newErrors.wageringRequirement = 'Wagering requirement cannot exceed 100x';
+    if (formData.validityDays <= 0) newErrors.validityDays = 'Validity days must be greater than 0';
+    else if (formData.validityDays > 365) newErrors.validityDays = 'Validity days cannot exceed 365 days';
+    if (formData.endDate && new Date(formData.endDate) <= new Date(formData.startDate)) newErrors.endDate = 'End date must be after start date';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission (Update)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      toast.error('Please fix the form errors before submitting');
-      return;
-    }
-
+    if (!validateForm()) { toast.error('Please fix the form errors before submitting'); return; }
     setIsSubmitting(true);
-
     try {
       const response = await fetch(`${base_url}/api/admin/bonuses/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        },
-        body: JSON.stringify({
-          ...formData,
-          amount: formData.amount || 0,
-          percentage: formData.percentage || 0,
-          maxBonus: formData.maxBonus === '' ? null : formData.maxBonus,
-          endDate: formData.endDate === '' ? null : formData.endDate
-        })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+        body: JSON.stringify({ ...formData, amount: formData.amount || 0, percentage: formData.percentage || 0, maxBonus: formData.maxBonus === '' ? null : formData.maxBonus, endDate: formData.endDate === '' ? null : formData.endDate }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update bonus');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Failed to update bonus');
       toast.success('Bonus updated successfully!');
-      
-      // Update original data
       setOriginalData(data.bonus);
-      
-      // Navigate back to bonuses list after 2 seconds
-      setTimeout(() => navigate('/admin/bonuses'), 2000);
-
+      setTimeout(() => navigate(-1), 2000);
     } catch (error) {
       toast.error(error.message || 'Failed to update bonus');
-      console.error('Error updating bonus:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle cancel/edit mode
   const handleCancel = () => {
     if (originalData) {
-      const startDate = originalData.startDate 
-        ? new Date(originalData.startDate).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0];
-        
-      const endDate = originalData.endDate 
-        ? new Date(originalData.endDate).toISOString().split('T')[0]
-        : '';
-
-      setFormData({
-        name: originalData.name || '',
-        bonusCode: originalData.bonusCode || '',
-        bonusType: originalData.bonusType || 'deposit',
-        amount: originalData.amount || 0,
-        percentage: originalData.percentage || 0,
-        minDeposit: originalData.minDeposit || 0,
-        maxBonus: originalData.maxBonus !== undefined ? originalData.maxBonus : null,
-        wageringRequirement: originalData.wageringRequirement || 0,
-        validityDays: originalData.validityDays || 30,
-        status: originalData.status || 'active',
-        applicableTo: originalData.applicableTo || 'all',
-        startDate: startDate,
-        endDate: endDate,
-        createdBy: originalData.createdBy || null
-      });
+      const startDate = originalData.startDate ? new Date(originalData.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const endDate = originalData.endDate ? new Date(originalData.endDate).toISOString().split('T')[0] : '';
+      setFormData({ name: originalData.name || '', bonusCode: originalData.bonusCode || '', bonusType: originalData.bonusType || 'deposit', amount: originalData.amount || 0, percentage: originalData.percentage || 0, minDeposit: originalData.minDeposit || 0, maxBonus: originalData.maxBonus !== undefined ? originalData.maxBonus : null, wageringRequirement: originalData.wageringRequirement || 0, validityDays: originalData.validityDays || 30, status: originalData.status || 'active', applicableTo: originalData.applicableTo || 'all', startDate, endDate, createdBy: originalData.createdBy || null });
     }
     setErrors({});
   };
 
-  // Calculate bonus amount based on percentage
   const calculateBonusFromPercentage = () => {
     if (formData.percentage > 0 && formData.minDeposit > 0) {
       const calculated = (formData.minDeposit * formData.percentage) / 100;
-      if (formData.maxBonus && calculated > formData.maxBonus) {
-        return formData.maxBonus;
-      }
+      if (formData.maxBonus && calculated > formData.maxBonus) return formData.maxBonus;
       return calculated;
     }
     return formData.amount;
   };
 
-  // Format bonus type for display
-  const formatBonusType = (type) => {
-    return type.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
+  const formatBonusType = (type) => type.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const getBonusTypeIcon = (type) => ({ welcome: '🎉', deposit: '💰', reload: '🔄', cashback: '💸', free_spin: '🎰', special: '⭐', manual: '✏️' }[type] || '🎁');
+  const getApplicableToLabel = (type) => ({ all: 'All Users', new: 'New Users Only', existing: 'Existing Users Only' }[type] || type);
 
-  // Get bonus type icon
-  const getBonusTypeIcon = (type) => {
-    switch(type) {
-      case 'welcome': return '🎉';
-      case 'deposit': return '💰';
-      case 'reload': return '🔄';
-      case 'cashback': return '💸';
-      case 'free_spin': return '🎰';
-      case 'special': return '⭐';
-      case 'manual': return '✏️';
-      default: return '🎁';
-    }
-  };
-
-  // Get applicable to label
-  const getApplicableToLabel = (type) => {
-    switch(type) {
-      case 'all': return 'All Users';
-      case 'new': return 'New Users Only';
-      case 'existing': return 'Existing Users Only';
-      default: return type;
-    }
-  };
+  const inputClass = (field) =>
+    `w-full bg-[#0F111A] border ${errors[field] ? 'border-rose-500' : 'border-gray-700'} text-gray-200 text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500 placeholder-gray-600 transition-colors`;
+  const labelClass = 'block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2';
 
   if (loading) {
     return (
-      <section className="font-nunito h-screen">
+      <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
         <Header toggleSidebar={toggleSidebar} />
         <div className="flex pt-[10vh]">
           <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
-            <div className="flex items-center justify-center h-full">
-              <div className="flex justify-center items-center py-8">
-                <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                <span className="ml-3 text-gray-700">Loading bonus data...</span>
-              </div>
+          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+            <div className="flex items-center justify-center h-full flex-col gap-3">
+              <FaSpinner className="animate-spin text-amber-400 text-2xl" />
+              <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading bonus data...</p>
             </div>
           </main>
         </div>
@@ -346,419 +145,225 @@ const Editbonus = () => {
   }
 
   return (
-    <section className="font-nunito h-screen bg-gray-50">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
-      <ToastContainer position="top-right" autoClose={3000} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
-        <main
-          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
-          }`}
-        >
-          <div className="w-full mx-auto">
-            {/* Page Header */}
-            <div className="mb-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    Edit Bonus: {originalData?.name || formData.name}
-                  </h1>
-                  <p className="text-sm md:text-base text-gray-500 mt-1">
-                    Update bonus details and settings
-                  </p>
-                  {originalData?.createdBy && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Created by: {originalData.createdBy.username} • 
-                      Last updated: {new Date(originalData.updatedAt || originalData.createdAt).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => navigate('/admin/bonuses')}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 flex items-center gap-2 text-sm"
-                >
-                  <FaTimes /> Back to List
-                </button>
-              </div>
+        <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+
+          {/* Header */}
+          <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Edit Bonus</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1">{originalData?.name || formData.name}</p>
+              {originalData?.createdBy && (
+                <p className="text-[10px] text-gray-600 mt-0.5">
+                  Created by: <span className="text-gray-500">{originalData.createdBy.username}</span> &nbsp;·&nbsp;
+                  Last updated: <span className="text-gray-500">{new Date(originalData.updatedAt || originalData.createdAt).toLocaleDateString()}</span>
+                </p>
+              )}
             </div>
+            <div className="flex gap-2">
+              <button onClick={handleCancel} className="bg-[#1F2937] hover:bg-[#374151] border border-gray-700 px-4 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-gray-400">
+                <FaTimes /> Reset
+              </button>
+              <button onClick={() => navigate(-1)} className="bg-[#1F2937] hover:bg-[#374151] border border-gray-700 px-4 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-gray-400">
+                ← Back
+              </button>
+            </div>
+          </div>
 
-            {/* Main Form */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              {/* Form Body */}
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column */}
-                  <div className="space-y-6">
-                    {/* Bonus Name */}
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* Left Column */}
+              <div className="space-y-5">
+                {/* Basic Info */}
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2"><div className="w-1 h-4 bg-amber-500"></div> Basic Info</p>
+                  </div>
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Bonus Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Welcome Bonus 2024"
-                        className={`w-full px-4 py-3 border rounded-lg outline-theme_color ${
-                          errors.name ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {errors.name && (
-                        <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                          <FaInfoCircle /> {errors.name}
-                        </p>
-                      )}
+                      <label className={labelClass}>Bonus Name <span className="text-rose-400">*</span></label>
+                      <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Welcome Bonus 2024" className={inputClass('name')} />
+                      {errors.name && <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1"><FaInfoCircle /> {errors.name}</p>}
                     </div>
-
-                    {/* Bonus Type Selection */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Bonus Type <span className="text-red-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {bonusTypes.map(type => (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, bonusType: type }))}
-                            className={`p-3 rounded-lg border transition-all duration-200 flex flex-col items-center justify-center gap-2 ${
-                              formData.bonusType === type
-                                ? 'border-orange-500 bg-orange-50 text-orange-700'
-                                : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
-                            }`}
-                          >
-                            <span className="text-xl">{getBonusTypeIcon(type)}</span>
-                            <span className="text-xs font-medium">{formatBonusType(type)}</span>
-                          </button>
+                      <label className={labelClass}>Bonus Code</label>
+                      <input type="text" name="bonusCode" value={formData.bonusCode} onChange={handleInputChange} placeholder="WELCOME2024" className={inputClass('bonusCode') + ' uppercase'} maxLength={20} />
+                      <p className="mt-1 text-[10px] text-gray-600">Uppercase letters and numbers only</p>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Applicable To</label>
+                      <div className="flex gap-2">
+                        {['all', 'new', 'existing'].map((opt) => (
+                          <button key={opt} type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, applicableTo: opt }))}
+                            className={`flex-1 py-2 rounded text-xs font-bold border transition-all uppercase tracking-wide ${formData.applicableTo === opt ? 'bg-amber-600 border-amber-500 text-white' : 'bg-[#0F111A] border-gray-700 text-gray-400 hover:border-amber-500/50'}`}
+                          >{opt}</button>
                         ))}
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    {/* Bonus Code */}
+                {/* Bonus Type */}
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2"><div className="w-1 h-4 bg-amber-500"></div> Bonus Type</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {bonusTypes.map((type) => (
+                      <button key={type} type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, bonusType: type }))}
+                        className={`p-3 rounded-lg border transition-all flex flex-col items-center justify-center gap-2 ${formData.bonusType === type ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-gray-700 bg-[#0F111A] text-gray-500 hover:border-amber-500/40 hover:text-gray-300'}`}
+                      >
+                        <span className="text-lg">{getBonusTypeIcon(type)}</span>
+                        <span className="text-[10px] font-bold">{formatBonusType(type)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Value Settings */}
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2"><div className="w-1 h-4 bg-amber-500"></div> Value Settings</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Bonus Code
-                      </label>
-                      <input
-                        type="text"
-                        name="bonusCode"
-                        value={formData.bonusCode}
-                        onChange={handleInputChange}
-                        placeholder="WELCOME2024"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-theme_color uppercase"
-                        maxLength={20}
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Uppercase letters and numbers only
-                      </p>
-                    </div>
-
-                    {/* Amount & Percentage */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Fixed Amount (BDT)
-                        </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaBangladeshiTakaSign className="text-gray-400" />
-                          </div>
-                          <input
-                            type="number"
-                            name="amount"
-                            value={formData.amount}
-                            onChange={handleInputChange}
-                            min="0"
-                            step="0.01"
-                            className={`w-full pl-10 pr-4 py-3 border rounded-lg outline-theme_color ${
-                              errors.amount ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          />
-                        </div>
-                        {errors.amount && (
-                          <p className="mt-1 text-sm text-red-500">{errors.amount}</p>
-                        )}
+                      <label className={labelClass}>Fixed Amount (BDT)</label>
+                      <div className="relative">
+                        <FaBangladeshiTakaSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                        <input type="number" name="amount" value={formData.amount} onChange={handleInputChange} min="0" step="0.01" className={inputClass('amount') + ' pl-8'} />
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Percentage (%)
-                        </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaPercentage className="text-gray-400" />
-                          </div>
-                          <input
-                            type="number"
-                            name="percentage"
-                            value={formData.percentage}
-                            onChange={handleInputChange}
-                            min="0"
-                            max="500"
-                            step="0.1"
-                            className={`w-full pl-10 pr-4 py-3 border rounded-lg outline-theme_color ${
-                              errors.percentage ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          />
-                        </div>
-                        {errors.percentage && (
-                          <p className="mt-1 text-sm text-red-500">{errors.percentage}</p>
-                        )}
-                      </div>
+                      {errors.amount && <p className="mt-1 text-xs text-rose-400">{errors.amount}</p>}
                     </div>
-
-                    {/* Minimum Deposit */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Minimum Deposit (BDT)
-                      </label>
-                      <input
-                        type="number"
-                        name="minDeposit"
-                        value={formData.minDeposit}
-                        onChange={handleInputChange}
-                        min="0"
-                        step="0.01"
-                        className={`w-full px-4 py-3 border rounded-lg outline-theme_color ${
-                          errors.minDeposit ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {errors.minDeposit && (
-                        <p className="mt-1 text-sm text-red-500">{errors.minDeposit}</p>
-                      )}
+                      <label className={labelClass}>Percentage (%)</label>
+                      <div className="relative">
+                        <FaPercentage className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                        <input type="number" name="percentage" value={formData.percentage} onChange={handleInputChange} min="0" max="500" step="0.1" className={inputClass('percentage') + ' pl-8'} />
+                      </div>
+                      {errors.percentage && <p className="mt-1 text-xs text-rose-400">{errors.percentage}</p>}
+                    </div>
+                    <div>
+                      <label className={labelClass}>Min Deposit (BDT)</label>
+                      <input type="number" name="minDeposit" value={formData.minDeposit} onChange={handleInputChange} min="0" step="0.01" className={inputClass('minDeposit')} />
+                      {errors.minDeposit && <p className="mt-1 text-xs text-rose-400">{errors.minDeposit}</p>}
+                    </div>
+                    <div>
+                      <label className={labelClass}>Max Bonus (BDT)</label>
+                      <input type="number" name="maxBonus" value={formData.maxBonus === null ? '' : formData.maxBonus} onChange={handleInputChange} min="0" step="0.01" placeholder="No limit" className={inputClass('maxBonus')} />
+                      {errors.maxBonus && <p className="mt-1 text-xs text-rose-400">{errors.maxBonus}</p>}
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  {/* Right Column */}
-                  <div className="space-y-6">
-                    {/* Maximum Bonus */}
+              {/* Right Column */}
+              <div className="space-y-5">
+                {/* Requirements */}
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2"><div className="w-1 h-4 bg-amber-500"></div> Requirements</p>
+                  </div>
+                  <div className="space-y-5">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Maximum Bonus (BDT)
-                      </label>
-                      <input
-                        type="number"
-                        name="maxBonus"
-                        value={formData.maxBonus === null ? '' : formData.maxBonus}
-                        onChange={handleInputChange}
-                        min="0"
-                        step="0.01"
-                        placeholder="Leave blank for no limit"
-                        className={`w-full px-4 py-3 border rounded-lg outline-theme_color ${
-                          errors.maxBonus ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {errors.maxBonus && (
-                        <p className="mt-1 text-sm text-red-500">{errors.maxBonus}</p>
-                      )}
-                    </div>
-
-                    {/* Wagering Requirement */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Wagering Requirement (x)
-                      </label>
-                      <div className="flex items-center gap-4">
-                        <input
-                          type="range"
-                          name="wageringRequirement"
-                          value={formData.wageringRequirement}
-                          onChange={handleInputChange}
-                          min="0"
-                          max="100"
-                          step="1"
-                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <span className="text-lg font-bold text-orange-600 min-w-[60px]">
-                          {formData.wageringRequirement}x
-                        </span>
+                      <div className="flex justify-between items-center mb-3">
+                        <label className={labelClass + ' mb-0'}>Wagering Requirement</label>
+                        <span className="text-lg font-black text-amber-400">{formData.wageringRequirement}x</span>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-500 mt-2">
-                        <span>No Requirement</span>
-                        <span>100x</span>
-                      </div>
-                      {errors.wageringRequirement && (
-                        <p className="mt-1 text-sm text-red-500">{errors.wageringRequirement}</p>
-                      )}
-                      <p className="mt-2 text-sm text-gray-600">
-                        Players must wager bonus amount {formData.wageringRequirement} times before withdrawal
-                      </p>
+                      <input type="range" name="wageringRequirement" value={formData.wageringRequirement} onChange={handleInputChange} min="0" max="100" step="1" className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                      <div className="flex justify-between text-[10px] text-gray-600 mt-1.5"><span>No Requirement</span><span>100x</span></div>
+                      <p className="mt-2 text-[10px] text-gray-600">Players must wager bonus {formData.wageringRequirement} times before withdrawal</p>
+                      {errors.wageringRequirement && <p className="mt-1 text-xs text-rose-400">{errors.wageringRequirement}</p>}
                     </div>
-
-                    {/* Validity Days */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Validity Period (Days)
-                      </label>
-                      <input
-                        type="number"
-                        name="validityDays"
-                        value={formData.validityDays}
-                        onChange={handleInputChange}
-                        min="1"
-                        max="365"
-                        className={`w-full px-4 py-3 border rounded-lg outline-theme_color ${
-                          errors.validityDays ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {errors.validityDays && (
-                        <p className="mt-1 text-sm text-red-500">{errors.validityDays}</p>
-                      )}
-                      <p className="mt-2 text-sm text-gray-600">
-                        Bonus will expire after {formData.validityDays} days from activation
-                      </p>
+                      <label className={labelClass}>Validity Period (Days)</label>
+                      <input type="number" name="validityDays" value={formData.validityDays} onChange={handleInputChange} min="1" max="365" className={inputClass('validityDays')} />
+                      {errors.validityDays && <p className="mt-1 text-xs text-rose-400">{errors.validityDays}</p>}
+                      <p className="mt-1.5 text-[10px] text-gray-600">Bonus expires after {formData.validityDays} days from activation</p>
                     </div>
+                  </div>
+                </div>
 
-                    {/* Dates */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Schedule & Status */}
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2"><div className="w-1 h-4 bg-amber-500"></div> Schedule & Status</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Start Date
-                        </label>
+                        <label className={labelClass}>Start Date</label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaCalendarAlt className="text-gray-400" />
-                          </div>
-                          <input
-                            type="date"
-                            name="startDate"
-                            value={formData.startDate}
-                            onChange={handleInputChange}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg outline-theme_color"
-                          />
+                          <FaCalendarAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                          <input type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} className={inputClass('startDate') + ' pl-8'} />
                         </div>
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          End Date (Optional)
-                        </label>
+                        <label className={labelClass}>End Date (Optional)</label>
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaCalendarAlt className="text-gray-400" />
-                          </div>
-                          <input
-                            type="date"
-                            name="endDate"
-                            value={formData.endDate}
-                            onChange={handleInputChange}
-                            min={formData.startDate}
-                            className={`w-full pl-10 pr-4 py-3 border rounded-lg outline-theme_color ${
-                              errors.endDate ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          />
+                          <FaCalendarAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                          <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={formData.startDate} className={inputClass('endDate') + ' pl-8'} />
                         </div>
-                        {errors.endDate && (
-                          <p className="mt-1 text-sm text-red-500">{errors.endDate}</p>
-                        )}
+                        {errors.endDate && <p className="mt-1 text-xs text-rose-400">{errors.endDate}</p>}
                       </div>
                     </div>
-
-                    {/* Status */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
-                      </label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="status"
-                            checked={formData.status === 'active'}
-                            onChange={() => handleRadioChange('status', 'active')}
-                            className="h-4 w-4 text-orange-600 outline-theme_color"
-                          />
-                          <span className="ml-2 text-sm text-gray-700">Active</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="radio"
-                            name="status"
-                            checked={formData.status === 'inactive'}
-                            onChange={() => handleRadioChange('status', 'inactive')}
-                            className="h-4 w-4 text-orange-600 outline-theme_color"
-                          />
-                          <span className="ml-2 text-sm text-gray-700">Inactive</span>
-                        </label>
+                      <label className={labelClass}>Status</label>
+                      <div className="flex gap-3">
+                        {['active', 'inactive'].map((s) => (
+                          <label key={s} className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="status" value={s} checked={formData.status === s} onChange={handleInputChange} className="accent-amber-500" />
+                            <span className={`text-xs font-bold uppercase ${formData.status === s ? (s === 'active' ? 'text-emerald-400' : 'text-gray-400') : 'text-gray-600'}`}>{s}</span>
+                          </label>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Bonus Preview Card */}
-                <div className="mt-8 p-6 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <FaGift className="text-orange-500" /> Bonus Preview
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Bonus Type</h4>
-                      <p className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        {getBonusTypeIcon(formData.bonusType)} {formatBonusType(formData.bonusType)}
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Bonus Value</h4>
-                      <p className="text-lg font-bold text-green-600">
-                        {formData.amount > 0 
-                          ? `${formData.amount.toFixed(2)} BDT` 
-                          : formData.percentage > 0 
-                          ? `${formData.percentage}% up to ${formData.maxBonus ? formData.maxBonus.toFixed(2) + ' BDT' : 'No Limit'}`
-                          : 'No Value Set'
-                        }
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Wagering</h4>
-                      <p className="text-lg font-bold text-blue-600">{formData.wageringRequirement}x</p>
-                    </div>
+                {/* Preview */}
+                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2"><div className="w-1 h-4 bg-amber-500"></div> <FaGift /> Preview</p>
                   </div>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Example Calculation</h4>
-                      <p className="text-sm text-gray-700">
-                        {formData.minDeposit > 0 && formData.percentage > 0 ? (
-                          <>
-                            Deposit <span className="font-bold">{formData.minDeposit.toFixed(2)} BDT</span> 
-                            → Get <span className="font-bold text-green-600">
-                              {calculateBonusFromPercentage().toFixed(2)} BDT
-                            </span> bonus
-                          </>
-                        ) : (
-                          'Set minimum deposit and percentage to see example calculation'
-                        )}
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Applicable To</h4>
-                      <p className="text-sm font-medium text-gray-900">{getApplicableToLabel(formData.applicableTo)}</p>
-                    </div>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    {[
+                      { label: 'Type', value: `${getBonusTypeIcon(formData.bonusType)} ${formatBonusType(formData.bonusType)}` },
+                      { label: 'Value', value: formData.amount > 0 ? `৳${formData.amount.toFixed(2)}` : formData.percentage > 0 ? `${formData.percentage}%` : '—', valueClass: 'text-amber-400' },
+                      { label: 'Wagering', value: `${formData.wageringRequirement}x`, valueClass: 'text-indigo-400' },
+                    ].map((item, i) => (
+                      <div key={i} className="bg-[#0F111A] border border-gray-800 p-3 rounded">
+                        <p className="text-[9px] text-gray-500 uppercase tracking-widest font-black mb-1">{item.label}</p>
+                        <p className={`text-xs font-bold ${item.valueClass || 'text-white'}`}>{item.value}</p>
+                      </div>
+                    ))}
                   </div>
+                  {formData.minDeposit > 0 && formData.percentage > 0 && (
+                    <div className="bg-emerald-500/5 border border-emerald-500/20 p-3 rounded">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">Example</p>
+                      <p className="text-xs text-gray-300">Deposit <span className="text-white font-bold">৳{formData.minDeposit.toFixed(2)}</span> → Get <span className="text-emerald-400 font-bold">৳{calculateBonusFromPercentage().toFixed(2)}</span> bonus</p>
+                    </div>
+                  )}
                 </div>
-
-                {/* Form Actions */}
-                <div className="mt-8 flex flex-col md:flex-row justify-end gap-4">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <FaSpinner className="animate-spin" /> Updating...
-                      </>
-                    ) : (
-                      <>
-                        Update Bonus
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
+              </div>
             </div>
-          </div>
+
+            {/* Submit */}
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={handleCancel} className="px-6 py-3 bg-[#1F2937] border border-gray-700 text-gray-300 rounded font-bold text-xs uppercase tracking-wider hover:border-gray-500 transition-all">
+                Reset Changes
+              </button>
+              <button type="submit" disabled={isSubmitting} className="px-8 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                {isSubmitting ? <><FaSpinner className="animate-spin" /> Updating...</> : <><FaGift /> Update Bonus</>}
+              </button>
+            </div>
+          </form>
         </main>
       </div>
     </section>

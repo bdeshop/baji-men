@@ -1,8 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaSearch, FaFilter, FaEye, FaPlus, FaSort, FaSortUp, FaSortDown, FaUser, FaPhone, FaEnvelope, FaMoneyBill, FaIdCard, FaSpinner, FaBalanceScale, FaSyncAlt } from 'react-icons/fa';
+import {
+  FaEdit,
+  FaTrash,
+  FaSearch,
+  FaFilter,
+  FaEye,
+  FaPlus,
+  FaSort,
+  FaSortUp,
+  FaSortDown,
+  FaUser,
+  FaPhone,
+  FaEnvelope,
+  FaMoneyBill,
+  FaIdCard,
+  FaSpinner,
+  FaBalanceScale,
+  FaSyncAlt,
+  FaDollarSign,
+  FaChartLine,
+  FaCheckCircle,
+  FaClock,
+  FaUsers,
+  FaCog,
+} from 'react-icons/fa';
+import { FiRefreshCw } from 'react-icons/fi';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Managecommission = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -47,7 +73,6 @@ const Managecommission = () => {
     tags: [],
   });
   
-  // New states for balance adjustment
   const [showAdjustBalanceModal, setShowAdjustBalanceModal] = useState(false);
   const [adjustmentForm, setAdjustmentForm] = useState({
     type: 'add',
@@ -76,50 +101,45 @@ const Managecommission = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Fetch affiliates from API
   useEffect(() => {
-    const fetchAffiliates = async () => {
-      try {
-        setLoading(true);
-        const queryParams = new URLSearchParams({
-          page: currentPage,
-          limit: itemsPerPage,
-          status: statusFilter !== 'all' ? statusFilter : '',
-          verificationStatus: verificationFilter !== 'all' ? verificationFilter : '',
-          search: searchTerm,
-          sortBy: sortConfig.key || 'createdAt',
-          sortOrder: sortConfig.direction === 'ascending' ? 'asc' : 'desc'
-        });
-
-        const response = await fetch(`${base_url}/api/admin/affiliates?${queryParams}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch affiliates');
-        }
-
-        const data = await response.json();
-        setAffiliates(data.affiliates || []);
-        setTotalPages(data.totalPages || 1);
-        setTotalAffiliates(data.total || 0);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error fetching affiliates:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAffiliates();
   }, [currentPage, statusFilter, verificationFilter, searchTerm, sortConfig]);
+
+  const fetchAffiliates = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('adminToken');
+      const queryParams = new URLSearchParams({
+        page: currentPage,
+        limit: itemsPerPage,
+        status: statusFilter !== 'all' ? statusFilter : '',
+        verificationStatus: verificationFilter !== 'all' ? verificationFilter : '',
+        search: searchTerm,
+        sortBy: sortConfig.key || 'createdAt',
+        sortOrder: sortConfig.direction === 'ascending' ? 'asc' : 'desc'
+      });
+
+      const response = await fetch(`${base_url}/api/admin/affiliates?${queryParams}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch affiliates');
+
+      const data = await response.json();
+      setAffiliates(data.affiliates || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalAffiliates(data.total || 0);
+    } catch (err) {
+      setError(err.message);
+      toast.error('Failed to fetch affiliates');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const statuses = ['all', 'pending', 'active', 'suspended', 'banned'];
   const verificationStatuses = ['all', 'unverified', 'pending', 'verified', 'rejected'];
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -129,14 +149,12 @@ const Managecommission = () => {
     setCurrentPage(1);
   };
 
-  // Get sort icon
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-orange-500" />;
-    return <FaSortDown className="text-orange-500" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-500 inline ml-1" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-amber-400 inline ml-1" />;
+    return <FaSortDown className="text-amber-400 inline ml-1" />;
   };
 
-  // Handle affiliate deletion
   const handleDelete = (id) => {
     setAffiliateToDelete(id);
     setShowDeleteConfirm(true);
@@ -144,28 +162,21 @@ const Managecommission = () => {
 
   const confirmDelete = async () => {
     try {
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${base_url}/api/admin/affiliates/${affiliateToDelete}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete affiliate');
-      }
+      if (!response.ok) throw new Error('Failed to delete affiliate');
 
       setAffiliates(affiliates.filter(affiliate => affiliate._id !== affiliateToDelete));
-      setStatusToastMessage('Affiliate deleted successfully');
-      setShowStatusToast(true);
+      toast.success('Affiliate deleted successfully');
     } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error deleting affiliate');
-      setShowStatusToast(true);
+      toast.error('Error deleting affiliate');
     } finally {
       setShowDeleteConfirm(false);
       setAffiliateToDelete(null);
-      setTimeout(() => setShowStatusToast(false), 3000);
     }
   };
 
@@ -174,7 +185,6 @@ const Managecommission = () => {
     setAffiliateToDelete(null);
   };
 
-  // Handle affiliate status toggle
   const toggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
     const affiliate = affiliates.find(a => a._id === id);
@@ -189,46 +199,33 @@ const Managecommission = () => {
       setShowCommissionModal(true);
     } else {
       try {
+        const token = localStorage.getItem('adminToken');
         const response = await fetch(`${base_url}/api/admin/affiliates/${id}/status`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ status: newStatus })
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to update affiliate status');
-        }
+        if (!response.ok) throw new Error('Failed to update affiliate status');
 
-        const updatedAffiliates = affiliates.map(affiliate => {
-          if (affiliate._id === id) {
-            return { ...affiliate, status: newStatus };
-          }
-          return affiliate;
-        });
-
-        setAffiliates(updatedAffiliates);
-        setStatusToastMessage(`Affiliate status changed to ${newStatus}`);
-        setShowStatusToast(true);
+        setAffiliates(affiliates.map(affiliate =>
+          affiliate._id === id ? { ...affiliate, status: newStatus } : affiliate
+        ));
+        toast.success(`Affiliate status changed to ${newStatus}`);
       } catch (err) {
-        setError(err.message);
-        setStatusToastMessage('Error updating affiliate status');
-        setShowStatusToast(true);
-      } finally {
-        setTimeout(() => setShowStatusToast(false), 3000);
+        toast.error('Error updating affiliate status');
       }
     }
   };
 
-  // Handle commission form change
   const handleCommissionChange = (e) => {
     const { name, value } = e.target;
     setCommissionForm(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
   };
 
-  // Handle affiliate verification status toggle
   const toggleVerificationStatus = async (id, currentStatus) => {
     try {
       let newStatus;
@@ -239,80 +236,35 @@ const Managecommission = () => {
         default: newStatus = 'verified';
       }
 
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${base_url}/api/admin/affiliates/${id}/verification-status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ verificationStatus: newStatus })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update verification status');
-      }
+      if (!response.ok) throw new Error('Failed to update verification status');
 
-      const updatedAffiliates = affiliates.map(affiliate => {
-        if (affiliate._id === id) {
-          return { ...affiliate, verificationStatus: newStatus };
-        }
-        return affiliate;
-      });
-
-      setAffiliates(updatedAffiliates);
-      setStatusToastMessage(`Verification status changed to ${newStatus}`);
-      setShowStatusToast(true);
+      setAffiliates(affiliates.map(affiliate =>
+        affiliate._id === id ? { ...affiliate, verificationStatus: newStatus } : affiliate
+      ));
+      toast.success(`Verification status changed to ${newStatus}`);
     } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error updating verification status');
-      setShowStatusToast(true);
-    } finally {
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error('Error updating verification status');
     }
   };
 
-  // View affiliate details
-  const viewAffiliateDetails = async (affiliate) => {
-    try {
-      const response = await fetch(`${base_url}/api/admin/affiliates/${affiliate._id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch affiliate details');
-      }
-
-      const data = await response.json();
-      setSelectedAffiliate(data);
-      setShowAffiliateDetails(true);
-    } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error fetching affiliate details');
-      setShowStatusToast(true);
-      setTimeout(() => setShowStatusToast(false), 3000);
-    }
-  };
-
-  // Close affiliate details modal
-  const closeAffiliateDetails = () => {
-    setShowAffiliateDetails(false);
-    setSelectedAffiliate(null);
-  };
-
-  // Open edit modal
   const openEditModal = async (affiliate) => {
     try {
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${base_url}/api/admin/affiliates/${affiliate._id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch affiliate details for edit');
-      }
+      if (!response.ok) throw new Error('Failed to fetch affiliate details');
 
       const data = await response.json();
       setEditForm({
@@ -338,23 +290,19 @@ const Managecommission = () => {
       setSelectedAffiliateId(affiliate._id);
       setShowEditModal(true);
     } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error fetching affiliate details for edit');
-      setShowStatusToast(true);
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error('Error fetching affiliate details');
     }
   };
 
-  // Handle edit form change
   const handleEditChange = (e) => {
     const { name, value, type, checked } = e.target;
     setEditForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  // Submit edit form
   const submitEdit = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('adminToken');
       const updateData = {
         ...editForm,
         commissionRate: editForm.commissionRate / 100,
@@ -365,32 +313,22 @@ const Managecommission = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(updateData)
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update affiliate');
-      }
+      if (!response.ok) throw new Error('Failed to update affiliate');
 
       const updatedData = await response.json();
       setAffiliates(affiliates.map(a => a._id === selectedAffiliateId ? updatedData.affiliate : a));
-      setStatusToastMessage('Affiliate updated successfully');
-      setShowStatusToast(true);
+      toast.success('Affiliate updated successfully');
       setShowEditModal(false);
     } catch (err) {
-      setError(err.message);
-      setStatusToastMessage('Error updating affiliate');
-      setShowStatusToast(true);
-    } finally {
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error('Error updating affiliate');
     }
   };
 
-  // ==================== BALANCE ADJUSTMENT FUNCTIONS ====================
-
-  // Open adjust balance modal for single affiliate
   const openAdjustBalanceModal = (affiliate) => {
     setSelectedAffiliateId(affiliate._id);
     setAdjustmentForm({
@@ -403,22 +341,19 @@ const Managecommission = () => {
     setShowAdjustBalanceModal(true);
   };
 
-  // Handle adjustment form change
   const handleAdjustmentChange = (e) => {
     const { name, value } = e.target;
     setAdjustmentForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Submit single affiliate balance adjustment
   const submitBalanceAdjustment = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('adminToken');
       const { type, amount, reason, description, notes } = adjustmentForm;
       
       if (!amount || parseFloat(amount) <= 0) {
-        setStatusToastMessage('Please enter a valid positive amount');
-        setShowStatusToast(true);
-        setTimeout(() => setShowStatusToast(false), 3000);
+        toast.error('Please enter a valid positive amount');
         return;
       }
 
@@ -447,7 +382,7 @@ const Managecommission = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(body)
       });
@@ -459,7 +394,6 @@ const Managecommission = () => {
 
       const result = await response.json();
       
-      // Update the affiliate in the list
       setAffiliates(affiliates.map(a => {
         if (a._id === selectedAffiliateId) {
           return {
@@ -471,103 +405,70 @@ const Managecommission = () => {
         return a;
       }));
 
-      setStatusToastMessage(`Balance ${type === 'add' ? 'added' : 'deducted'} successfully`);
-      setShowStatusToast(true);
+      toast.success(`Balance ${type === 'add' ? 'added' : 'deducted'} successfully`);
       setShowAdjustBalanceModal(false);
-      
-      // Reset form
-      setAdjustmentForm({
-        type: 'add',
-        amount: '',
-        reason: '',
-        description: '',
-        notes: ''
-      });
+      setAdjustmentForm({ type: 'add', amount: '', reason: '', description: '', notes: '' });
     } catch (err) {
-      setStatusToastMessage(err.message || 'Error adjusting balance');
-      setShowStatusToast(true);
-    } finally {
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error(err.message || 'Error adjusting balance');
     }
   };
 
-  // Open bulk adjustment modal
   const openBulkAdjustModal = () => {
-    setBulkAdjustmentForm({
-      notes: '',
-      limit: 100,
-      skip: 0
-    });
+    setBulkAdjustmentForm({ notes: '', limit: 100, skip: 0 });
     setShowBulkAdjustModal(true);
   };
 
-  // Handle bulk adjustment form change
   const handleBulkAdjustmentChange = (e) => {
     const { name, value } = e.target;
     setBulkAdjustmentForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Submit bulk adjustment
   const submitBulkAdjustment = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${base_url}/api/admin/affiliates/adjust-all-balances`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(bulkAdjustmentForm)
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to process bulk adjustment');
-      }
+      if (!response.ok) throw new Error('Failed to process bulk adjustment');
 
       const result = await response.json();
-      setStatusToastMessage(result.message || 'Bulk adjustment completed successfully');
-      setShowStatusToast(true);
+      toast.success(result.message || 'Bulk adjustment completed successfully');
       setShowBulkAdjustModal(false);
-      
-      // Refresh the affiliates list
       fetchAffiliates();
     } catch (err) {
-      setStatusToastMessage(err.message || 'Error processing bulk adjustment');
-      setShowStatusToast(true);
-    } finally {
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error(err.message || 'Error processing bulk adjustment');
     }
   };
 
-  // Fetch adjustment preview
   const fetchAdjustmentPreview = async () => {
     try {
+      const token = localStorage.getItem('adminToken');
       const queryParams = new URLSearchParams({
         limit: bulkAdjustmentForm.limit,
         skip: bulkAdjustmentForm.skip
       });
 
       const response = await fetch(`${base_url}/api/admin/affiliates/adjustment-preview?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch adjustment preview');
-      }
+      if (!response.ok) throw new Error('Failed to fetch adjustment preview');
 
       const data = await response.json();
       setPreviewData(data.preview);
       setShowPreviewModal(true);
     } catch (err) {
-      setStatusToastMessage(err.message || 'Error fetching preview');
-      setShowStatusToast(true);
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error(err.message || 'Error fetching preview');
     }
   };
 
-  // Handle affiliate selection for multi-adjustment
   const toggleAffiliateSelection = (affiliateId) => {
     setSelectedAffiliates(prev => {
       if (prev.includes(affiliateId)) {
@@ -578,30 +479,24 @@ const Managecommission = () => {
     });
   };
 
-  // Open selected affiliates adjustment modal
   const openSelectedAdjustModal = () => {
     if (selectedAffiliates.length === 0) {
-      setStatusToastMessage('Please select at least one affiliate');
-      setShowStatusToast(true);
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error('Please select at least one affiliate');
       return;
     }
-    
-    setSelectedAdjustmentForm({
-      notes: ''
-    });
+    setSelectedAdjustmentForm({ notes: '' });
     setShowSelectedAdjustModal(true);
   };
 
-  // Submit selected affiliates adjustment
   const submitSelectedAdjustment = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('adminToken');
       const response = await fetch(`${base_url}/api/admin/affiliates/adjust-selected-balances`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           affiliateIds: selectedAffiliates,
@@ -609,181 +504,66 @@ const Managecommission = () => {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to adjust selected affiliates');
-      }
+      if (!response.ok) throw new Error('Failed to adjust selected affiliates');
 
       const result = await response.json();
-      setStatusToastMessage(result.message || 'Selected affiliates adjusted successfully');
-      setShowStatusToast(true);
+      toast.success(result.message || 'Selected affiliates adjusted successfully');
       setShowSelectedAdjustModal(false);
-      
-      // Clear selection and refresh list
       setSelectedAffiliates([]);
       fetchAffiliates();
     } catch (err) {
-      setStatusToastMessage(err.message || 'Error adjusting selected affiliates');
-      setShowStatusToast(true);
-    } finally {
-      setTimeout(() => setShowStatusToast(false), 3000);
+      toast.error(err.message || 'Error adjusting selected affiliates');
     }
   };
 
-  // Process payout for affiliate
-  const processPayout = async (affiliateId) => {
-    try {
-      const affiliate = affiliates.find(a => a._id === affiliateId);
-      if (!affiliate) return;
-
-      const payoutAmount = parseFloat(prompt(`Enter payout amount for ${affiliate.firstName} ${affiliate.lastName}\nAvailable: ${affiliate.pendingEarnings} BDT\nMinimum: ${affiliate.minimumPayout} BDT`));
-      
-      if (!payoutAmount || isNaN(payoutAmount) || payoutAmount <= 0) {
-        setStatusToastMessage('Invalid payout amount');
-        setShowStatusToast(true);
-        setTimeout(() => setShowStatusToast(false), 3000);
-        return;
-      }
-
-      if (payoutAmount > affiliate.pendingEarnings) {
-        setStatusToastMessage('Payout amount exceeds pending earnings');
-        setShowStatusToast(true);
-        setTimeout(() => setShowStatusToast(false), 3000);
-        return;
-      }
-
-      if (payoutAmount < affiliate.minimumPayout) {
-        setStatusToastMessage(`Payout amount must be at least ${affiliate.minimumPayout} BDT`);
-        setShowStatusToast(true);
-        setTimeout(() => setShowStatusToast(false), 3000);
-        return;
-      }
-
-      const transactionId = prompt('Enter transaction ID (optional):') || `PAYOUT-${Date.now()}`;
-      const notes = prompt('Enter notes (optional):') || '';
-
-      const response = await fetch(`${base_url}/api/admin/affiliates/${affiliateId}/balance/payout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        },
-        body: JSON.stringify({
-          amount: payoutAmount,
-          transactionId: transactionId,
-          notes: notes
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process payout');
-      }
-
-      const result = await response.json();
-      
-      // Update the affiliate in the list
-      setAffiliates(affiliates.map(a => {
-        if (a._id === affiliateId) {
-          return {
-            ...a,
-            pendingEarnings: result.newPendingBalance || a.pendingEarnings - payoutAmount,
-            paidEarnings: result.totalPaid || a.paidEarnings + payoutAmount,
-            lastPayoutDate: result.payoutDate || new Date()
-          };
-        }
-        return a;
-      }));
-
-      setStatusToastMessage(`Payout of ${payoutAmount} BDT processed successfully`);
-      setShowStatusToast(true);
-    } catch (err) {
-      setStatusToastMessage(err.message || 'Error processing payout');
-      setShowStatusToast(true);
-    } finally {
-      setTimeout(() => setShowStatusToast(false), 3000);
-    }
-  };
-
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
   };
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, verificationFilter]);
 
-  // Function to fetch affiliates (reusable)
-  const fetchAffiliates = async () => {
-    try {
-      setLoading(true);
-      const queryParams = new URLSearchParams({
-        page: currentPage,
-        limit: itemsPerPage,
-        status: statusFilter !== 'all' ? statusFilter : '',
-        verificationStatus: verificationFilter !== 'all' ? verificationFilter : '',
-        search: searchTerm,
-        sortBy: sortConfig.key || 'createdAt',
-        sortOrder: sortConfig.direction === 'ascending' ? 'asc' : 'desc'
-      });
-
-      const response = await fetch(`${base_url}/api/admin/affiliates?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch affiliates');
-      }
-
-      const data = await response.json();
-      setAffiliates(data.affiliates || []);
-      setTotalPages(data.totalPages || 1);
-      setTotalAffiliates(data.total || 0);
-    } catch (err) {
-      setError(err.message);
-      console.error('Error fetching affiliates:', err);
-    } finally {
-      setLoading(false);
-    }
+  const stats = {
+    total: totalAffiliates,
+    active: affiliates.filter(a => a.status === 'active').length,
+    verified: affiliates.filter(a => a.verificationStatus === 'verified').length,
+    pendingEarnings: affiliates.reduce((sum, a) => sum + (a.pendingEarnings || 0), 0).toFixed(2),
   };
 
-  if (loading) {
-    return (
-      <section className="font-nunito h-screen">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
-            <div className="flex items-center justify-center h-full">
-              <div className="flex justify-center items-center py-8">
-                <FaSpinner className="animate-spin text-orange-500 text-5xl" />
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
+  const getPaginationPages = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [1];
+    if (currentPage > 3) pages.push('...');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
 
-  if (error) {
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-gray-600';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-amber-500';
+  const labelClass = 'block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2';
+
+  const CloseIcon = () => (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+
+  if (error && !loading) {
     return (
-      <section className="font-nunito h-screen">
+      <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
         <Header toggleSidebar={toggleSidebar} />
         <div className="flex pt-[10vh]">
           <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'ml-[17%]' : 'ml-0'}`}>
+          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="text-red-500 text-2xl mb-4">Error</div>
-                <p className="text-gray-600">{error}</p>
-                <button 
-                  onClick={() => window.location.reload()} 
-                  className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md"
-                >
+              <div className="text-center bg-[#161B22] border border-gray-800 rounded-lg p-8 max-w-md">
+                <div className="text-rose-400 text-4xl mb-4">⚠️</div>
+                <p className="text-gray-400 text-sm">{error}</p>
+                <button onClick={fetchAffiliates} className="mt-4 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all">
                   Try Again
                 </button>
               </div>
@@ -795,65 +575,78 @@ const Managecommission = () => {
   }
 
   return (
-    <section className="font-nunito h-screen bg-gray-50">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
+
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
+
         <main
           className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
             isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
-          <div className="w-full mx-auto">
+          <div className="w-full">
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Affiliate Management</h1>
-                <p className="text-sm text-gray-500 mt-1">Oversee and manage all platform affiliates efficiently</p>
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Commission Management</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                  <FaChartLine className="text-amber-500" /> Manage affiliate commissions and balance adjustments
+                </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
                 <button
                   onClick={openBulkAdjustModal}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors duration-200 flex items-center"
+                  className="bg-[#1F2937] hover:bg-purple-600/20 border border-gray-700 hover:border-purple-500/40 px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-purple-400"
                 >
-                  <FaSyncAlt className="mr-2" /> Bulk Balance Adjustment
+                  <FaSyncAlt /> BULK ADJUSTMENT
                 </button>
                 {selectedAffiliates.length > 0 && (
                   <button
                     onClick={openSelectedAdjustModal}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center"
+                    className="bg-[#1F2937] hover:bg-emerald-600/20 border border-gray-700 hover:border-emerald-500/40 px-5 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-emerald-400"
                   >
-                    <FaBalanceScale className="mr-2" /> Adjust Selected ({selectedAffiliates.length})
+                    <FaBalanceScale /> ADJUST SELECTED ({selectedAffiliates.length})
                   </button>
                 )}
+                <button
+                  onClick={fetchAffiliates}
+                  className="bg-[#1F2937] hover:bg-amber-600/30 border border-gray-700 hover:border-amber-500/40 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2 text-amber-400"
+                >
+                  <FiRefreshCw className={loading ? 'animate-spin' : ''} /> REFRESH
+                </button>
               </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
-                { title: 'Total Affiliates', value: totalAffiliates, color: 'blue' },
-                { title: 'Active Affiliates', value: affiliates.filter(a => a.status === 'active').length, color: 'green' },
-                { title: 'Verified Affiliates', value: affiliates.filter(a => a.verificationStatus === 'verified').length, color: 'yellow' },
-                { title: 'Pending Earnings', value: affiliates.reduce((sum, a) => sum + (a.pendingEarnings || 0), 0).toFixed(2) + ' BDT', color: 'purple' },
-              ].map((stat, index) => (
-                <div key={index} className={`bg-white p-4 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200`}>
-                  <h3 className="text-sm font-medium text-gray-500">{stat.title}</h3>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                { label: 'TOTAL AFFILIATES', value: stats.total, color: 'border-indigo-500', valueClass: 'text-white', icon: <FaUsers /> },
+                { label: 'ACTIVE', value: stats.active, color: 'border-emerald-500', valueClass: 'text-emerald-400', icon: <FaUser /> },
+                { label: 'VERIFIED', value: stats.verified, color: 'border-blue-500', valueClass: 'text-blue-400', icon: <FaCheckCircle /> },
+                { label: 'PENDING EARNINGS', value: `${stats.pendingEarnings} BDT`, color: 'border-amber-500', valueClass: 'text-amber-400', icon: <FaDollarSign /> },
+              ].map((card, i) => (
+                <div key={i} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                  <div className="flex justify-between items-start mb-3">
+                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{card.label}</p>
+                    <div className="text-gray-600">{card.icon}</div>
+                  </div>
+                  <h2 className={`text-xl font-bold mt-1 leading-none ${card.valueClass}`}>{card.value}</h2>
                 </div>
               ))}
             </div>
 
             {/* Filters Section */}
-            <div className="bg-white rounded-lg p-6 mb-6 border border-gray-200">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <FaFilter className="mr-2 text-orange-500" />
-                  Filters & Search
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-amber-500"></div> Filters & Search
                 </h2>
                 <div className="flex items-center gap-3">
                   {selectedAffiliates.length > 0 && (
-                    <span className="text-sm text-green-600 font-medium">
+                    <span className="text-[9px] text-emerald-400 font-bold">
                       {selectedAffiliates.length} selected
                     </span>
                   )}
@@ -864,74 +657,72 @@ const Managecommission = () => {
                       setVerificationFilter('all');
                       setSelectedAffiliates([]);
                     }}
-                    className="text-sm text-orange-500 hover:text-orange-700 flex items-center transition-colors duration-200"
+                    className="text-[10px] text-amber-400 hover:text-amber-300 font-bold uppercase tracking-wider"
                   >
-                    Clear All Filters
+                    Clear All
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Search Input */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-400" />
-                  </div>
+                  <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent shadow-sm"
-                    placeholder="Search name, email, or affiliate code..."
+                    className={`${inputClass} pl-8`}
+                    placeholder="Search name, email, or code..."
                   />
                 </div>
 
-                {/* Status Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent shadow-sm"
-                >
-                  {statuses.map((status, index) => (
-                    <option key={index} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
                   ))}
                 </select>
 
-                {/* Verification Status Filter */}
-                <select
-                  value={verificationFilter}
-                  onChange={(e) => setVerificationFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent shadow-sm"
-                >
-                  {verificationStatuses.map((status, index) => (
-                    <option key={index} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                <select value={verificationFilter} onChange={(e) => setVerificationFilter(e.target.value)} className={selectClass}>
+                  {verificationStatuses.map((status) => (
+                    <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
                   ))}
+                </select>
+
+                <select
+                  className={selectClass}
+                  value={sortConfig.key}
+                  onChange={(e) => requestSort(e.target.value)}
+                >
+                  <option value="createdAt">Sort by Date</option>
+                  <option value="firstName">Sort by Name</option>
+                  <option value="pendingEarnings">Sort by Earnings</option>
                 </select>
               </div>
             </div>
 
             {/* Results Count */}
-            <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-gray-600">
-              <p>
+            <div className="mb-3 flex justify-between items-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
                 Showing {affiliates.length} of {totalAffiliates} affiliates
               </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={fetchAdjustmentPreview}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                >
-                  <FaBalanceScale className="mr-1" /> Preview Balance Adjustment
-                </button>
-              </div>
+              <button
+                onClick={fetchAdjustmentPreview}
+                className="text-[9px] text-blue-400 hover:text-blue-300 flex items-center gap-1"
+              >
+                <FaBalanceScale /> Preview Balance Adjustment
+              </button>
             </div>
 
             {/* Affiliates Table */}
-            <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+              <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 font-black text-[10px] text-amber-400 uppercase tracking-widest">
+                Affiliate List
+              </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-orange-500 to-orange-600">
-                    <tr className=''>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider w-8">
+                <table className="min-w-full text-left">
+                  <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
+                    <tr>
+                      <th className="px-5 py-3 w-8">
                         <input
                           type="checkbox"
                           checked={selectedAffiliates.length === affiliates.length && affiliates.length > 0}
@@ -942,83 +733,99 @@ const Managecommission = () => {
                               setSelectedAffiliates([]);
                             }
                           }}
-                          className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                          className="h-4 w-4 rounded border-gray-600 text-amber-500 focus:ring-amber-500 bg-[#0F111A]"
                         />
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Affiliate
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('affiliateCode')}>
-                        Affiliate Code 
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Contact
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('pendingEarnings')}>
-                        Pending Earnings
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('createdAt')}>
-                        Registered 
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Actions
-                      </th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('firstName')}>Affiliate {getSortIcon('firstName')}</th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('affiliateCode')}>Code {getSortIcon('affiliateCode')}</th>
+                      <th className="px-5 py-3">Contact</th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('pendingEarnings')}>Pending Earnings {getSortIcon('pendingEarnings')}</th>
+                      <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>Registered {getSortIcon('createdAt')}</th>
+                      <th className="px-5 py-3">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {affiliates.length > 0 ? (
+                  <tbody className="divide-y divide-gray-800">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="7" className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <FaSpinner className="animate-spin text-amber-400 text-2xl" />
+                            <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Loading affiliates...</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : affiliates.length > 0 ? (
                       affiliates.map((affiliate) => (
-                        <tr key={affiliate._id} className="hover:bg-gray-50 text-nowrap transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
+                        <tr key={affiliate._id} className="hover:bg-[#1F2937] transition-colors">
+                          <td className="px-5 py-4 whitespace-nowrap">
                             <input
                               type="checkbox"
                               checked={selectedAffiliates.includes(affiliate._id)}
                               onChange={() => toggleAffiliateSelection(affiliate._id)}
-                              className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                              className="h-4 w-4 rounded border-gray-600 text-amber-500 focus:ring-amber-500 bg-[#0F111A]"
                             />
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-12 w-12">
-                                <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
-                                  <FaUser />
-                                </div>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                                {affiliate.firstName?.charAt(0) || 'A'}
                               </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-semibold text-gray-900">{`${affiliate.firstName} ${affiliate.lastName}`}</div>
-                                <div className="text-xs text-gray-500">{affiliate.company || ''}</div>
+                              <div>
+                                <div className="text-sm font-bold text-white">{`${affiliate.firstName || ''} ${affiliate.lastName || ''}`}</div>
+                                <div className="text-[10px] text-gray-500">{affiliate.company || 'Individual'}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700 font-mono px-2 py-1">{affiliate.affiliateCode}</div>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className="text-[10px] font-mono text-amber-400 bg-[#0F111A] px-2 py-1 rounded border border-gray-800">
+                              {affiliate.affiliateCode}
+                            </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700">{affiliate.email}</div>
-                            <div className="text-xs text-gray-500 flex items-center mt-1">
-                              {affiliate.phone || 'N/A'}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-xs text-gray-300">{affiliate.email}</div>
+                            <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                              <FaPhone className="text-[8px]" /> {affiliate.phone || 'N/A'}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{affiliate.pendingEarnings?.toFixed(2) || 0} BDT</div>
-                            <div className="text-xs text-gray-500">Commission: {(affiliate.commissionRate).toFixed(0)}%</div>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-sm font-bold text-amber-400">{affiliate.pendingEarnings?.toFixed(2) || 0} BDT</div>
+                            <div className="text-[10px] text-gray-500">Commission: {(affiliate.commissionRate || 0).toFixed(0)}%</div>
                             {affiliate.minusBalance > 0 && (
-                              <div className="text-xs text-red-500 font-medium">
-                                Minus Balance: {affiliate.minusBalance} BDT
-                              </div>
+                              <div className="text-[9px] text-rose-400 font-medium">Minus Balance: {affiliate.minusBalance} BDT</div>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-700">{formatDate(affiliate.createdAt)}</div>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="text-xs text-gray-400">{formatDate(affiliate.createdAt)}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
-                              <button 
-                                className="p-2 px-[8px] py-[7px] cursor-pointer bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700 shadow-sm"
-                                title="View details"
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex gap-1.5">
+                              <button
                                 onClick={() => navigate(`/affiliates/affiliate-details/${affiliate._id}`)}
+                                className="p-1.5 bg-blue-500/10 hover:bg-blue-500/30 border border-blue-500/20 text-blue-400 rounded text-xs transition-all"
+                                title="View details"
                               >
                                 <FaEye />
+                              </button>
+                              <button
+                                onClick={() => openEditModal(affiliate)}
+                                className="p-1.5 bg-amber-500/10 hover:bg-amber-500/30 border border-amber-500/20 text-amber-400 rounded text-xs transition-all"
+                                title="Edit affiliate"
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
+                                onClick={() => openAdjustBalanceModal(affiliate)}
+                                className="p-1.5 bg-purple-500/10 hover:bg-purple-500/30 border border-purple-500/20 text-purple-400 rounded text-xs transition-all"
+                                title="Adjust Balance"
+                              >
+                                <FaBalanceScale />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(affiliate._id)}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
+                                title="Delete affiliate"
+                              >
+                                <FaTrash />
                               </button>
                             </div>
                           </td>
@@ -1026,11 +833,11 @@ const Managecommission = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="9" className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center justify-center text-gray-400">
-                            <FaSearch className="text-5xl mb-3 opacity-30" />
-                            <p className="text-lg font-medium text-gray-500">No affiliates found</p>
-                            <p className="text-sm">Try adjusting your search or filters</p>
+                        <td colSpan="7" className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center text-gray-600">
+                            <FaUsers className="text-4xl mb-3 opacity-20" />
+                            <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">No affiliates found</p>
+                            <p className="text-xs mt-1">Try adjusting your search or filters</p>
                           </div>
                         </td>
                       </tr>
@@ -1041,58 +848,34 @@ const Managecommission = () => {
             </div>
 
             {/* Pagination */}
-            {affiliates.length > 0 && (
-              <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white rounded-lg shadow-md border border-gray-200">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">
-                        {Math.min(currentPage * itemsPerPage, totalAffiliates)}
-                      </span> of{' '}
-                      <span className="font-medium">{totalAffiliates}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {totalPages > 1 && !loading && (
+              <div className="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                  Page {currentPage} of {totalPages} &nbsp;·&nbsp; {totalAffiliates} total
+                </p>
+                <nav className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === 1 ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                  >← Prev</button>
+                  {getPaginationPages().map((page, idx) =>
+                    page === '...' ? (
+                      <span key={`e-${idx}`} className="px-2 py-1.5 text-xs text-gray-600 font-bold select-none">···</span>
+                    ) : (
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                          currentPage === 1 
-                            ? 'bg-gray-50 text-gray-800 cursor-not-allowed' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Previous
-                      </button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === page
-                              ? 'z-10 bg-orange-500 text-white'
-                              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                          currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Next
-                      </button>
-                    </nav>
-                  </div>
-                </div>
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === page ? 'bg-amber-600 border-amber-500 text-white' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                      >{page}</button>
+                    )
+                  )}
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === totalPages ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                  >Next →</button>
+                </nav>
               </div>
             )}
           </div>
@@ -1101,24 +884,27 @@ const Managecommission = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirm Deletion</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete this affiliate? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] backdrop-blur-sm p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1C2128]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-rose-400">Confirm Deletion</h3>
+              <button onClick={cancelDelete} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs text-gray-400 mb-5">
+                Are you sure you want to delete this affiliate? This action cannot be undone.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-800 bg-[#1C2128] flex justify-end gap-3">
               <button
                 onClick={cancelDelete}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors duration-200"
-              >
-                Cancel
-              </button>
+                className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
+              >Cancel</button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none transition-colors duration-200"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-bold transition-all flex items-center gap-2"
               >
-                Delete
+                <FaTrash /> Delete Affiliate
               </button>
             </div>
           </div>
@@ -1127,17 +913,25 @@ const Managecommission = () => {
 
       {/* Commission Setup Modal */}
       {showCommissionModal && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Set Commission Rates for Activation</h3>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                <FaCog /> Set Commission Rates
+              </h3>
+              <button onClick={() => setShowCommissionModal(false)} className="text-gray-500 hover:text-gray-300">
+                <CloseIcon />
+              </button>
+            </div>
             <form onSubmit={async (e) => {
               e.preventDefault();
               try {
+                const token = localStorage.getItem('adminToken');
                 const responseCommission = await fetch(`${base_url}/api/admin/affiliates/${selectedAffiliateId}/commission`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    'Authorization': `Bearer ${token}`
                   },
                   body: JSON.stringify({
                     commissionRate: commissionForm.bet / 100,
@@ -1147,22 +941,18 @@ const Managecommission = () => {
                   })
                 });
 
-                if (!responseCommission.ok) {
-                  throw new Error('Failed to update commissions');
-                }
+                if (!responseCommission.ok) throw new Error('Failed to update commissions');
 
                 const responseStatus = await fetch(`${base_url}/api/admin/affiliates/${selectedAffiliateId}/status`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    'Authorization': `Bearer ${token}`
                   },
                   body: JSON.stringify({ status: 'active' })
                 });
 
-                if (!responseStatus.ok) {
-                  throw new Error('Failed to update status');
-                }
+                if (!responseStatus.ok) throw new Error('Failed to update status');
 
                 setAffiliates(affiliates.map(a => {
                   if (a._id === selectedAffiliateId) {
@@ -1177,25 +967,21 @@ const Managecommission = () => {
                   return a;
                 }));
 
-                setStatusToastMessage('Affiliate activated with new commission rates');
-                setShowStatusToast(true);
+                toast.success('Affiliate activated with new commission rates');
                 setShowCommissionModal(false);
-                setTimeout(() => setShowStatusToast(false), 3000);
               } catch (err) {
-                setStatusToastMessage('Error activating affiliate');
-                setShowStatusToast(true);
-                setTimeout(() => setShowStatusToast(false), 3000);
+                toast.error('Error activating affiliate');
               }
             }}>
-              <div className="space-y-4">
+              <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Bet Commission (%)</label>
+                  <label className={labelClass}>Bet Commission (%)</label>
                   <input 
                     type="number" 
                     name="bet"
                     value={commissionForm.bet}
                     onChange={handleCommissionChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                    className={inputClass}
                     min="1"
                     max="50"
                     step="0.1"
@@ -1203,13 +989,13 @@ const Managecommission = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Deposit Commission (%)</label>
+                  <label className={labelClass}>Deposit Commission (%)</label>
                   <input 
                     type="number" 
                     name="deposit"
                     value={commissionForm.deposit}
                     onChange={handleCommissionChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                    className={inputClass}
                     min="0"
                     max="50"
                     step="0.1"
@@ -1217,30 +1003,30 @@ const Managecommission = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Registration Commission (BDT)</label>
+                  <label className={labelClass}>Registration Commission (BDT)</label>
                   <input 
                     type="number" 
                     name="registration"
                     value={commissionForm.registration}
                     onChange={handleCommissionChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                    className={inputClass}
                     min="0"
                     step="0.01"
                     required
                   />
                 </div>
               </div>
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowCommissionModal(false)}
-                  className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors duration-200"
+                  className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-orange-600 text-white cursor-pointer rounded-md text-sm font-medium hover:bg-orange-700 focus:outline-none transition-colors duration-200"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all"
                 >
                   Activate with Commissions
                 </button>
@@ -1250,84 +1036,156 @@ const Managecommission = () => {
         </div>
       )}
 
-      {/* Single Affiliate Balance Adjustment Modal */}
-      {showAdjustBalanceModal && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Adjust Affiliate Balance</h3>
-            <form onSubmit={submitBalanceAdjustment}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Adjustment Type</label>
-                  <select
-                    name="type"
-                    value={adjustmentForm.type}
-                    onChange={handleAdjustmentChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                  >
-                    <option value="add">Add Balance</option>
-                    <option value="deduct">Deduct Balance</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Amount (BDT)</label>
-                  <input 
-                    type="number" 
-                    name="amount"
-                    value={adjustmentForm.amount}
-                    onChange={handleAdjustmentChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    min="0.01"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Reason</label>
-                  <input 
-                    type="text" 
-                    name="reason"
-                    value={adjustmentForm.reason}
-                    onChange={handleAdjustmentChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    placeholder="e.g., Bonus, Correction, etc."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
-                  <textarea 
-                    name="description"
-                    value={adjustmentForm.description}
-                    onChange={handleAdjustmentChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    rows="2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
-                  <textarea 
-                    name="notes"
-                    value={adjustmentForm.notes}
-                    onChange={handleAdjustmentChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    rows="2"
-                  />
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center sticky top-0">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                <FaEdit /> Edit Affiliate
+              </h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-gray-300">
+                <CloseIcon />
+              </button>
+            </div>
+            <form onSubmit={submitEdit}>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>First Name</label>
+                    <input type="text" name="firstName" value={editForm.firstName} onChange={handleEditChange} className={inputClass} required />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Last Name</label>
+                    <input type="text" name="lastName" value={editForm.lastName} onChange={handleEditChange} className={inputClass} required />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Phone</label>
+                    <input type="text" name="phone" value={editForm.phone} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Company</label>
+                    <input type="text" name="company" value={editForm.company} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Website</label>
+                    <input type="text" name="website" value={editForm.website} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Promo Method</label>
+                    <input type="text" name="promoMethod" value={editForm.promoMethod} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Commission Rate (%)</label>
+                    <input type="number" name="commissionRate" value={editForm.commissionRate} onChange={handleEditChange} className={inputClass} step="0.01" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Commission Type</label>
+                    <input type="text" name="commissionType" value={editForm.commissionType} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>CPA Rate (BDT)</label>
+                    <input type="number" name="cpaRate" value={editForm.cpaRate} onChange={handleEditChange} className={inputClass} step="0.01" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Deposit Rate (%)</label>
+                    <input type="number" name="depositRate" value={editForm.depositRate} onChange={handleEditChange} className={inputClass} step="0.01" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Status</label>
+                    <select name="status" value={editForm.status} onChange={handleEditChange} className={selectClass}>
+                      {statuses.slice(1).map((status) => (
+                        <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Verification Status</label>
+                    <select name="verificationStatus" value={editForm.verificationStatus} onChange={handleEditChange} className={selectClass}>
+                      {verificationStatuses.slice(1).map((status) => (
+                        <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Payment Method</label>
+                    <input type="text" name="paymentMethod" value={editForm.paymentMethod} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Minimum Payout (BDT)</label>
+                    <input type="number" name="minimumPayout" value={editForm.minimumPayout} onChange={handleEditChange} className={inputClass} step="0.01" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Payout Schedule</label>
+                    <input type="text" name="payoutSchedule" value={editForm.payoutSchedule} onChange={handleEditChange} className={inputClass} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className={labelClass}>Notes</label>
+                    <textarea name="notes" value={editForm.notes} onChange={handleEditChange} className={`${inputClass} min-h-[80px]`} />
+                  </div>
                 </div>
               </div>
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowAdjustBalanceModal(false)}
-                  className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors duration-200"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-orange-600 text-white cursor-pointer rounded-md text-sm font-medium hover:bg-orange-700 focus:outline-none transition-colors duration-200"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all flex items-center gap-2"
                 >
-                  Adjust Balance
+                  <FaEdit /> Save Changes
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Single Affiliate Balance Adjustment Modal */}
+      {showAdjustBalanceModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
+                <FaBalanceScale /> Adjust Affiliate Balance
+              </h3>
+              <button onClick={() => setShowAdjustBalanceModal(false)} className="text-gray-500 hover:text-gray-300">
+                <CloseIcon />
+              </button>
+            </div>
+            <form onSubmit={submitBalanceAdjustment}>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className={labelClass}>Adjustment Type</label>
+                  <select name="type" value={adjustmentForm.type} onChange={handleAdjustmentChange} className={selectClass}>
+                    <option value="add">Add Balance</option>
+                    <option value="deduct">Deduct Balance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Amount (BDT)</label>
+                  <input type="number" name="amount" value={adjustmentForm.amount} onChange={handleAdjustmentChange} className={inputClass} min="0.01" step="0.01" required />
+                </div>
+                <div>
+                  <label className={labelClass}>Reason</label>
+                  <input type="text" name="reason" value={adjustmentForm.reason} onChange={handleAdjustmentChange} className={inputClass} placeholder="e.g., Bonus, Correction, etc." />
+                </div>
+                <div>
+                  <label className={labelClass}>Description</label>
+                  <textarea name="description" value={adjustmentForm.description} onChange={handleAdjustmentChange} className={`${inputClass} min-h-[60px]`} />
+                </div>
+                <div>
+                  <label className={labelClass}>Notes (Optional)</label>
+                  <textarea name="notes" value={adjustmentForm.notes} onChange={handleAdjustmentChange} className={`${inputClass} min-h-[60px]`} />
+                </div>
+              </div>
+              <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowAdjustBalanceModal(false)} className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-bold transition-all">Adjust Balance</button>
               </div>
             </form>
           </div>
@@ -1336,46 +1194,28 @@ const Managecommission = () => {
 
       {/* Bulk Adjustment Modal */}
       {showBulkAdjustModal && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Balance Adjustment</h3>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl max-w-lg w-full">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
+                <FaSyncAlt /> Bulk Balance Adjustment
+              </h3>
+              <button onClick={() => setShowBulkAdjustModal(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
             <form onSubmit={submitBulkAdjustment}>
-              <div className="space-y-4">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <h4 className="text-sm font-medium text-yellow-800 mb-2">Important Notice</h4>
-                  <p className="text-sm text-yellow-700">
-                    This will deduct the <strong>minusBalance</strong> from <strong>totalEarnings</strong> for all affiliates with positive minusBalance.
-                    MinusBalance will be reset to 0.
-                  </p>
+              <div className="p-6 space-y-4">
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                  <h4 className="text-[9px] font-bold text-yellow-400 mb-2">Important Notice</h4>
+                  <p className="text-[9px] text-yellow-300">This will deduct the <strong>minusBalance</strong> from <strong>totalEarnings</strong> for all affiliates with positive minusBalance. MinusBalance will be reset to 0.</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
-                  <textarea 
-                    name="notes"
-                    value={bulkAdjustmentForm.notes}
-                    onChange={handleBulkAdjustmentChange}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    rows="3"
-                    placeholder="Enter reason for bulk adjustment..."
-                  />
+                  <label className={labelClass}>Notes (Optional)</label>
+                  <textarea name="notes" value={bulkAdjustmentForm.notes} onChange={handleBulkAdjustmentChange} className={`${inputClass} min-h-[80px]`} placeholder="Enter reason for bulk adjustment..." />
                 </div>
               </div>
-              <div className="mt-6 flex justify-between">
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowBulkAdjustModal(false)}
-                    className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors duration-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-purple-600 text-white cursor-pointer rounded-md text-sm font-medium hover:bg-purple-700 focus:outline-none transition-colors duration-200"
-                  >
-                    Process Bulk Adjustment
-                  </button>
-                </div>
+              <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowBulkAdjustModal(false)} className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-bold transition-all">Process Bulk Adjustment</button>
               </div>
             </form>
           </div>
@@ -1384,143 +1224,71 @@ const Managecommission = () => {
 
       {/* Preview Modal */}
       {showPreviewModal && previewData && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-              <h3 className="text-lg font-semibold text-gray-900">Adjustment Preview</h3>
-              <button onClick={() => setShowPreviewModal(false)} className="text-gray-400 hover:text-gray-500">
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center sticky top-0">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Adjustment Preview</h3>
+              <button onClick={() => setShowPreviewModal(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
             </div>
-
-            <div className="px-6 py-6">
+            <div className="p-6">
               <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Summary</h4>
+                <div className="bg-[#0F111A] border border-gray-800 rounded-lg p-4">
+                  <h4 className="text-[9px] font-bold text-gray-400 mb-3">Summary</h4>
                   <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Affected:</span>
-                      <span className="font-medium">{previewData.totalAffected}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Current Batch:</span>
-                      <span className="font-medium">{previewData.currentBatch}</span>
-                    </div>
+                    <div className="flex justify-between"><span className="text-[9px] text-gray-500">Total Affected:</span><span className="text-[9px] font-bold text-white">{previewData.totalAffected}</span></div>
+                    <div className="flex justify-between"><span className="text-[9px] text-gray-500">Current Batch:</span><span className="text-[9px] font-bold text-white">{previewData.currentBatch}</span></div>
                   </div>
                 </div>
-                
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Financial Impact</h4>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <h4 className="text-[9px] font-bold text-blue-400 mb-3">Financial Impact</h4>
                   <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Current Total Earnings:</span>
-                      <span className="font-medium">{previewData.totals.currentTotalEarnings.toFixed(2)} BDT</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Minus Balance:</span>
-                      <span className="font-medium">{previewData.totals.totalMinusBalance.toFixed(2)} BDT</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Projected Total Earnings:</span>
-                      <span className="font-medium">{previewData.totals.projectedTotalEarnings.toFixed(2)} BDT</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Adjustment:</span>
-                      <span className="font-medium text-red-600">{previewData.totals.totalAdjustment.toFixed(2)} BDT</span>
-                    </div>
+                    <div className="flex justify-between"><span className="text-[9px] text-gray-500">Current Total Earnings:</span><span className="text-[9px] font-bold text-white">{previewData.totals.currentTotalEarnings.toFixed(2)} BDT</span></div>
+                    <div className="flex justify-between"><span className="text-[9px] text-gray-500">Total Minus Balance:</span><span className="text-[9px] font-bold text-rose-400">{previewData.totals.totalMinusBalance.toFixed(2)} BDT</span></div>
+                    <div className="flex justify-between"><span className="text-[9px] text-gray-500">Projected Total Earnings:</span><span className="text-[9px] font-bold text-emerald-400">{previewData.totals.projectedTotalEarnings.toFixed(2)} BDT</span></div>
+                    <div className="flex justify-between"><span className="text-[9px] text-gray-500">Total Adjustment:</span><span className="text-[9px] font-bold text-rose-400">{previewData.totals.totalAdjustment.toFixed(2)} BDT</span></div>
                   </div>
                 </div>
               </div>
-
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Affiliates to be Adjusted</h4>
+              <div>
+                <h4 className="text-[9px] font-bold text-gray-400 mb-3">Affiliates to be Adjusted</h4>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Current Earnings</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Minus Balance</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Projected Earnings</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Adjustment</th>
-                      </tr>
+                  <table className="min-w-full">
+                    <thead className="bg-[#0F111A] text-[8px] text-gray-500 uppercase">
+                      <tr><th className="px-3 py-2">Name</th><th className="px-3 py-2">Current Earnings</th><th className="px-3 py-2">Minus Balance</th><th className="px-3 py-2">Projected Earnings</th><th className="px-3 py-2">Adjustment</th></tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-800">
                       {previewData.affiliates.map((affiliate, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-2 text-sm text-gray-900">{affiliate.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-700">{affiliate.currentTotalEarnings.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-red-600">{affiliate.minusBalance.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-green-600">{affiliate.projectedTotalEarnings.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-sm text-red-600">{affiliate.adjustmentAmount.toFixed(2)}</td>
-                        </tr>
+                        <tr key={index} className="hover:bg-[#1F2937]"><td className="px-3 py-2 text-[9px] text-white">{affiliate.name}</td><td className="px-3 py-2 text-[9px] text-gray-400">{affiliate.currentTotalEarnings.toFixed(2)}</td><td className="px-3 py-2 text-[9px] text-rose-400">{affiliate.minusBalance.toFixed(2)}</td><td className="px-3 py-2 text-[9px] text-emerald-400">{affiliate.projectedTotalEarnings.toFixed(2)}</td><td className="px-3 py-2 text-[9px] text-rose-400">{affiliate.adjustmentAmount.toFixed(2)}</td></tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowPreviewModal(false)}
-                  className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors duration-200"
-                >
-                  Close
-                </button>
-              </div>
             </div>
+            <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end"><button onClick={() => setShowPreviewModal(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs font-bold transition-all">Close</button></div>
           </div>
         </div>
       )}
 
       {/* Selected Affiliates Adjustment Modal */}
       {showSelectedAdjustModal && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Adjust Selected Affiliates</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              This will adjust {selectedAffiliates.length} selected affiliate(s). MinusBalance will be deducted from totalEarnings.
-            </p>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl max-w-lg w-full">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2"><FaBalanceScale /> Adjust Selected Affiliates</h3>
+              <button onClick={() => setShowSelectedAdjustModal(false)} className="text-gray-500 hover:text-gray-300"><CloseIcon /></button>
+            </div>
             <form onSubmit={submitSelectedAdjustment}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
-                  <textarea 
-                    name="notes"
-                    value={selectedAdjustmentForm.notes}
-                    onChange={(e) => setSelectedAdjustmentForm({ notes: e.target.value })}
-                    className="mt-1 block w-full border border-gray-300 p-[10px] rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                    rows="3"
-                    placeholder="Enter reason for adjustment..."
-                  />
-                </div>
+              <div className="p-6 space-y-4">
+                <p className="text-[9px] text-gray-500 mb-2">This will adjust {selectedAffiliates.length} selected affiliate(s). MinusBalance will be deducted from totalEarnings.</p>
+                <div><label className={labelClass}>Notes (Optional)</label><textarea name="notes" value={selectedAdjustmentForm.notes} onChange={(e) => setSelectedAdjustmentForm({ notes: e.target.value })} className={`${inputClass} min-h-[80px]`} placeholder="Enter reason for adjustment..." /></div>
               </div>
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowSelectedAdjustModal(false)}
-                  className="px-4 py-2 border border-gray-300 cursor-pointer rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-green-600 text-white cursor-pointer rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none transition-colors duration-200"
-                >
-                  Adjust Selected
-                </button>
+              <div className="bg-[#1C2128] px-6 py-4 border-t border-gray-800 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowSelectedAdjustModal(false)} className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-all">Adjust Selected</button>
               </div>
             </form>
           </div>
-        </div>
-      )}
-
-      {/* Status Change Toast */}
-      {showStatusToast && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in">
-          {statusToastMessage}
         </div>
       )}
     </section>

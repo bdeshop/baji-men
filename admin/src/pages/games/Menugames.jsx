@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaImage } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaImage, FaEye, FaPlus } from 'react-icons/fa';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
@@ -278,11 +278,12 @@ const Menugames = () => {
   // Get image URL for display
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
     return `${base_url}${imagePath}`;
   };
 
   return (
-    <section className="font-nunito h-screen bg-gray-50">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
 
       <div className="flex pt-[10vh]">
@@ -290,36 +291,34 @@ const Menugames = () => {
 
         <main
           className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
+            isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
           <div className="w-full mx-auto">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Menu Games - Exclusive Category</h1>
+            <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Menu Games - Exclusive Category</h1>
+                <p className="text-xs font-bold text-gray-500 mt-1">Manage exclusive games for the menu section</p>
+              </div>
+            </div>
             
             {/* Add Game Form */}
-            <div className="bg-white rounded-[5px] p-6 border border-gray-200 mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-8 shadow-2xl">
+              <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-6">
                 {isEditing ? 'Edit Game' : 'Add New Game'}
-              </h2>
+              </h3>
               
-              {/* Category Info Banner */}
-              <div className="mb-6 bg-purple-50 border border-purple-200 rounded-md p-4">
-                <div className="flex items-center">
-                  <span className="text-purple-700 font-medium">Category: Exclusive</span>
-                  <span className="ml-2 text-sm text-purple-600">(All games will be added to Exclusive category)</span>
-                </div>
-              </div>
               
               <form onSubmit={handleSubmit}>
                 {/* Image Upload Section */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Game Image {!isEditing && <span className="text-red-500">*</span>}
                   </label>
                   
                   <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                     {/* Image Preview */}
-                    <div className="w-48 h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 overflow-hidden">
+                    <div className="w-48 h-48 border-2 border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center bg-[#0F111A] overflow-hidden">
                       {imagePreview ? (
                         <div className="relative w-full h-full">
                           <img 
@@ -330,7 +329,7 @@ const Menugames = () => {
                           <button
                             type="button"
                             onClick={removeImage}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                            className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
                           >
                             <FaTrash className="w-4 h-4" />
                           </button>
@@ -342,13 +341,13 @@ const Menugames = () => {
                             alt="Current" 
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-2">
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white text-xs p-2 text-center">
                             Current Image
                           </div>
                         </div>
                       ) : (
                         <div className="text-center p-4">
-                          <FaImage className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                          <FaImage className="w-12 h-12 text-gray-600 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">No image selected</p>
                         </div>
                       )}
@@ -366,7 +365,7 @@ const Menugames = () => {
                         />
                         <label
                           htmlFor="imageInput"
-                          className="inline-flex items-center px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 cursor-pointer transition-colors"
+                          className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 cursor-pointer transition-colors text-sm"
                         >
                           <FaImage className="mr-2" />
                           {imagePreview || currentImage ? 'Change Image' : 'Select Image'}
@@ -375,7 +374,7 @@ const Menugames = () => {
                           <button
                             type="button"
                             onClick={removeImage}
-                            className="ml-3 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                            className="ml-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
                           >
                             Remove
                           </button>
@@ -388,11 +387,11 @@ const Menugames = () => {
 
                 {/* Category Name (Read-only) */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Category <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value="Exclusive"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] bg-gray-100 text-gray-700"
+                    className="w-full px-4 py-2 border border-gray-700 rounded-[3px] bg-[#0F111A] text-gray-500 cursor-not-allowed"
                     disabled
                     readOnly
                   />
@@ -403,13 +402,13 @@ const Menugames = () => {
 
                 {/* Game Name Field */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Game Name <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Game Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                     placeholder="Enter game name"
                     required
                   />
@@ -417,13 +416,13 @@ const Menugames = () => {
 
                 {/* Provider Field */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Provider <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Provider <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     name="provider"
                     value={formData.provider}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                     placeholder="Enter provider name (Pragmatic Play, Habanero)"
                     required
                   />
@@ -432,13 +431,13 @@ const Menugames = () => {
 
                 {/* Game ID Field */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Game ID <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Game ID <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     name="gameId"
                     value={formData.gameId}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
+                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                     placeholder="Enter game ID"
                     required
                   />
@@ -451,7 +450,7 @@ const Menugames = () => {
                     <button
                       type="button"
                       onClick={cancelEdit}
-                      className="px-6 py-2 bg-gray-500 text-white font-medium rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                      className="px-6 py-2 bg-gray-700 text-white font-medium rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors text-sm"
                     >
                       Cancel
                     </button>
@@ -459,7 +458,7 @@ const Menugames = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-2 bg-orange-500 text-white font-medium rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
                     {loading ? (
                       <span className="flex items-center">
@@ -477,47 +476,54 @@ const Menugames = () => {
             
             {/* Games Table */}
             <div className="">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Exclusive Games</h2>
+              <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-4">
+                <div className="w-1 h-4 bg-indigo-500"></div>
+                Exclusive Games List
+              </h3>
               
               {loading && games.length === 0 ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+                <div className="bg-[#161B22] rounded-lg p-12 border border-gray-800 flex items-center justify-center">
+                  <div className="text-center">
+                    <svg className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4" viewBox="0 0 24 24"></svg>
+                    <p className="text-gray-500">Loading games...</p>
+                  </div>
                 </div>
               ) : games.length === 0 ? (
-                <div className="bg-white p-8 rounded-lg text-center">
+                <div className="bg-[#161B22] p-12 rounded-lg text-center border border-gray-800">
+                  <FaImage className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-500">No exclusive games found. Add your first game above.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto border-[1px] border-gray-200 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-theme_color">
+                <div className="overflow-x-auto border border-gray-800 rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-800">
+                    <thead className="bg-[#1C2128]">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Image
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Category
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Game Name
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Provider
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Game ID
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Status
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
+                        <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-[#161B22] divide-y divide-gray-800">
                       {games.map((game) => (
-                        <tr key={game._id} className="hover:bg-gray-50">
+                        <tr key={game._id} className="hover:bg-[#1F2937] transition-colors duration-150">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               {game.image ? (
@@ -525,7 +531,7 @@ const Menugames = () => {
                                   <img 
                                     src={getImageUrl(game.image)} 
                                     alt={game.name}
-                                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                                    className="w-16 h-16 object-cover rounded-lg border border-gray-700"
                                     onError={(e) => {
                                       e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
                                     }}
@@ -535,41 +541,41 @@ const Menugames = () => {
                                       onClick={() => {
                                         window.open(getImageUrl(game.image), '_blank');
                                       }}
-                                      className="text-white text-xs bg-blue-500 px-2 py-1 rounded hover:bg-blue-600"
+                                      className="text-white text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-700"
                                     >
-                                      View
+                                      <FaEye className="w-3 h-3" />
                                     </button>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="w-16 h-16 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                                  <FaImage className="text-gray-400 w-8 h-8" />
+                                <div className="w-16 h-16 bg-[#0F111A] rounded-lg border border-gray-700 flex items-center justify-center">
+                                  <FaImage className="text-gray-600 w-8 h-8" />
                                 </div>
                               )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                            <div className="text-sm">
+                              <span className="bg-indigo-900/50 text-indigo-300 px-2 py-1 rounded-full text-xs font-medium border border-indigo-700">
                                 {game.categoryname || game.category?.name || 'Exclusive'}
                               </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 font-medium">{game.name}</div>
+                            <div className="text-sm text-white font-medium">{game.name}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                            <div className="text-sm">
+                              <span className="bg-blue-900/50 text-blue-300 px-2 py-1 rounded-full text-xs font-medium border border-blue-700">
                                 {game.provider || 'N/A'}
                               </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">
+                            <div className="text-sm text-gray-400 font-mono bg-[#0F111A] px-2 py-1 rounded border border-gray-700">
                               {game.gameId}
                             </div>
-                          </td>
+                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input 
@@ -578,16 +584,16 @@ const Menugames = () => {
                                 checked={game.status}
                                 onChange={() => toggleStatus(game._id, game.status)}
                               />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                              <span className={`ml-3 text-sm font-medium ${game.status ? 'text-green-600' : 'text-red-600'}`}>
+                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                              <span className={`ml-3 text-sm font-medium ${game.status ? 'text-green-500' : 'text-red-500'}`}>
                                 {game.status ? 'Active' : 'Inactive'}
                               </span>
                             </label>
-                          </td>
+                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
                               <button 
-                                className="px-3 py-2 text-white bg-blue-600 cursor-pointer rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                                className="px-3 py-2 text-white bg-blue-600 cursor-pointer rounded-md hover:bg-blue-700 transition-colors flex items-center text-xs"
                                 onClick={() => editGame(game)}
                                 title="Edit"
                               >
@@ -595,7 +601,7 @@ const Menugames = () => {
                                 <span className="hidden sm:inline">Edit</span>
                               </button>
                               <button 
-                                className="px-3 py-2 text-white bg-red-600 cursor-pointer rounded-md hover:bg-red-700 transition-colors flex items-center"
+                                className="px-3 py-2 text-white bg-red-600 cursor-pointer rounded-md hover:bg-red-700 transition-colors flex items-center text-xs"
                                 onClick={() => confirmDelete(game)}
                                 title="Delete"
                               >
@@ -603,8 +609,8 @@ const Menugames = () => {
                                 <span className="hidden sm:inline">Delete</span>
                               </button>
                             </div>
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
                   </table>

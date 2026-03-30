@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaChevronDown, FaChevronUp, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaChevronDown, FaChevronUp, FaSpinner, FaExclamationTriangle, FaSearch, FaSort, FaSortUp, FaSortDown, FaCalendarAlt } from 'react-icons/fa';
+import { FiRefreshCw, FiTrendingUp } from 'react-icons/fi';
 import axios from 'axios';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
@@ -19,6 +20,11 @@ const FAQ = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
   // Delete confirmation popup state
   const [deletePopup, setDeletePopup] = useState({
@@ -48,11 +54,6 @@ const FAQ = () => {
   // Add request interceptor to include auth token if needed
   api.interceptors.request.use(
     (config) => {
-      // You can add authentication tokens here if needed
-      // const token = localStorage.getItem('authToken');
-      // if (token) {
-      //   config.headers.Authorization = `Bearer ${token}`;
-      // }
       return config;
     },
     (error) => {
@@ -133,7 +134,6 @@ const FAQ = () => {
       setEditingId(null);
     } catch (error) {
       console.error('Error saving FAQ:', error);
-      // Error is handled by interceptor
     } finally {
       setSaving(false);
     }
@@ -218,8 +218,90 @@ const FAQ = () => {
     }
   };
 
-  const filteredFaqs = (category) => {
-    return faqs.filter(faq => faq.category === category && faq.status);
+  // Sorting and filtering logic
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return <FaSort className="text-gray-600 inline ml-1" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-indigo-400 inline ml-1" />;
+    return <FaSortDown className="text-indigo-400 inline ml-1" />;
+  };
+
+  const filteredFaqs = React.useMemo(() => {
+    let filtered = [...faqs];
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(faq => 
+        faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Apply category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(faq => faq.category === categoryFilter);
+    }
+    
+    // Apply sorting
+    if (sortConfig.key !== null) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        if (sortConfig.key === 'createdAt') {
+          aValue = aValue ? new Date(aValue) : new Date(0);
+          bValue = bValue ? new Date(bValue) : new Date(0);
+        }
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return filtered;
+  }, [faqs, searchTerm, categoryFilter, sortConfig]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredFaqs.length / itemsPerPage);
+  const paginatedFaqs = filteredFaqs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const getPaginationPages = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [];
+    pages.push(1);
+    if (currentPage > 3) pages.push('...');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      pages.push(i);
+    }
+    if (currentPage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const getCategoryBadge = (category) => {
+    const categoryMap = {
+      general: { text: 'General', color: 'border-indigo-500 text-indigo-400 bg-indigo-500/10' },
+      account: { text: 'Account', color: 'border-emerald-500 text-emerald-400 bg-emerald-500/10' },
+      payments: { text: 'Payments', color: 'border-amber-500 text-amber-400 bg-amber-500/10' },
+      shipping: { text: 'Shipping', color: 'border-blue-500 text-blue-400 bg-blue-500/10' },
+      returns: { text: 'Returns', color: 'border-rose-500 text-rose-400 bg-rose-500/10' },
+      technical: { text: 'Technical', color: 'border-purple-500 text-purple-400 bg-purple-500/10' },
+    };
+    return categoryMap[category] || categoryMap.general;
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('all');
+    setSortConfig({ key: null, direction: 'ascending' });
+    setCurrentPage(1);
   };
 
   // Clear messages after 3 seconds
@@ -233,8 +315,27 @@ const FAQ = () => {
     }
   }, [error, success]);
 
+  const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-indigo-500 placeholder-gray-600';
+  const selectClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-3 py-2 focus:outline-none focus:border-indigo-500';
+
+  if (loading && faqs.length === 0) {
+    return (
+      <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
+        <Header toggleSidebar={toggleSidebar} />
+        <div className="flex pt-[10vh]">
+          <Sidebar isOpen={isSidebarOpen} />
+          <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+            <div className="flex items-center justify-center h-full">
+              <FaSpinner className="animate-spin text-indigo-400 text-3xl" />
+            </div>
+          </main>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="font-nunito h-screen bg-gray-50">
+    <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
 
       <div className="flex pt-[10vh]">
@@ -245,197 +346,221 @@ const FAQ = () => {
             isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%] ' : 'ml-0'
           }`}
         >
-          <div className="w-full mx-auto">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">FAQ Management</h1>
-            
-            {/* Error and Success Messages */}
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
+          {/* Error and Success Messages */}
+          {error && (
+            <div className="mb-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 px-4 py-3 rounded text-sm flex justify-between items-center">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-300 ml-4 text-lg leading-none">×</button>
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded text-sm flex justify-between items-center">
+              <span>{success}</span>
+              <button onClick={() => setSuccess(null)} className="text-emerald-400 hover:text-emerald-300 ml-4 text-lg leading-none">×</button>
+            </div>
+          )}
+
+          {/* Page Header */}
+          <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">FAQ Management</h1>
+              <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
+                <FaCalendarAlt className="text-indigo-500" /> Manage frequently asked questions and support content
+              </p>
+            </div>
+            <div className="flex gap-3 mt-4 md:mt-0">
+              <button
+                onClick={fetchFaqs}
+                className="bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2"
+              >
+                <FiRefreshCw className={loading ? 'animate-spin' : ''} /> REFRESH
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'TOTAL FAQS', value: faqs.length, color: 'border-indigo-500', valueClass: 'text-white' },
+              { label: 'ACTIVE', value: faqs.filter(f => f.status).length, color: 'border-emerald-500', valueClass: 'text-emerald-400' },
+              { label: 'INACTIVE', value: faqs.filter(f => !f.status).length, color: 'border-amber-500', valueClass: 'text-amber-400' },
+              { label: 'CATEGORIES', value: categories.length, color: 'border-rose-500', valueClass: 'text-rose-400' },
+            ].map((card, i) => (
+              <div key={i} className={`bg-[#161B22] border-l-4 ${card.color} p-5 rounded shadow-lg border-y border-r border-gray-800`}>
+                <div className="flex justify-between items-start mb-3">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{card.label}</p>
+                  <FiTrendingUp className="text-gray-700" />
+                </div>
+                <h2 className={`text-xl font-bold mt-1 leading-none ${card.valueClass}`}>{card.value}</h2>
               </div>
-            )}
-            {success && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-                {success}
+            ))}
+          </div>
+
+          {/* Add/Edit FAQ Form */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-8">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-4 flex items-center gap-2">
+              <div className="w-1 h-4 bg-indigo-500"></div> {editingId ? 'Edit FAQ' : 'Add New FAQ'}
+            </h2>
+            <form onSubmit={handleSubmit}>
+              {/* Category Selection */}
+              <div className="mb-5">
+                <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Category</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  className={selectClass}
+                >
+                  {categories.map(category => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-            
-            {/* Add/Edit FAQ Form */}
-            <div className="bg-white rounded-[5px] p-6 border border-gray-200 mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                {editingId ? 'Edit FAQ' : 'Add New FAQ'}
-              </h2>
-              <form onSubmit={handleSubmit}>
-                {/* Category Selection */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
-                  >
-                    {categories.map(category => (
-                      <option key={category.value} value={category.value}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* Question Field */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
-                  <input
-                    type="text"
-                    name="question"
-                    value={formData.question}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
-                    placeholder="Enter question"
-                  />
-                </div>
-                
-                {/* Answer Field */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Answer</label>
-                  <textarea
-                    name="answer"
-                    value={formData.answer}
-                    onChange={handleInputChange}
-                    rows="4"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-[3px] outline-theme_color"
-                    placeholder="Enter answer"
-                  ></textarea>
-                </div>
-                
-                {/* Submit/Cancel Buttons */}
-                <div className="flex justify-end mt-8 space-x-3">
-                  {editingId && (
-                    <button
-                      type="button"
-                      onClick={cancelEditing}
-                      className="px-6 py-2 bg-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  )}
+              
+              {/* Question Field */}
+              <div className="mb-5">
+                <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Question</label>
+                <input
+                  type="text"
+                  name="question"
+                  value={formData.question}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  placeholder="Enter question"
+                />
+              </div>
+              
+              {/* Answer Field */}
+              <div className="mb-6">
+                <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Answer</label>
+                <textarea
+                  name="answer"
+                  value={formData.answer}
+                  onChange={handleInputChange}
+                  rows="4"
+                  className={inputClass}
+                  placeholder="Enter answer"
+                ></textarea>
+              </div>
+              
+              {/* Submit/Cancel Buttons */}
+              <div className="flex justify-end mt-6 space-x-3">
+                {editingId && (
                   <button
-                    type="submit"
-                    className="px-6 py-2 bg-orange-500 text-white font-medium rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors flex items-center justify-center"
-                    disabled={!formData.question.trim() || !formData.answer.trim() || saving}
+                    type="button"
+                    onClick={cancelEditing}
+                    className="px-6 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 font-bold text-xs rounded-md hover:border-gray-500 transition-colors"
                   >
-                    {saving ? (
-                      <>
-                        <FaSpinner className="animate-spin mr-2" />
-                        {editingId ? 'Updating...' : 'Adding...'}
-                      </>
-                    ) : (
-                      editingId ? 'Update FAQ' : 'Add FAQ'
-                    )}
+                    Cancel
                   </button>
-                </div>
-              </form>
+                )}
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-md transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!formData.question.trim() || !formData.answer.trim() || saving}
+                >
+                  {saving ? (
+                    <>
+                      <FaSpinner className="animate-spin mr-2" />
+                      {editingId ? 'Updating...' : 'Adding...'}
+                    </>
+                  ) : (
+                    editingId ? 'Update FAQ' : 'Add FAQ'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Filter Section */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                <div className="w-1 h-4 bg-indigo-500"></div> Filters & Search
+              </h2>
+              <button
+                onClick={clearFilters}
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-wider"
+              >
+                Clear All
+              </button>
             </div>
-            
-            {/* FAQ List by Category */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">FAQ List</h2>
-              
-              {loading ? (
-                <div className="flex justify-center items-center py-8">
-                  <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                </div>
-              ) : (
-                categories.map(category => {
-                  const categoryFaqs = filteredFaqs(category.value);
-                  if (categoryFaqs.length === 0) return null;
-                  
-                  return (
-                    <div key={category.value} className="mb-6">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-3">{category.label}</h3>
-                      <div className="space-y-3">
-                        {categoryFaqs.map(faq => (
-                          <div key={faq._id} className="bg-white border border-gray-200 rounded-[5px] overflow-hidden">
-                            <button
-                              className="flex justify-between items-center w-full p-4 text-left font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-                              onClick={() => toggleExpand(faq._id)}
-                            >
-                              <span>{faq.question}</span>
-                              {expandedItems.includes(faq._id) ? (
-                                <FaChevronUp className="text-gray-500" />
-                              ) : (
-                                <FaChevronDown className="text-gray-500" />
-                              )}
-                            </button>
-                            {expandedItems.includes(faq._id) && (
-                              <div className="p-4 border-t border-gray-200 bg-gray-50">
-                                <p className="text-gray-600">{faq.answer}</p>
-                                <div className="mt-3 flex space-x-2">
-                                  <button 
-                                    onClick={() => startEditing(faq)}
-                                    className="px-3 py-1 text-white bg-blue-600 cursor-pointer rounded-[3px] text-sm flex items-center hover:bg-blue-700 transition-colors"
-                                  >
-                                    <FaEdit className="mr-1" /> Edit
-                                  </button>
-                                  <button 
-                                    onClick={() => openDeletePopup(faq._id, faq.question)}
-                                    className="px-3 py-1 text-white bg-red-600 cursor-pointer rounded-[3px] text-sm flex items-center hover:bg-red-700 transition-colors"
-                                  >
-                                    <FaTrash className="mr-1" /> Delete
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`${inputClass} pl-8`}
+                  placeholder="Search questions or answers..."
+                />
+              </div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+              <select
+                value={sortConfig.key || ''}
+                onChange={(e) => requestSort(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">Sort By</option>
+                <option value="question">Question</option>
+                <option value="category">Category</option>
+                <option value="createdAt">Date Created</option>
+              </select>
             </div>
-            
-            {/* All FAQs Table for Management */}
-            <div className="bg-white rounded-[5px] p-6 border border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">All FAQs (Management View)</h2>
-              
-              {loading ? (
-                <div className="flex justify-center items-center py-8">
-                  <FaSpinner className="animate-spin text-orange-500 text-2xl" />
-                </div>
-              ) : (
-                <div className="overflow-x-auto border-[1px] border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-theme_color">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
-                          Question
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs md:text-sm font-medium text-white uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {faqs.map((faq) => (
-                        <tr key={faq._id}>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 font-medium">{faq.question}</div>
-                            <div className="text-sm text-gray-500 mt-1">{faq.answer.substring(0, 100)}...</div>
+          </div>
+
+          {/* All FAQs Table */}
+          <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+            <div className="bg-[#1C2128] px-6 py-4 border-b border-gray-800 font-black text-[10px] text-indigo-400 uppercase tracking-widest flex justify-between items-center">
+              <span>All FAQs</span>
+              <span className="text-gray-500 text-[9px]">{filteredFaqs.length} item(s)</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('question')}>
+                      Question {getSortIcon('question')}
+                    </th>
+                    <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('category')}>
+                      Category {getSortIcon('category')}
+                    </th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>
+                      Created {getSortIcon('createdAt')}
+                    </th>
+                    <th className="px-5 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {paginatedFaqs.length > 0 ? (
+                    paginatedFaqs.map((faq) => {
+                      const categoryBadge = getCategoryBadge(faq.category);
+                      return (
+                        <tr key={faq._id} className="hover:bg-[#1F2937] transition-colors">
+                          <td className="px-5 py-4">
+                            <div className="text-xs font-medium text-gray-200">{faq.question}</div>
+                            <div className="text-[10px] text-gray-500 mt-1 line-clamp-1">{faq.answer.substring(0, 80)}...</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {categories.find(c => c.value === faq.category)?.label}
-                            </div>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase border ${categoryBadge.color}`}>
+                              {categoryBadge.text}
+                            </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-4 whitespace-nowrap">
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input 
                                 type="checkbox" 
@@ -443,68 +568,143 @@ const FAQ = () => {
                                 checked={faq.status}
                                 onChange={() => toggleStatus(faq._id, faq.status)}
                               />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                              <span className="ml-3 text-sm font-medium text-gray-900">
-                                {faq.status ? 'Active' : 'Inactive'}
+                              <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                              <span className="ml-2 text-[10px] font-medium">
+                                {faq.status ? (
+                                  <span className="text-emerald-400">Active</span>
+                                ) : (
+                                  <span className="text-rose-400">Inactive</span>
+                                )}
                               </span>
                             </label>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button 
-                              onClick={() => startEditing(faq)}
-                              className="px-[8px] py-[7px] text-white bg-blue-600 cursor-pointer rounded-[3px] text-[16px] mr-3 hover:bg-blue-700 transition-colors"
-                            >
-                              <FaEdit />
-                            </button>
-                            <button 
-                              onClick={() => openDeletePopup(faq._id, faq.question)}
-                              className="px-[8px] py-[7px] text-white bg-red-600 cursor-pointer rounded-[3px] text-[16px] hover:bg-red-700 transition-colors"
-                            >
-                              <FaTrash />
-                            </button>
+                          <td className="px-5 py-4 whitespace-nowrap text-[10px] text-gray-400">
+                            {faq.createdAt ? new Date(faq.createdAt).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => startEditing(faq)}
+                                className="p-1.5 bg-indigo-500/10 hover:bg-indigo-500/30 border border-indigo-500/20 text-indigo-400 rounded text-xs transition-all"
+                                title="Edit FAQ"
+                              >
+                                <FaEdit />
+                              </button>
+                              <button 
+                                onClick={() => openDeletePopup(faq._id, faq.question)}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
+                                title="Delete FAQ"
+                              >
+                                <FaTrash />
+                              </button>
+                            </div>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center text-gray-600">
+                          <FaSearch className="text-4xl mb-3 opacity-20" />
+                          <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">No FAQs found</p>
+                          <p className="text-xs mt-1">Try adjusting your search or filters</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+                Page {currentPage} of {totalPages} &nbsp;·&nbsp; {filteredFaqs.length} total
+              </p>
+              <nav className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${
+                    currentPage === 1
+                      ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed'
+                      : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-indigo-600 hover:border-indigo-500'
+                  }`}
+                >
+                  ← Prev
+                </button>
+
+                {getPaginationPages().map((page, idx) =>
+                  page === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 py-1.5 text-xs text-gray-600 font-bold select-none">
+                      ···
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${
+                        currentPage === page
+                          ? 'bg-indigo-600 border-indigo-500 text-white'
+                          : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-indigo-600/30 hover:border-indigo-500/50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${
+                    currentPage === totalPages
+                      ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed'
+                      : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-indigo-600 hover:border-indigo-500'
+                  }`}
+                >
+                  Next →
+                </button>
+              </nav>
+            </div>
+          )}
         </main>
       </div>
 
       {/* Custom Delete Confirmation Popup */}
       {deletePopup.isOpen && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-lg max-w-md w-full mx-auto transform transition-all">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[10000] p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-lg max-w-md w-full mx-auto transform transition-all">
             {/* Popup Header */}
-            <div className="flex items-center p-4 border-b border-gray-200">
-              <div className="flex items-center justify-center w-10 h-10 bg-red-100 rounded-full">
-                <FaExclamationTriangle className="text-red-600 text-lg" />
+            <div className="flex items-center p-4 border-b border-gray-800">
+              <div className="flex items-center justify-center w-10 h-10 bg-rose-500/10 rounded-full">
+                <FaExclamationTriangle className="text-rose-400 text-lg" />
               </div>
-              <h3 className="ml-3 text-lg font-semibold text-gray-900">Delete FAQ</h3>
+              <h3 className="ml-3 text-sm font-bold text-gray-200 uppercase tracking-wider">Delete FAQ</h3>
             </div>
             
             {/* Popup Body */}
             <div className="p-6">
-              <p className="text-gray-700 mb-2">
+              <p className="text-xs text-gray-400 mb-2">
                 Are you sure you want to delete this FAQ?
               </p>
-              <p className="text-gray-900 font-medium bg-gray-100 p-3 rounded border border-gray-200">
+              <p className="text-sm text-gray-200 font-medium bg-[#0F111A] p-3 rounded border border-gray-700">
                 "{deletePopup.faqQuestion}"
               </p>
-              <p className="text-red-600 text-sm mt-3">
+              <p className="text-rose-400 text-[10px] mt-3 font-bold uppercase tracking-wider">
                 This action cannot be undone.
               </p>
             </div>
             
             {/* Popup Footer */}
-            <div className="flex justify-end space-x-3 p-4 border-t border-gray-200">
+            <div className="flex justify-end space-x-3 p-4 border-t border-gray-800">
               <button
                 type="button"
                 onClick={closeDeletePopup}
-                className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors font-medium"
+                className="px-4 py-2 text-gray-300 bg-[#0F111A] border border-gray-700 hover:border-gray-500 rounded-md transition-colors font-bold text-xs"
                 disabled={deletePopup.deleting}
               >
                 Cancel
@@ -512,7 +712,7 @@ const FAQ = () => {
               <button
                 type="button"
                 onClick={handleDeleteFaq}
-                className="px-4 py-2 text-white bg-red-600 cursor-pointer hover:bg-red-700 rounded-md transition-colors font-medium flex items-center justify-center"
+                className="px-4 py-2 text-white bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/30 text-rose-400 rounded-md transition-colors font-bold text-xs flex items-center justify-center"
                 disabled={deletePopup.deleting}
               >
                 {deletePopup.deleting ? (
