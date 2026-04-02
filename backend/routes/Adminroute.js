@@ -10151,6 +10151,7 @@ const Notice = require("../models/Notice");
 const MenuGame = require("../models/MenuGame");
 const Bonus = require("../models/Bonus");
 const Admin = require("../models/Admin");
+const AdminRole = require("../models/AdminRole");
 
 // ==================== NOTICE ROUTES ====================
 // ==================== NOTICE ROUTES ====================
@@ -12682,4 +12683,219 @@ Adminrouter.put("/affilaite-payouts/:id/status", async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==================== SIMPLE ADMIN ROLE ROUTES ====================
+
+// GET all roles
+Adminrouter.get("/roles", async (req, res) => {
+  try {
+    const roles = await AdminRole.find();
+    res.json({ success: true, data: roles });
+  } catch (error) {
+    console.log("res",error)
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET single role
+Adminrouter.get("/roles/:id", async (req, res) => {
+  try {
+    const role = await AdminRole.findById(req.params.id);
+    if (!role) return res.status(404).json({ success: false, error: "Role not found" });
+    res.json({ success: true, data: role });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST create role
+Adminrouter.post("/roles", async (req, res) => {
+  try {
+    const { roleName, permissions, status } = req.body;
+    const role = new AdminRole({ roleName, permissions, status });
+    await role.save();
+    res.status(201).json({ success: true, data: role });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT update role
+Adminrouter.put("/roles/:id", async (req, res) => {
+  try {
+    const { roleName, permissions, status } = req.body;
+    const role = await AdminRole.findByIdAndUpdate(
+      req.params.id,
+      { roleName, permissions, status },
+      { new: true }
+    );
+    if (!role) return res.status(404).json({ success: false, error: "Role not found" });
+    res.json({ success: true, data: role });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE role
+Adminrouter.delete("/roles/:id", async (req, res) => {
+  try {
+    const role = await AdminRole.findByIdAndDelete(req.params.id);
+    if (!role) return res.status(404).json({ success: false, error: "Role not found" });
+    res.json({ success: true, message: "Role deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== SIMPLE ADMIN USER ROUTES ====================
+
+// GET all admins
+Adminrouter.get("/admins", async (req, res) => {
+  try {
+    const admins = await Admin.find().select("-password");
+    res.json({ success: true, data: admins });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET single admin
+Adminrouter.get("/admins/:id", async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.params.id).select("-password");
+    if (!admin) return res.status(404).json({ success: false, error: "Admin not found" });
+    res.json({ success: true, data: admin });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST create admin
+Adminrouter.post("/admins", async (req, res) => {
+  try {
+    const { name, email, password, role, is_active } = req.body;
+    
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
+      return res.status(400).json({ success: false, error: "Email already exists" });
+    }
+    
+    const admin = new Admin({ name, email, password, role, is_active });
+    await admin.save();
+    
+    const adminResponse = admin.toObject();
+    delete adminResponse.password;
+    
+    res.status(201).json({ success: true, data: adminResponse });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT update admin
+Adminrouter.put("/admins/:id", async (req, res) => {
+  try {
+    const { name, email, role, is_active } = req.body;
+    const admin = await Admin.findByIdAndUpdate(
+      req.params.id,
+      { name, email, role, is_active },
+      { new: true }
+    ).select("-password");
+    
+    if (!admin) return res.status(404).json({ success: false, error: "Admin not found" });
+    res.json({ success: true, data: admin });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE admin
+Adminrouter.delete("/admins/:id", async (req, res) => {
+  try {
+    const admin = await Admin.findByIdAndDelete(req.params.id);
+    if (!admin) return res.status(404).json({ success: false, error: "Admin not found" });
+    res.json({ success: true, message: "Admin deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST admin login
+Adminrouter.post("/admin-login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(401).json({ success: false, error: "Invalid credentials" });
+    }
+    
+    const isPasswordValid = await admin.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, error: "Invalid credentials" });
+    }
+    
+    if (!admin.is_active) {
+      return res.status(401).json({ success: false, error: "Account is inactive" });
+    }
+    
+    const token = jwt.sign({ id: admin._id, email: admin.email, role: admin.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    
+    const adminResponse = admin.toObject();
+    delete adminResponse.password;
+    
+    res.json({
+      success: true,
+      token,
+      admin: adminResponse
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET current admin's permissions
+// GET current admin's permissions
+Adminrouter.get("/current-admin/permissions", adminAuth, async (req, res) => {
+  try {
+    const admin = req.user;
+    console.log("admin",admin)
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        error: "Admin not found"
+      });
+    }
+    const role = await AdminRole.findOne({roleName:admin.role});
+    const permissions = role ? role.permissions : []; 
+    res.json({
+      success: true,
+      permissions: permissions,
+      role: admin.role
+    });
+  } catch (error) {
+    console.error("Error fetching admin permissions:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch permissions"
+    });
+  }
+});
+
+
+
 module.exports = Adminrouter;

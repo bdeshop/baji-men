@@ -63,6 +63,9 @@ import Viewbonus from './pages/bonus/Viewbonus'
 import Profile from './pages/profile/Profile'
 import EditDepositMethod from './pages/payment_methods/deposit/EditDepositMethod'
 import EditWithdrawMethod from './pages/payment_methods/withdraw/EditWithdrawMethod'
+import Createrole from './pages/adminrole/Createrole'
+import Rolelist from './pages/adminrole/Rolelist'
+import CreateAdmin from './pages/adminrole/CreateAdmin'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -719,7 +722,37 @@ const App = () => {
           }
         />
 
+       {/* ----------------------------admin-role-------------------------------- */}
 
+                    <Route 
+          exact 
+          path="/admin-roles/create-role" 
+          element={
+            <ProtectedRoute>
+              <Createrole />
+            </ProtectedRoute>
+          }
+        />
+
+                    <Route 
+          exact 
+          path="/admin-roles/role-list" 
+          element={
+            <ProtectedRoute>
+              <Rolelist />
+            </ProtectedRoute>
+          }
+        />
+
+                   <Route 
+          exact 
+          path="/admin-roles/create-admin" 
+          element={
+            <ProtectedRoute>
+              <CreateAdmin />
+            </ProtectedRoute>
+          }
+        />
        
         {/* Catch all route - redirect to dashboard if authenticated, otherwise to login */}
         <Route 
