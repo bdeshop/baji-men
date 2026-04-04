@@ -104,6 +104,16 @@ const permissionCategories = [
       { id: 'manage_inactive_users', label: 'Manage Inactive Users' }
     ]
   },
+   {
+    category: "KYC Management",
+    permissions: [
+      { id: 'view_kyc', label: 'View KYC List' },
+      { id: 'assign_kyc', label: 'Assign KYC' },
+      { id: 'approve_kyc', label: 'Approve KYC' },
+      { id: 'reject_kyc', label: 'Reject KYC' },
+      { id: 'view_kyc_details', label: 'View KYC Details' }
+    ]
+  },
   {
     category: "Affiliate Management",
     permissions: [

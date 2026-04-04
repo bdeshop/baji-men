@@ -7,64 +7,64 @@ const SALT_WORK_FACTOR = 10;
 const PASSWORD_MIN_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 5;
 const BONUS_CONFIG = {
-  BONUS_EXPIRY_DAYS: 30,
-  FIRST_DEPOSIT_BONUS_RATE: 0.03,
-  SPECIAL_BONUS_RATE: 1.5,
-  WAGERING_REQUIREMENT: 30,
-  DEPOSIT_WAGERING_REQUIREMENT: 3,
-  MINIMUM_REMAINING_WAGER: 1,
-  WITHDRAWAL_COMMISSION_RATE: 0.2,
-  NEW_USER_ACCOUNT_AGE_DAYS: 3,
-  MIN_DEPOSIT_AMOUNT: 100,
-  MAX_DEPOSIT_AMOUNT: 30000,
-  MIN_WITHDRAWAL_AMOUNT: 300,
-  MAX_WITHDRAWALS_PER_DAY: 3,
-  DAILY_WITHDRAWAL_LIMIT: 50000
+    BONUS_EXPIRY_DAYS: 30,
+    FIRST_DEPOSIT_BONUS_RATE: 0.03,
+    SPECIAL_BONUS_RATE: 1.5,
+    WAGERING_REQUIREMENT: 30,
+    DEPOSIT_WAGERING_REQUIREMENT: 3,
+    MINIMUM_REMAINING_WAGER: 1,
+    WITHDRAWAL_COMMISSION_RATE: 0.2,
+    NEW_USER_ACCOUNT_AGE_DAYS: 3,
+    MIN_DEPOSIT_AMOUNT: 100,
+    MAX_DEPOSIT_AMOUNT: 30000,
+    MIN_WITHDRAWAL_AMOUNT: 300,
+    MAX_WITHDRAWALS_PER_DAY: 3,
+    DAILY_WITHDRAWAL_LIMIT: 50000
 };
 
 // Click Tracking Schema
 const clickTrackSchema = new Schema({
-  clickId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  affiliate: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Affiliate',
-    required: true
-  },
-  affiliateCode: {
-    type: String,
-    required: true
-  },
-  ipAddress: String,
-  userAgent: String,
-  source: {
-    type: String,
-    default: 'direct'
-  },
-  campaign: {
-    type: String,
-    default: 'general'
-  },
-  medium: {
-    type: String,
-    default: 'referral'
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now
-  },
-  converted: {
-    type: Boolean,
-    default: false
-  },
-  convertedAt: Date,
-  conversionValue: {
-    type: Number,
-    default: 0
-  }
+    clickId: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    affiliate: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Affiliate',
+        required: true
+    },
+    affiliateCode: {
+        type: String,
+        required: true
+    },
+    ipAddress: String,
+    userAgent: String,
+    source: {
+        type: String,
+        default: 'direct'
+    },
+    campaign: {
+        type: String,
+        default: 'general'
+    },
+    medium: {
+        type: String,
+        default: 'referral'
+    },
+    timestamp: {
+        type: Date,
+        default: Date.now
+    },
+    converted: {
+        type: Boolean,
+        default: false
+    },
+    convertedAt: Date,
+    conversionValue: {
+        type: Number,
+        default: 0
+    }
 });
 
 // Bonus Activity Log Schema
@@ -116,42 +116,42 @@ const bonusActivitySchema = new Schema({
 
 // Affiliate Referral Schema
 const affiliateReferralSchema = new Schema({
-  affiliateId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Affiliate',
-    required: true
-  },
-  affiliateCode: {
-    type: String,
-    required: true
-  },
-  clickId: {
-    type: String,
-    ref: 'ClickTrack'
-  },
-  commissionEarned: {
-    type: Number,
-    default: 0
-  },
-  commissionRate: {
-    type: Number,
-    default: 0.1
-  },
-  referredAt: {
-    type: Date,
-    default: Date.now
-  },
-  status: {
-    type: String,
-    enum: ['active', 'converted', 'expired'],
-    default: 'active'
-  }
+    affiliateId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Affiliate',
+        required: true
+    },
+    affiliateCode: {
+        type: String,
+        required: true
+    },
+    clickId: {
+        type: String,
+        ref: 'ClickTrack'
+    },
+    commissionEarned: {
+        type: Number,
+        default: 0
+    },
+    commissionRate: {
+        type: Number,
+        default: 0.1
+    },
+    referredAt: {
+        type: Date,
+        default: Date.now
+    },
+    status: {
+        type: String,
+        enum: ['active', 'converted', 'expired'],
+        default: 'active'
+    }
 });
 
 // User Schema
 const UserSchema = new Schema({
     // ========== BASIC INFORMATION ==========
-// In your UserSchema, change the email field to:
+    // In your UserSchema, change the email field to:
     username: {
         type: String,
         unique: true,
@@ -161,7 +161,7 @@ const UserSchema = new Schema({
     },
     password: {
         type: String,
-        required: function() { return !this.isOneClickUser; },
+        required: function () { return !this.isOneClickUser; },
         select: false,
         minlength: PASSWORD_MIN_LENGTH
     },
@@ -174,47 +174,47 @@ const UserSchema = new Schema({
         type: String,
         default: "https://images.5943920202.com//TCG_PROD_IMAGES/B2C/01_PROFILE/PROFILE/0.png"
     },
-    affiliateCode:{
-      type: String,
+    affiliateCode: {
+        type: String,
     },
     // Add these fields to your UserSchema in the model file
 
-// In the BASIC INFORMATION section, add:
-email: {
-    type: String,
-    unique: true,
-    sparse: true, // Allows multiple null values but ensures unique if present
-    lowercase: true,
-    trim: true,
-    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
-},
-fullName: {
-    type: String,
-    trim: true,
-},
-dateOfBirth: {
-    type: Date,
-    validate: {
-        validator: function(value) {
-            if (!value) return true; // Optional
-            const age = Math.floor((new Date() - new Date(value)) / (1000 * 60 * 60 * 24 * 365.25));
-            return age >= 18 && age <= 120; // Must be at least 18 years old
-        },
-        message: 'User must be at least 18 years old'
-    }
-},
-pendingEmail:{
-    type: String,
-},
-// Add this to the SECURITY section:
-emailVerificationOTP: {
-    code: String,
-    expiresAt: Date,
-    verified: { type: Boolean, default: false },
-    attempts: { type: Number, default: 0 },
-    lastAttemptAt: Date
-},
-emailVerifiedAt: Date,
+    // In the BASIC INFORMATION section, add:
+    email: {
+        type: String,
+        unique: true,
+        sparse: true, // Allows multiple null values but ensures unique if present
+        lowercase: true,
+        trim: true,
+        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
+    },
+    fullName: {
+        type: String,
+        trim: true,
+    },
+    dateOfBirth: {
+        type: Date,
+        validate: {
+            validator: function (value) {
+                if (!value) return true; // Optional
+                const age = Math.floor((new Date() - new Date(value)) / (1000 * 60 * 60 * 24 * 365.25));
+                return age >= 18 && age <= 120; // Must be at least 18 years old
+            },
+            message: 'User must be at least 18 years old'
+        }
+    },
+    pendingEmail: {
+        type: String,
+    },
+    // Add this to the SECURITY section:
+    emailVerificationOTP: {
+        code: String,
+        expiresAt: Date,
+        verified: { type: Boolean, default: false },
+        attempts: { type: Number, default: 0 },
+        lastAttemptAt: Date
+    },
+    emailVerifiedAt: Date,
     // ========== ACCOUNT INFORMATION ==========
     player_id: {
         type: String,
@@ -255,7 +255,16 @@ emailVerifiedAt: Date,
         type: Date,
         default: Date.now
     },
-
+    // ========== COIN SYSTEM ==========
+    coinBalance: {
+        type: Number,
+        default: 0
+    },
+    coinHistory: [{
+        amount: Number,
+        reason: String,
+        date: { type: Date, default: Date.now }
+    }],
     // ========== FINANCIAL INFORMATION ==========
     currency: {
         type: String,
@@ -270,13 +279,13 @@ emailVerifiedAt: Date,
         default: 0,
         min: 0
     },
-    depositamount:{
-      type: Number,
-           default: 0,
+    depositamount: {
+        type: Number,
+        default: 0,
     },
-    waigeringneed:{
-       type: Number,
-           default: 0,
+    waigeringneed: {
+        type: Number,
+        default: 0,
     },
     total_deposit: {
         type: Number,
@@ -307,21 +316,21 @@ emailVerifiedAt: Date,
         type: Number,
         default: 0
     },
-    lifetime_deposit:{
-      type: Number,
-      default: 0
-    },
-    affiliatedeposit:{
-      type: Number,
-      default: 0
-    },
-    lifetime_withdraw:{
+    lifetime_deposit: {
         type: Number,
         default: 0
     },
-    lifetime_bet:{
+    affiliatedeposit: {
         type: Number,
-        default: 0 
+        default: 0
+    },
+    lifetime_withdraw: {
+        type: Number,
+        default: 0
+    },
+    lifetime_bet: {
+        type: Number,
+        default: 0
     },
     totalWagered: {
         type: Number,
@@ -345,52 +354,52 @@ emailVerifiedAt: Date,
             type: Boolean,
             default: false
         },
-      // In the bonusInfo.activeBonuses array:
-activeBonuses: [{
-    bonusType: {
-        type: String,
-        enum: ['first_deposit', 'special_bonus', 'deposit', 'welcome', 'reload', 'cashback', 'free_spin', 'special', 'manual'],
-        required: true
-    },
-    bonusCode: {
-        type: String,
-        default: ''
-    },
-    amount: {
-        type: Number,
-        required: true
-    },
-    originalAmount: {
-        type: Number,
-        required: true
-    },
-    wageringRequirement: {
-        type: Number,
-        required: true,
-        default: BONUS_CONFIG.WAGERING_REQUIREMENT
-    },
-    amountWagered: {
-        type: Number,
-        default: 0
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    expiresAt: {
-        type: Date,
-        default: function() {
-            const date = new Date();
-            date.setDate(date.getDate() + BONUS_CONFIG.BONUS_EXPIRY_DAYS);
-            return date;
-        }
-    },
-    status: {
-        type: String,
-        enum: ['active', 'completed', 'expired', 'cancelled'],
-        default: 'active'
-    }
-}],
+        // In the bonusInfo.activeBonuses array:
+        activeBonuses: [{
+            bonusType: {
+                type: String,
+                enum: ['first_deposit', 'special_bonus', 'deposit', 'welcome', 'reload', 'cashback', 'free_spin', 'special', 'manual'],
+                required: true
+            },
+            bonusCode: {
+                type: String,
+                default: ''
+            },
+            amount: {
+                type: Number,
+                required: true
+            },
+            originalAmount: {
+                type: Number,
+                required: true
+            },
+            wageringRequirement: {
+                type: Number,
+                required: true,
+                default: BONUS_CONFIG.WAGERING_REQUIREMENT
+            },
+            amountWagered: {
+                type: Number,
+                default: 0
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now
+            },
+            expiresAt: {
+                type: Date,
+                default: function () {
+                    const date = new Date();
+                    date.setDate(date.getDate() + BONUS_CONFIG.BONUS_EXPIRY_DAYS);
+                    return date;
+                }
+            },
+            status: {
+                type: String,
+                enum: ['active', 'completed', 'expired', 'cancelled'],
+                default: 'active'
+            }
+        }],
         bonusWageringTotal: {
             type: Number,
             default: 0
@@ -473,20 +482,16 @@ activeBonuses: [{
         type: Boolean,
         default: false
     },
+    assignkyc:{
+    type: String,
+       enum: ['not assigned', 'assigned', 'completed'],
+         default: 'not assigned'
+    },
     kycStatus: {
         type: String,
         enum: ['unverified', 'pending', 'verified', 'rejected'],
         default: 'unverified'
     },
-    kycDocuments: [{
-        documentType: String,
-        frontImage: String,
-        backImage: String,
-        status: String,
-        submittedAt: Date,
-        verifiedAt: Date
-    }],
-
     // ========== REFERRAL SYSTEM ==========
     referralCode: {
         type: String,
@@ -498,10 +503,10 @@ activeBonuses: [{
         ref: "User",
         default: null
     },
-  last_login: {
-    type: Date,
-    default: null
-  },
+    last_login: {
+        type: Date,
+        default: null
+    },
     referralEarnings: {
         type: Number,
         default: 0
@@ -511,10 +516,10 @@ activeBonuses: [{
         default: 0
     },
     referralUsers: [{
-        username:{
-               type:String,
+        username: {
+            type: String,
         },
-        user: { 
+        user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         },
@@ -585,54 +590,54 @@ activeBonuses: [{
         reason: String,
         date: { type: Date, default: Date.now }
     }],
-depositHistory: [{
-    method: {
-        type: String,
-        required: true
-    },
-    amount: {
-        type: Number,
-        required: true,
-    },
-    status: { 
-        type: String, 
-        enum: ['pending', 'completed', 'failed', 'cancelled'], 
-        default: 'pending' 
-    },
-    transactionId: String,
-    bonusApplied: {
-        type: Boolean,
-        default: false
-    },
-    bonusType: {
-        type: String,
-        default: 'none'
-    },
-    bonusAmount: {
-        type: Number,
-        default: 0
-    },
-    bonusCode: {
-        type: String,
-        default: ''
-    },
-    wageringRequirement: {
-        type: Number,
-        default: 0
-    },
-    orderId: String,
-    paymentUrl: String,
-    paymentId: String,
-    externalPaymentId: String,
-    userIdentifyAddress: String,
-    playerbalance: Number,
-    processedAt: Date,
-    completedAt: Date,
-    createdAt: { 
-        type: Date, 
-        default: Date.now 
-    }
-}],
+    depositHistory: [{
+        method: {
+            type: String,
+            required: true
+        },
+        amount: {
+            type: Number,
+            required: true,
+        },
+        status: {
+            type: String,
+            enum: ['pending', 'completed', 'failed', 'cancelled'],
+            default: 'pending'
+        },
+        transactionId: String,
+        bonusApplied: {
+            type: Boolean,
+            default: false
+        },
+        bonusType: {
+            type: String,
+            default: 'none'
+        },
+        bonusAmount: {
+            type: Number,
+            default: 0
+        },
+        bonusCode: {
+            type: String,
+            default: ''
+        },
+        wageringRequirement: {
+            type: Number,
+            default: 0
+        },
+        orderId: String,
+        paymentUrl: String,
+        paymentId: String,
+        externalPaymentId: String,
+        userIdentifyAddress: String,
+        playerbalance: Number,
+        processedAt: Date,
+        completedAt: Date,
+        createdAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     withdrawHistory: [{
         method: {
             type: String,
@@ -647,10 +652,10 @@ depositHistory: [{
             type: Number,
             required: true
         },
-        status: { 
-            type: String, 
-            enum: ['pending', 'processing', 'completed', 'rejected', 'cancelled'], 
-            default: 'pending' 
+        status: {
+            type: String,
+            enum: ['pending', 'processing', 'completed', 'rejected', 'cancelled'],
+            default: 'pending'
         },
         accountNumber: {
             type: String,
@@ -676,9 +681,9 @@ depositHistory: [{
         },
         processedAt: Date,
         completedAt: Date,
-        createdAt: { 
-            type: Date, 
-            default: Date.now 
+        createdAt: {
+            type: Date,
+            default: Date.now
         }
     }],
     transactionHistory: [{
@@ -714,7 +719,7 @@ depositHistory: [{
     timestamps: true,
     toJSON: {
         virtuals: true,
-        transform: function(doc, ret) {
+        transform: function (doc, ret) {
             delete ret.password;
             delete ret.transactionPassword;
             delete ret.moneyTransferPassword;
@@ -729,47 +734,47 @@ depositHistory: [{
 });
 
 // ========== VIRTUALS ==========
-UserSchema.virtual('formattedBalance').get(function() {
+UserSchema.virtual('formattedBalance').get(function () {
     return this.balance;
 });
 
-UserSchema.virtual('accountAgeInDays').get(function() {
+UserSchema.virtual('accountAgeInDays').get(function () {
     return Math.floor((new Date() - new Date(this.createdAt)) / (1000 * 60 * 60 * 24));
 });
 
-UserSchema.virtual('isNewUser').get(function() {
+UserSchema.virtual('isNewUser').get(function () {
     return this.accountAgeInDays < BONUS_CONFIG.NEW_USER_ACCOUNT_AGE_DAYS;
 });
 
-UserSchema.virtual('availableBalance').get(function() {
+UserSchema.virtual('availableBalance').get(function () {
     let available = this.balance || 0;
     if (this.bonusBalance > 0) return 0;
     return available;
 });
 
-UserSchema.virtual('withdrawableAmount').get(function() {
+UserSchema.virtual('withdrawableAmount').get(function () {
     let amount = this.balance || 0;
-    
+
     if (this.bonusBalance > 0) return 0;
-    
+
     const requiredWager = this.total_deposit * BONUS_CONFIG.DEPOSIT_WAGERING_REQUIREMENT;
     const completedWager = this.totalWagered || 0;
     const remainingWager = Math.max(0, requiredWager - completedWager);
     const minRequired = this.total_deposit * BONUS_CONFIG.MINIMUM_REMAINING_WAGER;
-    
+
     if (remainingWager > minRequired) {
         return amount * (1 - BONUS_CONFIG.WITHDRAWAL_COMMISSION_RATE);
     }
-    
+
     return amount;
 });
 
-UserSchema.virtual('wageringStatus').get(function() {
+UserSchema.virtual('wageringStatus').get(function () {
     const required = this.total_deposit * BONUS_CONFIG.DEPOSIT_WAGERING_REQUIREMENT;
     const completed = this.totalWagered || 0;
     const remaining = Math.max(0, required - completed);
     const minRequired = this.total_deposit * BONUS_CONFIG.MINIMUM_REMAINING_WAGER;
-    
+
     return {
         required,
         completed,
@@ -780,12 +785,12 @@ UserSchema.virtual('wageringStatus').get(function() {
     };
 });
 
-UserSchema.virtual('isAffiliateReferred').get(function() {
+UserSchema.virtual('isAffiliateReferred').get(function () {
     return !!this.affiliateReferral;
 });
 
 // ========== PRE-SAVE HOOKS ==========
-UserSchema.pre('save', async function(next) {
+UserSchema.pre('save', async function (next) {
     if (!this.player_id) {
         this.player_id = 'PL' + Math.random().toString(36).substr(2, 8).toUpperCase();
     }
@@ -797,7 +802,7 @@ UserSchema.pre('save', async function(next) {
     if (this.isModified('password')) {
         const salt = await bcrypt.genSalt(SALT_WORK_FACTOR);
         this.password = await bcrypt.hash(this.password, salt);
-        
+
         if (this.passwordHistory) {
             this.passwordHistory.push({
                 password: this.password,
@@ -809,11 +814,11 @@ UserSchema.pre('save', async function(next) {
                 changedAt: new Date()
             }];
         }
-        
+
         if (this.passwordHistory.length > 5) {
             this.passwordHistory = this.passwordHistory.slice(-5);
         }
-        
+
         this.lastPasswordChange = new Date();
     }
 
@@ -831,7 +836,7 @@ UserSchema.pre('save', async function(next) {
     if (this.isModified('lastWithdrawalDate')) {
         const today = new Date().toDateString();
         const lastWithdrawalDay = this.lastWithdrawalDate ? new Date(this.lastWithdrawalDate).toDateString() : null;
-        
+
         if (!lastWithdrawalDay || today !== lastWithdrawalDay) {
             this.withdrawalCountToday = 0;
         }
@@ -841,10 +846,10 @@ UserSchema.pre('save', async function(next) {
 });
 
 // ========== AFFILIATE TRACKING METHODS ==========
-UserSchema.methods.trackAffiliateConversion = async function(affiliateId, affiliateCode, clickId = null) {
+UserSchema.methods.trackAffiliateConversion = async function (affiliateId, affiliateCode, clickId = null) {
     const Affiliate = mongoose.model('Affiliate');
     const ClickTrack = mongoose.model('ClickTrack');
-    
+
     // Find the affiliate
     const affiliate = await Affiliate.findById(affiliateId);
     if (!affiliate) {
@@ -855,7 +860,7 @@ UserSchema.methods.trackAffiliateConversion = async function(affiliateId, affili
     if (clickId) {
         await ClickTrack.findOneAndUpdate(
             { clickId, affiliate: affiliateId },
-            { 
+            {
                 converted: true,
                 convertedAt: new Date()
             }
@@ -908,14 +913,14 @@ UserSchema.methods.trackAffiliateConversion = async function(affiliateId, affili
     return this;
 };
 
-UserSchema.methods.awardAffiliateCommission = async function(amount, transactionType = 'deposit') {
+UserSchema.methods.awardAffiliateCommission = async function (amount, transactionType = 'deposit') {
     if (!this.affiliateReferral) {
         return null;
     }
 
     const Affiliate = mongoose.model('Affiliate');
     const affiliate = await Affiliate.findById(this.affiliateReferral.affiliateId);
-    
+
     if (!affiliate) {
         return null;
     }
@@ -977,23 +982,23 @@ UserSchema.methods.awardAffiliateCommission = async function(amount, transaction
 };
 
 // ========== WITHDRAWAL METHODS ==========
-UserSchema.methods.canWithdraw = function(amount) {
+UserSchema.methods.canWithdraw = function (amount) {
     if (this.bonusBalance > 0) {
         return {
             canWithdraw: false,
             reason: "Active bonus balance must be cleared first"
         };
     }
-    
+
     if (amount > this.balance) {
         return {
             canWithdraw: false,
             reason: "Insufficient balance"
         };
     }
-    
+
     const status = this.wageringStatus;
-    
+
     if (status.remaining > status.minRequired) {
         return {
             canWithdraw: true,
@@ -1002,7 +1007,7 @@ UserSchema.methods.canWithdraw = function(amount) {
             netAmount: amount * (1 - BONUS_CONFIG.WITHDRAWAL_COMMISSION_RATE)
         };
     }
-    
+
     return {
         canWithdraw: true,
         reason: "Withdrawal allowed",
@@ -1012,17 +1017,17 @@ UserSchema.methods.canWithdraw = function(amount) {
 };
 
 // ========== BONUS SYSTEM METHODS ==========
-UserSchema.methods.isEligibleForFirstDepositBonus = function() {
+UserSchema.methods.isEligibleForFirstDepositBonus = function () {
     return !this.bonusInfo.firstDepositBonusClaimed && this.total_deposit === 0;
 };
 
-UserSchema.methods.isEligibleForSpecialBonus = function() {
+UserSchema.methods.isEligibleForSpecialBonus = function () {
     const isNewUser = this.accountAgeInDays < BONUS_CONFIG.NEW_USER_ACCOUNT_AGE_DAYS;
     const hasNoActiveBonuses = this.bonusInfo.activeBonuses.length === 0;
     return isNewUser && hasNoActiveBonuses && (this.total_deposit === 0 || this.total_deposit < BONUS_CONFIG.MAX_DEPOSIT_AMOUNT);
 };
 
-UserSchema.methods.calculateBonusAmount = function(depositAmount, bonusType) {
+UserSchema.methods.calculateBonusAmount = function (depositAmount, bonusType) {
     if (bonusType === 'first_deposit') {
         return depositAmount * BONUS_CONFIG.FIRST_DEPOSIT_BONUS_RATE;
     } else if (bonusType === 'special_bonus') {
@@ -1031,9 +1036,9 @@ UserSchema.methods.calculateBonusAmount = function(depositAmount, bonusType) {
     return 0;
 };
 
-UserSchema.methods.getAvailableBonusOffers = function() {
+UserSchema.methods.getAvailableBonusOffers = function () {
     const offers = [];
-    
+
     if (this.isEligibleForFirstDepositBonus()) {
         offers.push({
             type: 'first_deposit',
@@ -1042,7 +1047,7 @@ UserSchema.methods.getAvailableBonusOffers = function() {
             rate: BONUS_CONFIG.FIRST_DEPOSIT_BONUS_RATE
         });
     }
-    
+
     if (this.isEligibleForSpecialBonus()) {
         offers.push({
             type: 'special_bonus',
@@ -1052,12 +1057,12 @@ UserSchema.methods.getAvailableBonusOffers = function() {
             wageringRequirement: BONUS_CONFIG.WAGERING_REQUIREMENT
         });
     }
-    
+
     return offers;
 };
 
 // ========== DEPOSIT METHODS ==========
-UserSchema.methods.createDeposit = async function({ method, amount, bonusType = 'none' }) {
+UserSchema.methods.createDeposit = async function ({ method, amount, bonusType = 'none' }) {
     if (amount < BONUS_CONFIG.MIN_DEPOSIT_AMOUNT || amount > BONUS_CONFIG.MAX_DEPOSIT_AMOUNT) {
         throw new Error(`Deposit amount must be between ${BONUS_CONFIG.MIN_DEPOSIT_AMOUNT} and ${BONUS_CONFIG.MAX_DEPOSIT_AMOUNT} BDT`);
     }
@@ -1084,9 +1089,9 @@ UserSchema.methods.createDeposit = async function({ method, amount, bonusType = 
     return deposit;
 };
 
-UserSchema.methods.completeDeposit = async function(orderId, transactionId) {
+UserSchema.methods.completeDeposit = async function (orderId, transactionId) {
     const deposit = this.depositHistory.find(d => d.orderId === orderId && d.status === 'pending');
-    
+
     if (!deposit) {
         throw new Error('Pending deposit not found');
     }
@@ -1147,7 +1152,7 @@ UserSchema.methods.completeDeposit = async function(orderId, transactionId) {
 };
 
 // ========== BONUS WAGERING METHODS ==========
-UserSchema.methods.applyBetToWagering = async function(amount) {
+UserSchema.methods.applyBetToWagering = async function (amount) {
     this.totalWagered += amount;
     this.total_bet += amount;
 
@@ -1160,32 +1165,32 @@ UserSchema.methods.applyBetToWagering = async function(amount) {
         for (const bonus of this.bonusInfo.activeBonuses) {
             if (bonus.status === 'active') {
                 bonus.amountWagered += amount;
-                
+
                 if (bonus.amountWagered >= (bonus.originalAmount * bonus.wageringRequirement)) {
                     bonus.status = 'completed';
                 }
             }
         }
-        
+
         this.bonusInfo.activeBonuses = this.bonusInfo.activeBonuses.filter(b => b.status !== 'completed');
     }
 
     await this.save();
 };
 
-UserSchema.methods.cancelBonusWithPenalty = async function() {
+UserSchema.methods.cancelBonusWithPenalty = async function () {
     if (this.bonusBalance <= 0) {
         throw new Error('No active bonus to cancel');
     }
 
     const penaltyAmount = this.bonusBalance * 1.5;
-    
+
     if (this.balance < penaltyAmount) {
         throw new Error('Insufficient balance to pay penalty');
     }
 
     this.balance -= penaltyAmount;
-    
+
     // Cancel the bonus and log the activity
     const cancelledBonus = this.bonusInfo.activeBonuses.map(bonus => {
         bonus.status = 'cancelled';
@@ -1201,7 +1206,7 @@ UserSchema.methods.cancelBonusWithPenalty = async function() {
     });
 
     this.bonusBalance = 0;
-    
+
     this.transactionHistory.push({
         type: 'penalty',
         amount: penaltyAmount,
@@ -1216,7 +1221,7 @@ UserSchema.methods.cancelBonusWithPenalty = async function() {
 };
 
 // ========== STATIC METHODS ==========
-UserSchema.statics.oneClickRegister = async function(username) {
+UserSchema.statics.oneClickRegister = async function (username) {
     const existingUser = await this.findOne({ username });
     if (existingUser) {
         throw new Error('Username already exists');
@@ -1229,7 +1234,7 @@ UserSchema.statics.oneClickRegister = async function(username) {
     });
 };
 
-UserSchema.statics.findByCredentials = async function(username, password) {
+UserSchema.statics.findByCredentials = async function (username, password) {
     const user = await this.findOne({ username }).select('+password');
     if (!user) {
         throw new Error('Invalid login credentials');
@@ -1243,7 +1248,7 @@ UserSchema.statics.findByCredentials = async function(username, password) {
     return user;
 };
 
-UserSchema.statics.findByEmailOrPhone = async function(emailOrPhone) {
+UserSchema.statics.findByEmailOrPhone = async function (emailOrPhone) {
     return this.findOne({
         $or: [
             { email: emailOrPhone },
@@ -1253,7 +1258,7 @@ UserSchema.statics.findByEmailOrPhone = async function(emailOrPhone) {
 };
 
 // Add password verification method
-UserSchema.methods.verifyPassword = async function(password) {
+UserSchema.methods.verifyPassword = async function (password) {
     return bcrypt.compare(password, this.password);
 };
 

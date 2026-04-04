@@ -4544,4 +4544,287 @@ Userrouter.post("/turnover/apply-bet", authenticateToken, async (req, res) => {
     });
   }
 });
+
+// ==================== KYC USER ROUTES ====================
+
+const KYC = require("../models/KYC");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Configure multer for KYC file uploads
+const kycStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = "./public/uploads/kyc/";
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "kyc-" + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const kycFileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and PDF are allowed.'), false);
+  }
+};
+
+const uploadKYC = multer({
+  storage: kycStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: kycFileFilter,
+});
+
+// Submit KYC application (User)
+Userrouter.post("/kyc/submit", authenticateToken, uploadKYC.fields([
+  { name: 'documentFront', maxCount: 1 },
+  { name: 'documentBack', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { fullName, documentType } = req.body;
+    const userId = req.user._id;
+
+    const existingKYC = await KYC.findOne({ 
+      userId: userId, 
+      status: { $in: ['pending', 'assigned'] } 
+    });
+
+    if (existingKYC) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have a pending KYC application'
+      });
+    }
+
+    if (req.user.kycStatus === 'verified') {
+      return res.status(400).json({
+        success: false,
+        message: 'Your KYC is already verified'
+      });
+    }
+
+    if (!req.files['documentFront']) {
+      return res.status(400).json({
+        success: false,
+        message: 'Document front image is required'
+      });
+    }
+
+    const validDocumentTypes = ['nid', 'passport', 'driving_license', 'birth_certificate'];
+    if (!validDocumentTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid document type'
+      });
+    }
+
+    const kyc = new KYC({
+      userId: userId,
+      fullName: fullName || req.user.fullName || req.user.username,
+      documentType: documentType,
+      documentFront: req.files['documentFront'][0].filename,
+      documentBack: req.files['documentBack'] ? req.files['documentBack'][0].filename : null,
+      status: 'pending',
+      submittedAt: new Date(),
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        location: req.headers['cf-ipcountry'] || 'Unknown'
+      }
+    });
+
+    await kyc.save();
+
+    await User.findByIdAndUpdate(userId, {
+      kycStatus: 'processing',
+      kycSubmissionId: kyc._id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'KYC application submitted successfully',
+      data: {
+        kycId: kyc._id,
+        status: kyc.status,
+        submittedAt: kyc.submittedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('KYC submission error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit KYC application'
+    });
+  }
+});
+
+// Get user's KYC status
+Userrouter.get("/kyc/my-status", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const kyc = await KYC.findOne({ userId: userId })
+      .sort({ createdAt: -1 })
+      .select('-documentFront -documentBack');
+
+    if (!kyc) {
+      return res.json({
+        success: true,
+        data: {
+          status: 'not_submitted',
+          message: 'No KYC application found'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: kyc._id,
+        status: kyc.status,
+        fullName: kyc.fullName,
+        documentType: kyc.documentType,
+        submittedAt: kyc.submittedAt,
+        reviewedAt: kyc.reviewedAt,
+        rejectionReason: kyc.rejectionReason,
+        canResubmit: kyc.status === 'rejected'
+      }
+    });
+  } catch (error) {
+    console.error('Get KYC status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get KYC status'
+    });
+  }
+});
+
+// Get user's KYC details
+Userrouter.get("/kyc/my-details", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const kyc = await KYC.findOne({ userId: userId }).sort({ createdAt: -1 });
+
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: kyc._id,
+        fullName: kyc.fullName,
+        documentType: kyc.documentType,
+        status: kyc.status,
+        submittedAt: kyc.submittedAt,
+        reviewedAt: kyc.reviewedAt,
+        rejectionReason: kyc.rejectionReason,
+        adminNotes: kyc.adminNotes,
+        documents: {
+          front: kyc.documentFront,
+          back: kyc.documentBack
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get KYC details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get KYC details'
+    });
+  }
+});
+
+// Resubmit rejected KYC (User)
+Userrouter.post("/kyc/resubmit", authenticateToken, uploadKYC.fields([
+  { name: 'documentFront', maxCount: 1 },
+  { name: 'documentBack', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { fullName, documentType } = req.body;
+    const userId = req.user._id;
+
+    const oldKyc = await KYC.findOne({ 
+      userId: userId, 
+      status: 'rejected' 
+    }).sort({ createdAt: -1 });
+
+    if (!oldKyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'No rejected KYC application found to resubmit'
+      });
+    }
+
+    if (!req.files['documentFront']) {
+      return res.status(400).json({
+        success: false,
+        message: 'Document front image is required'
+      });
+    }
+
+    const validDocumentTypes = ['nid', 'passport', 'driving_license', 'birth_certificate'];
+    if (!validDocumentTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid document type'
+      });
+    }
+
+    const newKyc = new KYC({
+      userId: userId,
+      fullName: fullName || req.user.fullName || req.user.username,
+      documentType: documentType,
+      documentFront: req.files['documentFront'][0].filename,
+      documentBack: req.files['documentBack'] ? req.files['documentBack'][0].filename : null,
+      status: 'pending',
+      submittedAt: new Date(),
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        location: req.headers['cf-ipcountry'] || 'Unknown',
+        previousKycId: oldKyc._id,
+        resubmitted: true
+      }
+    });
+
+    await newKyc.save();
+
+    await User.findByIdAndUpdate(userId, {
+      kycStatus: 'processing',
+      kycSubmissionId: newKyc._id,
+      kycRejectedAt: null,
+      kycRejectionReason: null
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'KYC resubmitted successfully',
+      data: {
+        kycId: newKyc._id,
+        status: newKyc.status,
+        submittedAt: newKyc.submittedAt
+      }
+    });
+  } catch (error) {
+    console.error('KYC resubmit error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to resubmit KYC application'
+    });
+  }
+});
+
 module.exports = Userrouter;

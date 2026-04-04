@@ -66,6 +66,8 @@ import EditWithdrawMethod from './pages/payment_methods/withdraw/EditWithdrawMet
 import Createrole from './pages/adminrole/Createrole'
 import Rolelist from './pages/adminrole/Rolelist'
 import CreateAdmin from './pages/adminrole/CreateAdmin'
+import AssignKYC from './pages/kyc/AssignKYC'
+import KYCList from './pages/kyc/KYCList'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -718,6 +720,28 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Viewbonus />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --------------------------kyc-------------------------------- */}
+
+             <Route 
+          exact 
+          path="/kyc/kyc-assign" 
+          element={
+            <ProtectedRoute>
+              <AssignKYC/>
+            </ProtectedRoute>
+          }
+        />
+
+            <Route 
+          exact 
+          path="/kyc/kyc-list" 
+          element={
+            <ProtectedRoute>
+              <KYCList/>
             </ProtectedRoute>
           }
         />

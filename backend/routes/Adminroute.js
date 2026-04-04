@@ -12896,6 +12896,433 @@ Adminrouter.get("/current-admin/permissions", adminAuth, async (req, res) => {
   }
 });
 
+// ==================== KYC ADMIN ROUTES ====================
+
+const KYC = require("../models/KYC");
+
+// Get KYC counts
+Adminrouter.get("/kyc/counts", async (req, res) => {
+  try {
+    const counts = await KYC.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    const result = {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      assigned: 0,
+      total: 0
+    };
+    
+    counts.forEach(item => {
+      result[item._id] = item.count;
+      result.total += item.count;
+    });
+    
+    res.json({
+      success: true,
+      counts: result
+    });
+  } catch (error) {
+    console.error('Get KYC counts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get KYC counts'
+    });
+  }
+});
+
+// Get all KYC applications
+Adminrouter.get("/kyc/all", async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    
+    const query = {};
+    if (status && status !== 'all') query.status = status;
+
+    const kycList = await KYC.find(query)
+      .populate('userId', 'username email phone fullName')
+      .populate('assignedTo', 'username email')
+      .populate('reviewedBy', 'username email')
+      .sort({ submittedAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await KYC.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: kycList,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get all KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get KYC applications'
+    });
+  }
+});
+
+// Get single KYC application by ID
+Adminrouter.get("/kyc/:kycId", async (req, res) => {
+  try {
+    const { kycId } = req.params;
+    
+    const kyc = await KYC.findById(kycId)
+      .populate('userId', 'username email phone fullName balance createdAt')
+      .populate('assignedTo', 'username email')
+      .populate('reviewedBy', 'username email');
+
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: kyc
+    });
+  } catch (error) {
+    console.error('Get KYC by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get KYC application'
+    });
+  }
+});
+
+// Assign KYC to admin
+Adminrouter.put("/kyc/:kycId/assign", async (req, res) => {
+  try {
+    const { kycId } = req.params;
+    const { assignedTo } = req.body;
+
+    if (!assignedTo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Assigned admin ID is required'
+      });
+    }
+
+    const kyc = await KYC.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC application not found'
+      });
+    }
+
+    if (kyc.status === 'approved' || kyc.status === 'rejected') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot assign KYC that is already ${kyc.status}`
+      });
+    }
+
+    kyc.status = 'assigned';
+    kyc.assignedTo = assignedTo;
+    await kyc.save();
+
+    res.json({
+      success: true,
+      message: 'KYC assigned successfully',
+      data: {
+        id: kyc._id,
+        status: kyc.status,
+        assignedTo: kyc.assignedTo
+      }
+    });
+  } catch (error) {
+    console.error('Assign KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to assign KYC'
+    });
+  }
+});
+// Complete KYC (admin marks as completed)
+Adminrouter.put("/kyc/:kycId/complete", async (req, res) => {
+  try {
+    const { kycId } = req.params;
+    const { status, notes } = req.body;
+
+    const kyc = await KYC.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC application not found'
+      });
+    }
+
+    if (status === 'approved') {
+      // Update KYC record
+      kyc.status = 'approved';
+      kyc.reviewedAt = new Date();
+      if (notes) kyc.adminNotes = notes;
+      await kyc.save();
+
+      // Update user's assignkyc to 'completed'
+      const user = await User.findById(kyc.userId);
+      if (user) {
+        user.assignkyc = 'completed';
+        user.kycStatus = 'verified';
+        user.kycVerifiedAt = new Date();
+        await user.save();
+      }
+
+      res.json({
+        success: true,
+        message: 'KYC completed and approved successfully',
+        data: {
+          userId: user._id,
+          assignkyc: 'completed',
+          kycStatus: 'verified'
+        }
+      });
+    } else if (status === 'rejected') {
+      // Update KYC record
+      kyc.status = 'rejected';
+      kyc.rejectionReason = notes;
+      kyc.reviewedAt = new Date();
+      await kyc.save();
+
+      // Update user's assignkyc back to 'not assigned' (so they can resubmit)
+      const user = await User.findById(kyc.userId);
+      if (user) {
+        user.assignkyc = 'not assigned';
+        user.kycStatus = 'rejected';
+        user.kycRejectedAt = new Date();
+        user.kycRejectionReason = notes;
+        await user.save();
+      }
+
+      res.json({
+        success: true,
+        message: 'KYC rejected',
+        data: {
+          userId: user._id,
+          assignkyc: 'not assigned',
+          kycStatus: 'rejected'
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be "approved" or "rejected"'
+      });
+    }
+  } catch (error) {
+    console.error('Complete KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete KYC'
+    });
+  }
+});
+// Approve KYC
+Adminrouter.put("/kyc/:kycId/approve", async (req, res) => {
+  try {
+    const { kycId } = req.params;
+    const { adminNotes } = req.body;
+
+    const kyc = await KYC.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC application not found'
+      });
+    }
+
+    if (kyc.status === 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'KYC is already approved'
+      });
+    }
+
+    if (kyc.status === 'rejected') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot approve a rejected KYC'
+      });
+    }
+
+    kyc.status = 'approved';
+    kyc.reviewedAt = new Date();
+    if (adminNotes) kyc.adminNotes = adminNotes;
+    kyc.rejectionReason = null;
+    await kyc.save();
+
+    await User.findByIdAndUpdate(kyc.userId, {
+      kycStatus: 'verified',
+      kycVerifiedAt: new Date(),
+      kycRejectedAt: null,
+      kycRejectionReason: null
+    });
+
+    res.json({
+      success: true,
+      message: 'KYC approved successfully',
+      data: {
+        id: kyc._id,
+        status: kyc.status,
+        reviewedAt: kyc.reviewedAt
+      }
+    });
+  } catch (error) {
+    console.error('Approve KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve KYC'
+    });
+  }
+});
+
+// Reject KYC
+Adminrouter.put("/kyc/:kycId/reject", async (req, res) => {
+  try {
+    const { kycId } = req.params;
+    const { rejectionReason, adminNotes } = req.body;
+
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    const kyc = await KYC.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({
+        success: false,
+        message: 'KYC application not found'
+      });
+    }
+
+    if (kyc.status === 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot reject an approved KYC'
+      });
+    }
+
+    if (kyc.status === 'rejected') {
+      return res.status(400).json({
+        success: false,
+        message: 'KYC is already rejected'
+      });
+    }
+
+    kyc.status = 'rejected';
+    kyc.rejectionReason = rejectionReason;
+    kyc.reviewedAt = new Date();
+    if (adminNotes) kyc.adminNotes = adminNotes;
+    await kyc.save();
+
+    await User.findByIdAndUpdate(kyc.userId, {
+      kycStatus: 'rejected',
+      kycRejectedAt: new Date(),
+      kycRejectionReason: rejectionReason,
+      kycVerifiedAt: null
+    });
+
+    res.json({
+      success: true,
+      message: 'KYC rejected successfully',
+      data: {
+        id: kyc._id,
+        status: kyc.status,
+        rejectionReason: kyc.rejectionReason,
+        reviewedAt: kyc.reviewedAt
+      }
+    });
+  } catch (error) {
+    console.error('Reject KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject KYC'
+    });
+  }
+});
+// Assign KYC to admin
+// Submit KYC application (assign to admin)
+Adminrouter.post("/kyc/submit", async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if KYC is already assigned or completed
+    if (user.assignkyc === 'assigned') {
+      return res.status(400).json({
+        success: false,
+        message: 'KYC is already assigned to an admin'
+      });
+    }
+
+    if (user.assignkyc === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'KYC is already completed'
+      });
+    }
+
+    // Update the assignkyc status to 'assigned'
+    user.assignkyc = 'assigned';
+    await user.save();
+
+    // Also update the user's kycStatus to 'pending' if it's not already
+    if (user.kycStatus === 'unverified') {
+      user.kycStatus = 'pending';
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'KYC submitted and assigned to admin successfully',
+      data: {
+        userId: user._id,
+        username: user.username,
+        assignkyc: user.assignkyc,
+        kycStatus: user.kycStatus
+      }
+    });
+  } catch (error) {
+    console.error('Submit KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit KYC',
+      error: error.message
+    });
+  }
+});
 
 
 module.exports = Adminrouter;

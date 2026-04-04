@@ -24,6 +24,7 @@ const Sidebar = ({ isOpen }) => {
   const [withdrawalCounts, setWithdrawalCounts] = useState({ pending: 0, approved: 0, rejected: 0, history: 0 });
   const [depositCounts, setDepositCounts] = useState({ pending: 0, approved: 0, rejected: 0, history: 0 });
   const [affiliateCounts, setAffiliateCounts] = useState({ pendingRegistrations: 0, total: 0, active: 0, pendingPayouts: 0, masterAffiliates: 0, superAffiliates: 0 });
+  const [kycCounts, setKycCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
   
   // State for admin permissions - array of permission strings
   const [adminPermissions, setAdminPermissions] = useState([]);
@@ -69,6 +70,10 @@ const Sidebar = ({ isOpen }) => {
         if (depositResponse.data.success) setDepositCounts(depositResponse.data.counts);
         const affiliateResponse = await axios.get(`${base_url}/api/admin/affiliates/counts`);
         if (affiliateResponse.data.success) setAffiliateCounts(affiliateResponse.data.counts);
+        
+        // Fetch KYC counts
+        const kycResponse = await axios.get(`${base_url}/api/admin/kyc/counts`);
+        if (kycResponse.data.success) setKycCounts(kycResponse.data.counts);
       } catch (error) {
         console.error('Error fetching counts:', error);
       }
@@ -96,7 +101,8 @@ const Sidebar = ({ isOpen }) => {
       '/notice-management': 'notice',
       '/social-address': 'social',
       '/payment-method': 'method',
-      '/admin-roles': 'adminRoles'
+      '/admin-roles': 'adminRoles',
+      '/kyc': 'kyc'
     };
     const matchedKey = Object.keys(menuMapping).find(key => path.startsWith(key));
     const newOpenMenu = matchedKey ? menuMapping[matchedKey] : null;
@@ -313,6 +319,15 @@ const Sidebar = ({ isOpen }) => {
             { to: '/users/all-users', text: 'All Users', requiredPermission: 'view_all_users' },
             { to: '/users/active-users', text: 'Active Users', requiredPermission: 'manage_active_users' },
             { to: '/users/inactive-users', text: 'Inactive Users', requiredPermission: 'manage_inactive_users' },
+          ],
+        },
+        {
+          label: 'KYC Management', icon: <FiUserCheck />, key: 'kyc',
+          requiredPermission: 'view_kyc',
+          count: kycCounts.pending,
+          links: [
+            { to: '/kyc/kyc-assign', text: 'KYC Assign', count: kycCounts.pending, type: 'pending', requiredPermission: 'assign_kyc' },
+            { to: '/kyc/kyc-list', text: 'KYC List', count: kycCounts.pending, type: 'pending', requiredPermission: 'view_kyc' },
           ],
         },
         {

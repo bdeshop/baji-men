@@ -40,7 +40,7 @@ const Login = () => {
     try {
       const res = await axios.post(`${base_url}/api/auth/admin/login`, formData);
       const { token, admin } = res.data;
-
+       console.log(res.data)
       if (token && admin) {
         toast.success('Login successful!');
         localStorage.setItem('admin', JSON.stringify(admin));
