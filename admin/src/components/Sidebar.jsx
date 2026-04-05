@@ -4,7 +4,7 @@ import {
   FiChevronRight, FiHome, FiUsers, FiSettings, FiBell, FiActivity, FiTrendingUp, 
   FiBarChart2, FiLayers, FiCreditCard, FiCalendar, FiBox, FiMessageSquare, 
   FiLogIn, FiFileText, FiShare2, FiGift, FiUserPlus, FiDollarSign, FiCheckCircle, FiXCircle,
-  FiShield, FiUserCheck
+  FiShield, FiUserCheck,FiAward
 } from 'react-icons/fi';
 import { RiCoinsLine, RiRefund2Line } from 'react-icons/ri';
 import { useNavigate } from "react-router-dom";
@@ -102,7 +102,8 @@ const Sidebar = ({ isOpen }) => {
       '/social-address': 'social',
       '/payment-method': 'method',
       '/admin-roles': 'adminRoles',
-      '/kyc': 'kyc'
+      '/kyc': 'kyc',
+      '/bonuses': 'bonuses'
     };
     const matchedKey = Object.keys(menuMapping).find(key => path.startsWith(key));
     const newOpenMenu = matchedKey ? menuMapping[matchedKey] : null;
@@ -288,6 +289,16 @@ const Sidebar = ({ isOpen }) => {
             { to: '/deposit-bonus/all-bonuses', text: 'All Bonuses', requiredPermission: 'manage_promotional_content' },
           ],
         },
+            {
+          label: 'Bonuses', icon: <FiAward />, key: 'bonuses',
+          requiredPermission: 'manage_bonuses',
+          links: [
+            { to: '/bonuses/new-cash-bonus', text: 'New Cash Bonus', requiredPermission: 'create_bonus' },
+            { to: '/bonuses/cash-bonus-list', text: 'Cash Bonus List', requiredPermission: 'view_bonuses' },
+            { to: '/bonuses/weekly-monthly-bonus', text: 'Weekly and Monthly Bonus', requiredPermission: 'manage_recurring_bonuses' },
+          ],
+        },
+        
         {
           label: 'Payment Method', icon: <FiCreditCard />, key: 'method',
           requiredPermission: 'view_deposit_methods',

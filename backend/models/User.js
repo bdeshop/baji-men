@@ -185,6 +185,7 @@ const UserSchema = new Schema({
         unique: true,
         sparse: true, // Allows multiple null values but ensures unique if present
         lowercase: true,
+        default:"",
         trim: true,
         match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
     },
@@ -246,6 +247,14 @@ const UserSchema = new Schema({
     },
     last_login: {
         type: Date
+    },
+    monthlybetamount: {
+        type: Number,
+        default: 0
+    },
+    weeklybetamount: {
+    type: Number,
+        default: 0
     },
     login_count: {
         type: Number,

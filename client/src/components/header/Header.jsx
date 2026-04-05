@@ -16,7 +16,8 @@ import {
   FaWhatsapp,
   FaTelegram,
   FaInstagram,
-  FaTwitter
+  FaTwitter,
+  FaCoins
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { MdSupportAgent } from "react-icons/md";
@@ -43,7 +44,7 @@ import profile_img from "../../assets/profile.png";
 import menu_img from "../../assets/icon-menu.png";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../App";
-import { LanguageContext } from "../../context/LanguageContext"; // ← import context
+import { LanguageContext } from "../../context/LanguageContext";
 import telegram_icon from "../../assets/social_icon/telegram.png"
 import whatsapp_icon from "../../assets/social_icon/whatsapp.png"
 
@@ -701,6 +702,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       icon: <FiUsers />,
       path: "/referral-program/details",
     },
+    // NEW: Bonuses menu item
+    {
+      id: "bonuses",
+      label: t.bonuses || "Bonuses",
+      icon: <FaGift />,
+      path: "/member/bonuses",
+    },
   ];
 
   const secondaryMenuItems = [
@@ -823,7 +831,29 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
     return `${API_BASE_URL}/${cleanPath}`;
   };
+const [isRefreshingCoinBalance, setIsRefreshingCoinBalance] = useState(false);
 
+const refreshCoinBalance = async () => {
+  if (!isLoggedIn) return;
+  
+  try {
+    setIsRefreshingCoinBalance(true);
+    const token = localStorage.getItem("usertoken");
+    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    
+    const response = await axios.get(`${API_BASE_URL}/api/user/my-information`);
+    
+    if (response.data.success) {
+      setUserData(response.data.data);
+      localStorage.setItem("user", JSON.stringify(response.data.data));
+    }
+  } catch (error) {
+    console.error("Error refreshing coin balance:", error);
+    toast.error(t.failedRefreshCoinBalance);
+  } finally {
+    setIsRefreshingCoinBalance(false);
+  }
+};
   return (
     <>
       <Toaster />
@@ -882,6 +912,11 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                       <div className="text-xs text-gray-500 mt-1">
                         {t.playerId}: {userData?.player_id || "N/A"}
                       </div>
+                      {/* Coin Balance in Profile Dropdown */}
+                      <div className="flex items-center gap-1 mt-2 text-xs text-yellow-400">
+                        <FaCoins className="w-3 h-3" />
+                        <span>Coins: {userData?.coinBalance || 0}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-col py-3">
@@ -929,6 +964,25 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <>
               {/* Desktop View */}
               <div className="hidden md:flex items-center rounded overflow-hidden gap-2">
+                {/* Main Balance Box */}
+                <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
+  <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
+    <FaCoins className="w-4 h-4" />
+    <span className="min-w-[60px] font-medium">
+      {userData?.coinBalance?.toLocaleString() || 0}
+    </span>
+  </div>
+  <button
+    className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+    onClick={refreshCoinBalance}
+    disabled={isRefreshingCoinBalance}
+    aria-label={t.refreshCoinBalance}
+  >
+    <FiRefreshCw
+      className={`w-4 h-4 ${isRefreshingCoinBalance ? 'animate-spin' : ''}`}
+    />
+  </button>
+</div>
                 <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
                   <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
                     <img
@@ -951,6 +1005,10 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     />
                   </button>
                 </div>
+
+                {/* Coin Balance Box */}
+           {/* Coin Balance Box - Same style as BDT but with different icon and color */}
+
                 <div className="flex justify-center items-center gap-2">
                   <NavLink
                     to="/member/withdraw"
@@ -967,7 +1025,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 </div>
               </div>
 
-              {/* Mobile View */}
+              {/* Mobile View - Only show balance, no coin balance */}
               <div className="md:hidden flex px-[10px] items-center gap-2">
                 <div className="bg-box_bg rounded-[5px] border-[1px] border-gray-800 flex items-center">
                   <div className="flex items-center space-x-2 px-3 py-2 text-sm">
@@ -996,6 +1054,12 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   className="bg-theme_color text-[12px] px-3 py-2 rounded-[3px] hover:bg-theme_color/80 transition-all duration-200 cursor-pointer font-medium text-white"
                 >
                   {t.deposit}
+                </NavLink>
+                <NavLink
+                  to="/member/withdraw"
+                  className="text-white text-[12px] px-3 py-2 border-[1px] cursor-pointer border-gray-700 rounded hover:bg-[#333] transition-all duration-200"
+                >
+                  {t.withdrawal}
                 </NavLink>
               </div>
             </>

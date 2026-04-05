@@ -2160,7 +2160,7 @@ Authrouter.post("/signup", async (req, res) => {
       username,
       password,
       fullName,
-      email: email || null,
+      email: email,
       player_id,
       referredBy,
       registrationSource

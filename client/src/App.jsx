@@ -32,6 +32,7 @@ import KycPolicy from "./pages/termsandpolicy/KycPolicy";
 import ForgotPassword from "./components/ForgotPassword/ForgotPassword";
 import Security from "./pages/profile/Security";
 import Verification from "./pages/profile/Verification";
+import Bonus from "./pages/bonus/Bonus";
 
 const AuthContext = createContext();
 
@@ -433,6 +434,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Withdraw />
+                </ProtectedRoute>
+              }
+            />
+             <Route
+              path="/member/bonuses"
+              element={
+                <ProtectedRoute>
+                  <Bonus />
                 </ProtectedRoute>
               }
             />

@@ -2742,16 +2742,16 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     };
 
     // Check for duplicate transaction
-    const existingBet = await BettingHistory.findOne({
-      serial_number: processedData.serial_number
-    });
+    // const existingBet = await BettingHistory.findOne({
+    //   serial_number: processedData.serial_number
+    // });
 
-    if (existingBet) {
-      return res.status(409).json({
-        success: false,
-        message: "Duplicate transaction - serial number already exists.",
-      });
-    }
+    // if (existingBet) {
+    //   return res.status(409).json({
+    //     success: false,
+    //     message: "Duplicate transaction - serial number already exists.",
+    //   });
+    // }
 
     // Find user
     const matchedUser = await User.findOne({

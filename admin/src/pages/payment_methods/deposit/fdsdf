@@ -364,7 +364,7 @@ const Alldepositmethods = () => {
                         ৳{gateway.minAmount} - ৳{gateway.maxAmount}
                             </div>
                             <div className="text-[10px] text-gray-500">
-                              {/* Charge: ৳{gateway.fixedCharge?.toFixed(2)} + {gateway.percentCharge}% */}
+                                 Charge: ৳{gateway.fixedCharge} + {gateway.percentCharge}%
                             </div>
                           </td>
                           {/* Status */}

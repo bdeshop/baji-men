@@ -68,6 +68,9 @@ import Rolelist from './pages/adminrole/Rolelist'
 import CreateAdmin from './pages/adminrole/CreateAdmin'
 import AssignKYC from './pages/kyc/AssignKYC'
 import KYCList from './pages/kyc/KYCList'
+import NewCashBonus from './pages/cashbonuses/NewCashBonus'
+import CashBonusList from './pages/cashbonuses/CashBonusList'
+import WeeklyMonthlyBonus from './pages/cashbonuses/WeeklyMonthlyBonus'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -747,6 +750,38 @@ const App = () => {
         />
 
        {/* ----------------------------admin-role-------------------------------- */}
+
+       {/* --------------------cash-bonus--------------------------- */}
+       <Route 
+          exact 
+          path="/bonuses/new-cash-bonus" 
+          element={
+            <ProtectedRoute>
+              <NewCashBonus/>
+            </ProtectedRoute>
+          }
+        />
+
+   <Route 
+          exact 
+          path="/bonuses/cash-bonus-list" 
+          element={
+            <ProtectedRoute>
+              <CashBonusList/>
+            </ProtectedRoute>
+          }
+        />
+
+   <Route 
+          exact 
+          path="/bonuses/weekly-monthly-bonus" 
+          element={
+            <ProtectedRoute>
+              <WeeklyMonthlyBonus/>
+            </ProtectedRoute>
+          }
+        />
+       {/* --------------------cash-bonus--------------------------- */}
 
                     <Route 
           exact 
