@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FaCalendarWeek, FaPercentage, FaGift, FaSpinner, 
-  FaInfoCircle, FaUsers, FaMoneyBillWave, FaClock, FaTags, FaRegClock, 
-  FaBan, FaSearch, FaCheckCircle, FaTimesCircle, FaDollarSign, FaChartLine,
-  FaAward, FaTrophy, FaMedal, FaHistory, FaWallet
+  FaInfoCircle, FaUsers, FaMoneyBillWave, FaClock, 
+  FaSearch, FaCheckCircle, FaTimesCircle, FaChartLine,
+  FaAward, FaHistory, FaWallet
 } from 'react-icons/fa';
 import { FiRefreshCw } from 'react-icons/fi';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
-import { FaBangladeshiTakaSign } from "react-icons/fa6";
 import axios from 'axios';
 import { MdCalendarMonth } from "react-icons/md";
 
@@ -18,75 +17,81 @@ const WeeklyMonthlyBonus = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [loadingBonus, setLoadingBonus] = useState(false);
-  const [activeTab, setActiveTab] = useState('weekly'); // 'weekly' or 'monthly'
-  const [users, setUsers] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState('weekly');
+  const [eligibleUsers, setEligibleUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [bonusHistory, setBonusHistory] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showClaimModal, setShowClaimModal] = useState(false);
-  const [claimingBonus, setClaimingBonus] = useState(false);
-  
-  const [weeklyFormData, setWeeklyFormData] = useState({
-    adminId: '',
-    adminUsername: '',
-    notes: 'Weekly bonus distribution',
-    date: new Date().toISOString().split('T')[0]
-  });
-  
-  const [monthlyFormData, setMonthlyFormData] = useState({
-    adminId: '',
-    adminUsername: '',
-    notes: 'Monthly bonus distribution',
-    date: new Date().toISOString().split('T')[0],
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear()
-  });
-  
-  const [errors, setErrors] = useState({});
-  const [calculationResults, setCalculationResults] = useState(null);
+  const [summaryStats, setSummaryStats] = useState(null);
+  const [distributionResult, setDistributionResult] = useState(null);
 
   const navigate = useNavigate();
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Get admin info from localStorage
-  useEffect(() => {
-    const adminData = localStorage.getItem('adminData');
-    if (adminData) {
-      try {
-        const admin = JSON.parse(adminData);
-        setWeeklyFormData(prev => ({
-          ...prev,
-          adminId: admin._id || admin.id || '',
-          adminUsername: admin.username || admin.name || ''
-        }));
-        setMonthlyFormData(prev => ({
-          ...prev,
-          adminId: admin._id || admin.id || '',
-          adminUsername: admin.username || admin.name || ''
-        }));
-      } catch (error) {
-        console.error('Error parsing admin info:', error);
-      }
-    }
-  }, []);
-
-  // Fetch users for eligible users list
-  const fetchUsers = async () => {
+  // Get admin info from localStorage - FIXED
+  const getAdminInfo = () => {
     try {
-      setLoadingUsers(true);
-      const token = localStorage.getItem('admintoken');
-      const response = await axios.get(`${base_url}/api/admin/all-users`, {
-        headers: { Authorization: `Bearer ${token}` }
+      // Try multiple possible storage keys
+      const adminData = localStorage.getItem('adminData');
+      
+      if (adminData) {
+        const admin = JSON.parse(adminData);
+        return {
+          id: admin.id,
+          username: admin.name
+        };
+      }
+      
+      // Try to get from token if available
+      const token = localStorage.getItem('admintoken') || localStorage.getItem('token');
+      if (token) {
+        // Decode token to get admin info
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const decoded = JSON.parse(atob(base64));
+          return {
+            id: decoded.id || decoded._id || decoded.userId,
+            username: decoded.username || decoded.name || decoded.email?.split('@')[0] || 'admin'
+          };
+        } catch (e) {
+          console.error('Error decoding token:', e);
+        }
+      }
+      
+      // Default fallback
+      return {
+        id: 'admin',
+        username: 'admin'
+      };
+    } catch (error) {
+      console.error('Error getting admin info:', error);
+      return {
+        id: 'admin',
+        username: 'admin'
+      };
+    }
+  };
+
+  // Fetch eligible users based on active tab
+  const fetchEligibleUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const token = localStorage.getItem('admintoken') || localStorage.getItem('token');
+      const response = await axios.get(`${base_url}/api/admin/bonus/eligible-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { bonusType: activeTab }
       });
       
-      const usersData = response.data.data || response.data.users || [];
-      setUsers(usersData);
+      if (response.data.success) {
+        setEligibleUsers(response.data.users || []);
+        setSummaryStats(response.data.totals);
+      }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to fetch users');
+      console.error('Error fetching eligible users:', error);
+      toast.error('Failed to fetch eligible users');
     } finally {
       setLoadingUsers(false);
     }
@@ -94,167 +99,150 @@ const WeeklyMonthlyBonus = () => {
 
   // Fetch bonus history
   const fetchBonusHistory = async () => {
+    setLoadingHistory(true);
     try {
-      const token = localStorage.getItem('admintoken');
+      const token = localStorage.getItem('admintoken') || localStorage.getItem('token');
       const response = await axios.get(`${base_url}/api/admin/bonus/history`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        params: { limit: 50 }
       });
       
-      setBonusHistory(response.data.data || []);
+      if (response.data.success) {
+        setBonusHistory(response.data.data || []);
+      }
     } catch (error) {
       console.error('Error fetching bonus history:', error);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchEligibleUsers();
     fetchBonusHistory();
-  }, []);
+  }, [activeTab]);
 
   // Filter users based on search term
   const getFilteredUsers = () => {
-    if (!searchTerm.trim()) return users;
+    if (!searchTerm.trim()) return eligibleUsers;
     
     const search = searchTerm.toLowerCase();
-    return users.filter(user => 
+    return eligibleUsers.filter(user => 
       user.username?.toLowerCase().includes(search) ||
       user.email?.toLowerCase().includes(search) ||
-      user.player_id?.toLowerCase().includes(search) ||
-      user.phone?.includes(search)
+      user.player_id?.toLowerCase().includes(search)
     );
   };
 
-  // Calculate Weekly Bonus
-  const handleWeeklyBonusCalculate = async () => {
-    if (!weeklyFormData.adminId || !weeklyFormData.adminUsername) {
-      toast.error('Admin information is missing. Please refresh the page.');
-      return;
-    }
-
+  // Distribute Weekly Bonus - FIXED
+  const handleWeeklyBonus = async () => {
     setIsSubmitting(true);
+    setDistributionResult(null);
+    
     try {
-      const token = localStorage.getItem('admintoken');
+      const token = localStorage.getItem('admintoken') || localStorage.getItem('token');
+      const adminInfo = getAdminInfo();
+      
+      console.log('Admin Info being sent:', adminInfo); // Debug log
+      
       const response = await axios.post(`${base_url}/api/admin/bonus/weekly`, 
-        weeklyFormData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data.success) {
-        toast.success(response.data.message || 'Weekly bonus calculated successfully!');
-        setCalculationResults(response.data.summary);
-        fetchBonusHistory(); // Refresh history
-      } else {
-        toast.error(response.data.message || 'Failed to calculate weekly bonus');
-      }
-    } catch (error) {
-      console.error('Error calculating weekly bonus:', error);
-      toast.error(error.response?.data?.message || 'Failed to calculate weekly bonus');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Calculate Monthly Bonus
-  const handleMonthlyBonusCalculate = async () => {
-    if (!monthlyFormData.adminId || !monthlyFormData.adminUsername) {
-      toast.error('Admin information is missing. Please refresh the page.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const token = localStorage.getItem('admintoken');
-      const response = await axios.post(`${base_url}/api/admin/bonus/monthly`, 
-        monthlyFormData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.data.success) {
-        toast.success(response.data.message || 'Monthly bonus calculated successfully!');
-        setCalculationResults(response.data.summary);
-        fetchBonusHistory(); // Refresh history
-      } else {
-        toast.error(response.data.message || 'Failed to calculate monthly bonus');
-      }
-    } catch (error) {
-      console.error('Error calculating monthly bonus:', error);
-      toast.error(error.response?.data?.message || 'Failed to calculate monthly bonus');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Claim bonus for a user
-  const handleClaimBonus = async (userId, bonusType) => {
-    setClaimingBonus(true);
-    try {
-      const token = localStorage.getItem('admintoken');
-      const adminInfo = JSON.parse(localStorage.getItem('adminInfo') || '{}');
-      
-      const response = await axios.post(
-        `${base_url}/api/admin/bonus/${bonusType}/claim/${userId}`,
         {
-          adminId: adminInfo._id || adminInfo.id || '',
-          adminUsername: adminInfo.username || adminInfo.name || ''
+          processedBy: adminInfo.username,
+          notes: 'Weekly bonus distribution'
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
       );
       
       if (response.data.success) {
         toast.success(response.data.message);
-        fetchBonusHistory(); // Refresh history
-        setShowClaimModal(false);
-        setSelectedUser(null);
+        setDistributionResult({
+          success: true,
+          data: response.data.data
+        });
+        // Refresh data
+        fetchEligibleUsers();
+        fetchBonusHistory();
       } else {
-        toast.error(response.data.message || 'Failed to claim bonus');
+        toast.error(response.data.message);
+        setDistributionResult({
+          success: false,
+          message: response.data.message
+        });
       }
     } catch (error) {
-      console.error('Error claiming bonus:', error);
-      toast.error(error.response?.data?.message || 'Failed to claim bonus');
+      console.error('Error distributing weekly bonus:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to distribute weekly bonus';
+      toast.error(errorMsg);
+      setDistributionResult({
+        success: false,
+        message: errorMsg
+      });
     } finally {
-      setClaimingBonus(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Get eligible users for preview
-  const getEligibleUsers = async (bonusType) => {
-    setLoadingBonus(true);
+  // Distribute Monthly Bonus - FIXED
+  const handleMonthlyBonus = async () => {
+    setIsSubmitting(true);
+    setDistributionResult(null);
+    
     try {
-      const token = localStorage.getItem('admintoken');
-      const response = await axios.get(`${base_url}/api/admin/bonus/eligible-users?bonusType=${bonusType}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const token = localStorage.getItem('admintoken') || localStorage.getItem('token');
+      const adminInfo = getAdminInfo();
+      
+      console.log('Admin Info being sent:', adminInfo); // Debug log
+      
+      const response = await axios.post(`${base_url}/api/admin/bonus/monthly`, 
+        {
+          processedBy: adminInfo.username,
+          notes: 'Monthly bonus distribution'
+        },
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
       
       if (response.data.success) {
-        setUsers(response.data.users);
+        toast.success(response.data.message);
+        setDistributionResult({
+          success: true,
+          data: response.data.data
+        });
+        // Refresh data
+        fetchEligibleUsers();
+        fetchBonusHistory();
+      } else {
+        toast.error(response.data.message);
+        setDistributionResult({
+          success: false,
+          message: response.data.message
+        });
       }
     } catch (error) {
-      console.error('Error fetching eligible users:', error);
+      console.error('Error distributing monthly bonus:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to distribute monthly bonus';
+      toast.error(errorMsg);
+      setDistributionResult({
+        success: false,
+        message: errorMsg
+      });
     } finally {
-      setLoadingBonus(false);
+      setIsSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    if (activeTab === 'weekly') {
-      getEligibleUsers('weekly');
-    } else {
-      getEligibleUsers('monthly');
-    }
-  }, [activeTab]);
 
   const filteredUsers = getFilteredUsers();
   const bonusRate = activeTab === 'weekly' ? '0.8%' : '0.5%';
-  const totalPotentialBonus = filteredUsers.reduce((sum, user) => {
-    const betAmount = activeTab === 'weekly' ? (user.weeklybetamount || 0) : (user.monthlybetamount || 0);
-    const bonusRateDecimal = activeTab === 'weekly' ? 0.008 : 0.005;
-    return sum + (betAmount * bonusRateDecimal);
-  }, 0);
-
-  const inputClass = (field) =>
-    `w-full bg-[#0F111A] border ${errors[field] ? 'border-rose-500' : 'border-gray-700'} text-gray-200 text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500 placeholder-gray-600 transition-colors`;
-
-  const labelClass = 'block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2';
+  const totalPotentialBonus = filteredUsers.reduce((sum, user) => sum + (user.potentialBonus || 0), 0);
 
   return (
     <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
@@ -269,11 +257,11 @@ const WeeklyMonthlyBonus = () => {
             <div>
               <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Weekly & Monthly Bonus</h1>
               <p className="text-xs font-bold text-gray-500 mt-1 flex items-center gap-2">
-                <FaAward className="text-amber-500" /> Distribute bonuses based on user betting activity
+                <FaAward className="text-amber-500" /> Automatically distribute bonuses based on user betting activity
               </p>
             </div>
             <button
-              onClick={() => { fetchUsers(); fetchBonusHistory(); }}
+              onClick={() => { fetchEligibleUsers(); fetchBonusHistory(); }}
               className="mt-4 md:mt-0 flex items-center gap-2 px-4 py-2 bg-[#1F2937] rounded-lg hover:bg-[#374151] transition-colors text-sm"
             >
               <FiRefreshCw className="text-amber-400" /> Refresh
@@ -283,7 +271,7 @@ const WeeklyMonthlyBonus = () => {
           {/* Tab Navigation */}
           <div className="flex gap-2 mb-6 border-b border-gray-800">
             <button
-              onClick={() => setActiveTab('weekly')}
+              onClick={() => { setActiveTab('weekly'); setDistributionResult(null); }}
               className={`px-6 py-3 text-sm font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
                 activeTab === 'weekly'
                   ? 'text-amber-400 border-b-2 border-amber-400'
@@ -293,179 +281,155 @@ const WeeklyMonthlyBonus = () => {
               <FaCalendarWeek /> Weekly Bonus (0.8%)
             </button>
             <button
-              onClick={() => setActiveTab('monthly')}
+              onClick={() => { setActiveTab('monthly'); setDistributionResult(null); }}
               className={`px-6 py-3 text-sm font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
                 activeTab === 'monthly'
                   ? 'text-amber-400 border-b-2 border-amber-400'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              <MdCalendarMonth  /> Monthly Bonus (0.5%)
+              <MdCalendarMonth /> Monthly Bonus (0.5%)
             </button>
           </div>
 
+          {/* Summary Stats Cards */}
+          {summaryStats && summaryStats.totalUsers > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gradient-to-br from-amber-900/20 to-amber-800/10 border border-amber-500/20 rounded-lg p-4">
+                <p className="text-[9px] text-gray-500 uppercase font-black">Eligible Users</p>
+                <p className="text-2xl font-bold text-amber-400">{summaryStats.totalUsers}</p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/10 border border-blue-500/20 rounded-lg p-4">
+                <p className="text-[9px] text-gray-500 uppercase font-black">Total Bet Amount</p>
+                <p className="text-2xl font-bold text-white">৳{summaryStats.totalBetAmount?.toLocaleString() || 0}</p>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-900/20 to-emerald-800/10 border border-emerald-500/20 rounded-lg p-4">
+                <p className="text-[9px] text-gray-500 uppercase font-black">Bonus Rate</p>
+                <p className="text-2xl font-bold text-emerald-400">{bonusRate}</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-900/20 to-purple-800/10 border border-purple-500/20 rounded-lg p-4">
+                <p className="text-[9px] text-gray-500 uppercase font-black">Total Bonus to Distribute</p>
+                <p className="text-2xl font-bold text-purple-400">৳{totalPotentialBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Left Column - Calculate Bonus */}
+            {/* Left Column - Distribute Bonus */}
             <div className="lg:col-span-2 space-y-5">
 
-              {/* Calculate Bonus Section */}
+              {/* Distribute Bonus Section */}
               <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
                 <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
                     <div className="w-1 h-4 bg-amber-500"></div> 
                     <FaChartLine className="text-amber-500" /> 
-                    Calculate {activeTab === 'weekly' ? 'Weekly' : 'Monthly'} Bonus
+                    Distribute {activeTab === 'weekly' ? 'Weekly' : 'Monthly'} Bonus
                   </p>
                 </div>
 
-                {activeTab === 'weekly' ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>Notes (Optional)</label>
-                      <textarea
-                        name="notes"
-                        value={weeklyFormData.notes}
-                        onChange={(e) => setWeeklyFormData(prev => ({ ...prev, notes: e.target.value }))}
-                        placeholder="Add any notes about this bonus distribution..."
-                        rows="2"
-                        className={inputClass('notes') + ' resize-none'}
-                      />
-                    </div>
-                    
-                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                          <FaPercentage className="text-amber-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white">Weekly Bonus Rate: 0.8%</p>
-                          <p className="text-xs text-gray-500">Users receive 0.8% of their weekly bet amount</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                        <div className="p-2 bg-[#0F111A] rounded">
-                          <p className="text-gray-500">Min Bet Amount</p>
-                          <p className="text-amber-400 font-bold">Any amount &gt; 0</p>
-                        </div>
-                        <div className="p-2 bg-[#0F111A] rounded">
-                          <p className="text-gray-500">Max Bonus</p>
-                          <p className="text-amber-400 font-bold">Unlimited</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleWeeklyBonusCalculate}
-                      disabled={isSubmitting}
-                      className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting ? <><FaSpinner className="animate-spin" /> Calculating...</> : <><FaGift /> Calculate & Distribute Weekly Bonus</>}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className={labelClass}>Month</label>
-                        <select
-                          value={monthlyFormData.month}
-                          onChange={(e) => setMonthlyFormData(prev => ({ ...prev, month: parseInt(e.target.value) }))}
-                          className={inputClass('month')}
-                        >
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                            <option key={m} value={m}>{m} - {new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' })}</option>
-                          ))}
-                        </select>
+                <div className="space-y-4">
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <FaPercentage className="text-amber-400" />
                       </div>
                       <div>
-                        <label className={labelClass}>Year</label>
-                        <select
-                          value={monthlyFormData.year}
-                          onChange={(e) => setMonthlyFormData(prev => ({ ...prev, year: parseInt(e.target.value) }))}
-                          className={inputClass('year')}
-                        >
-                          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
-                            <option key={y} value={y}>{y}</option>
-                          ))}
-                        </select>
+                        <p className="text-sm font-semibold text-white">
+                          {activeTab === 'weekly' ? 'Weekly Bonus Rate: 0.8%' : 'Monthly Bonus Rate: 0.5%'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Users receive {bonusRate} of their {activeTab} bet amount directly to their balance
+                        </p>
                       </div>
                     </div>
-                    
-                    <div>
-                      <label className={labelClass}>Notes (Optional)</label>
-                      <textarea
-                        name="notes"
-                        value={monthlyFormData.notes}
-                        onChange={(e) => setMonthlyFormData(prev => ({ ...prev, notes: e.target.value }))}
-                        placeholder="Add any notes about this bonus distribution..."
-                        rows="2"
-                        className={inputClass('notes') + ' resize-none'}
-                      />
-                    </div>
-                    
-                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                          <FaPercentage className="text-amber-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white">Monthly Bonus Rate: 0.5%</p>
-                          <p className="text-xs text-gray-500">Users receive 0.5% of their monthly bet amount</p>
-                        </div>
+                    <div className="grid grid-cols-2 gap-3 text-center text-xs">
+                      <div className="p-2 bg-[#0F111A] rounded">
+                        <p className="text-gray-500">Min Bet Amount</p>
+                        <p className="text-amber-400 font-bold">Any amount &gt; 0</p>
                       </div>
-                      <div className="grid grid-cols-2 gap-3 text-center text-xs">
-                        <div className="p-2 bg-[#0F111A] rounded">
-                          <p className="text-gray-500">Min Bet Amount</p>
-                          <p className="text-amber-400 font-bold">Any amount &gt; 0</p>
-                        </div>
-                        <div className="p-2 bg-[#0F111A] rounded">
-                          <p className="text-gray-500">Max Bonus</p>
-                          <p className="text-amber-400 font-bold">Unlimited</p>
-                        </div>
+                      <div className="p-2 bg-[#0F111A] rounded">
+                        <p className="text-gray-500">Max Bonus</p>
+                        <p className="text-amber-400 font-bold">Unlimited</p>
                       </div>
                     </div>
-
-                    <button
-                      onClick={handleMonthlyBonusCalculate}
-                      disabled={isSubmitting}
-                      className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting ? <><FaSpinner className="animate-spin" /> Calculating...</> : <><FaGift /> Calculate & Distribute Monthly Bonus</>}
-                    </button>
                   </div>
-                )}
+
+                  <button
+                    onClick={activeTab === 'weekly' ? handleWeeklyBonus : handleMonthlyBonus}
+                    disabled={isSubmitting || (summaryStats?.totalUsers === 0)}
+                    className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <><FaSpinner className="animate-spin" /> Distributing Bonus...</>
+                    ) : (
+                      <><FaGift /> Distribute {activeTab === 'weekly' ? 'Weekly' : 'Monthly'} Bonus Now</>
+                    )}
+                  </button>
+
+                  {summaryStats?.totalUsers === 0 && (
+                    <p className="text-center text-xs text-gray-500 mt-2">
+                      No eligible users found for {activeTab} bonus
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Calculation Results */}
-              {calculationResults && (
-                <div className="bg-gradient-to-r from-emerald-900/20 to-teal-900/20 border border-emerald-500/30 rounded-lg p-5">
+              {/* Distribution Results */}
+              {distributionResult && (
+                <div className={`rounded-lg p-5 ${
+                  distributionResult.success 
+                    ? 'bg-gradient-to-r from-emerald-900/20 to-teal-900/20 border border-emerald-500/30'
+                    : 'bg-gradient-to-r from-rose-900/20 to-red-900/20 border border-rose-500/30'
+                }`}>
                   <div className="flex items-center gap-2 mb-4">
-                    <FaCheckCircle className="text-emerald-400" />
-                    <p className="text-sm font-bold text-emerald-400 uppercase tracking-wider">Distribution Complete</p>
+                    {distributionResult.success ? (
+                      <FaCheckCircle className="text-emerald-400" />
+                    ) : (
+                      <FaTimesCircle className="text-rose-400" />
+                    )}
+                    <p className={`text-sm font-bold uppercase tracking-wider ${
+                      distributionResult.success ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      {distributionResult.success ? 'Distribution Complete' : 'Distribution Failed'}
+                    </p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-[9px] text-gray-500 uppercase font-black">Total Users</p>
-                      <p className="text-xl font-bold text-white">{calculationResults.totalUsersProcessed}</p>
+                  
+                  {distributionResult.success && distributionResult.data && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-[#0F111A] rounded">
+                          <p className="text-[9px] text-gray-500 uppercase">Successful</p>
+                          <p className="text-xl font-bold text-emerald-400">{distributionResult.data.successfulCount}</p>
+                        </div>
+                        <div className="p-3 bg-[#0F111A] rounded">
+                          <p className="text-[9px] text-gray-500 uppercase">Failed</p>
+                          <p className="text-xl font-bold text-rose-400">{distributionResult.data.failedCount}</p>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-amber-500/10 rounded">
+                        <p className="text-[9px] text-gray-500 uppercase">Total Bonus Distributed</p>
+                        <p className="text-xl font-bold text-amber-400">৳{distributionResult.data.totalBonusAmount?.toLocaleString()}</p>
+                      </div>
+                      {distributionResult.data.weekNumber && (
+                        <div className="p-3 bg-[#0F111A] rounded">
+                          <p className="text-[9px] text-gray-500 uppercase">Distribution Period</p>
+                          <p className="text-xs text-gray-300">Week {distributionResult.data.weekNumber}, {distributionResult.data.year}</p>
+                        </div>
+                      )}
+                      {distributionResult.data.monthName && (
+                        <div className="p-3 bg-[#0F111A] rounded">
+                          <p className="text-[9px] text-gray-500 uppercase">Distribution Period</p>
+                          <p className="text-xs text-gray-300">{distributionResult.data.monthName} {distributionResult.data.year}</p>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[9px] text-gray-500 uppercase font-black">Credited</p>
-                      <p className="text-xl font-bold text-emerald-400">{calculationResults.creditedUsers}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-gray-500 uppercase font-black">Failed</p>
-                      <p className="text-xl font-bold text-rose-400">{calculationResults.failedUsers}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-gray-500 uppercase font-black">Total Bonus</p>
-                      <p className="text-xl font-bold text-amber-400">৳{calculationResults.totalBonusAmount}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-gray-800">
-                    <p className="text-[10px] text-gray-500">Status: <span className="text-amber-400">{calculationResults.status}</span></p>
-                    <p className="text-[10px] text-gray-500 mt-1">Bonus Rate: {calculationResults.bonusRate}</p>
-                  </div>
+                  )}
+                  
+                  {!distributionResult.success && (
+                    <p className="text-sm text-gray-300">{distributionResult.message}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -495,20 +459,8 @@ const WeeklyMonthlyBonus = () => {
                   />
                 </div>
                 
-                {/* Summary Stats */}
-                <div className="mb-4 p-3 bg-[#0F111A] rounded border border-gray-800">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-500">Eligible Users:</span>
-                    <span className="text-lg font-bold text-amber-400">{filteredUsers.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-xs text-gray-500">Total Potential Bonus:</span>
-                    <span className="text-sm font-bold text-emerald-400">৳{totalPotentialBonus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-                
                 {/* Users List */}
-                {loadingBonus ? (
+                {loadingUsers ? (
                   <div className="flex justify-center py-8">
                     <FaSpinner className="animate-spin text-amber-500 text-2xl" />
                   </div>
@@ -516,78 +468,43 @@ const WeeklyMonthlyBonus = () => {
                   <div className="max-h-96 overflow-y-auto border border-gray-800 rounded-lg bg-[#0F111A]">
                     {filteredUsers.length === 0 ? (
                       <div className="text-center py-8 text-gray-500 text-sm">
-                        {searchTerm ? 'No users found matching your search' : 'No eligible users found'}
+                        {searchTerm ? 'No users found matching your search' : 'No eligible users found for this period'}
                       </div>
                     ) : (
-                      filteredUsers.map((user) => {
-                        const betAmount = activeTab === 'weekly' ? (user.weeklybetamount || 0) : (user.monthlybetamount || 0);
-                        const bonusAmount = betAmount * (activeTab === 'weekly' ? 0.008 : 0.005);
-                        
-                        return (
-                          <div
-                            key={user._id}
-                            className="p-3 border-b border-gray-800 hover:bg-[#1F2937] transition-colors"
-                          >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-white">{user.username}</p>
-                                <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
-                                  {user.email && <span>{user.email}</span>}
-                                  {user.player_id && <span>{user.player_id}</span>}
-                                </div>
-                                <div className="flex gap-4 mt-2 text-xs">
-                                  <span className="text-gray-500">Bet Amount:</span>
-                                  <span className="text-amber-400 font-medium">৳{betAmount.toLocaleString()}</span>
-                                </div>
+                      filteredUsers.map((user) => (
+                        <div
+                          key={user.userId}
+                          className="p-3 border-b border-gray-800 hover:bg-[#1F2937] transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-white">{user.username}</p>
+                              <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+                                {user.email && <span>{user.email}</span>}
+                                {user.player_id && <span>{user.player_id}</span>}
                               </div>
-                              <div className="text-right">
-                                <p className="text-[9px] text-gray-500">Bonus</p>
-                                <p className="text-sm font-bold text-emerald-400">+৳{bonusAmount.toFixed(2)}</p>
+                              <div className="flex gap-4 mt-2 text-xs">
+                                <span className="text-gray-500">Bet Amount:</span>
+                                <span className="text-amber-400 font-medium">৳{user.betAmount?.toLocaleString()}</span>
+                              </div>
+                              <div className="flex gap-4 mt-1 text-xs">
+                                <span className="text-gray-500">Current Balance:</span>
+                                <span className="text-white font-medium">৳{user.currentBalance?.toLocaleString()}</span>
                               </div>
                             </div>
+                            <div className="text-right">
+                              <p className="text-[9px] text-gray-500">Bonus</p>
+                              <p className="text-sm font-bold text-emerald-400">+৳{user.potentialBonus?.toFixed(2)}</p>
+                              <p className="text-[9px] text-gray-500 mt-1">New Balance</p>
+                              <p className="text-xs font-medium text-amber-400">৳{user.newBalance?.toFixed(2)}</p>
+                            </div>
                           </div>
-                        );
-                      })
+                        </div>
+                      ))
                     )}
                   </div>
                 )}
                 
-                <div className="mt-4 p-3 bg-[#0F111A] rounded border border-gray-800">
-                  <p className="text-[9px] text-gray-500 uppercase font-black">How it works</p>
-                  <ul className="text-[10px] text-gray-400 mt-2 space-y-1 list-disc list-inside">
-                    <li>Users with bet amount &gt; 0 are eligible</li>
-                    <li>Bonus is calculated as {bonusRate} of their {activeTab} bet amount</li>
-                    <li>Weekly bet amount resets after bonus calculation</li>
-                    <li>Users need to claim the bonus from their dashboard</li>
-                    <li>Unclaimed bonuses remain pending in the system</li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* Bonus Info Card */}
-              <div className="bg-gradient-to-r from-amber-900/10 to-orange-900/10 border border-amber-500/20 rounded-lg p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <FaInfoCircle className="text-amber-400" />
-                  <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Important Notes</p>
-                </div>
-                <ul className="text-[10px] text-gray-400 space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-400">•</span>
-                    Bonus is automatically calculated and credited to user's pending bonus
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-400">•</span>
-                    Users must claim the bonus from their dashboard to add to balance
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-400">•</span>
-                    Unclaimed bonuses remain in the system until claimed
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-400">•</span>
-                    Bonus amount is calculated as {bonusRate} of total bet amount
-                  </li>
-                </ul>
               </div>
             </div>
           </div>
@@ -595,13 +512,23 @@ const WeeklyMonthlyBonus = () => {
           {/* Bonus History Section */}
           <div className="mt-8">
             <div className="bg-[#161B22] border border-gray-800 rounded-lg">
-              <div className="bg-[#1C2128] px-5 py-3 border-b border-gray-800">
+              <div className="bg-[#1C2128] px-5 py-3 border-b border-gray-800 flex justify-between items-center">
                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
                   <FaHistory className="text-amber-500" /> Recent Bonus Distribution History
                 </p>
+                <button
+                  onClick={() => fetchBonusHistory()}
+                  className="text-[10px] text-gray-500 hover:text-amber-400 transition-colors"
+                >
+                  <FiRefreshCw className="inline mr-1" /> Refresh
+                </button>
               </div>
               <div className="overflow-x-auto p-5">
-                {bonusHistory.length === 0 ? (
+                {loadingHistory ? (
+                  <div className="flex justify-center py-8">
+                    <FaSpinner className="animate-spin text-amber-500 text-2xl" />
+                  </div>
+                ) : bonusHistory.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 text-sm">
                     No bonus distribution history available
                   </div>
@@ -615,14 +542,14 @@ const WeeklyMonthlyBonus = () => {
                         <th className="text-left py-3 px-2">Bet Amount</th>
                         <th className="text-left py-3 px-2">Bonus Amount</th>
                         <th className="text-left py-3 px-2">Rate</th>
-                        <th className="text-left py-3 px-2">Status</th>
+                        <th className="text-left py-3 px-2">Period</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {bonusHistory.slice(0, 10).map((bonus, idx) => (
-                        <tr key={idx} className="border-b border-gray-800/50 hover:bg-[#1F2937] transition-colors">
+                      {bonusHistory.map((bonus) => (
+                        <tr key={bonus._id} className="border-b border-gray-800/50 hover:bg-[#1F2937] transition-colors">
                           <td className="py-3 px-2 text-[10px] text-gray-400">
-                            {new Date(bonus.createdAt || bonus.creditedAt).toLocaleDateString()}
+                            {new Date(bonus.distributionDate).toLocaleDateString()}
                           </td>
                           <td className="py-3 px-2">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${
@@ -631,16 +558,17 @@ const WeeklyMonthlyBonus = () => {
                               {bonus.bonusType}
                             </span>
                           </td>
-                          <td className="py-3 px-2 text-xs text-white">{bonus.username || bonus.userId?.username}</td>
-                          <td className="py-3 px-2 text-xs text-amber-400">৳{bonus.betAmount?.toLocaleString() || 0}</td>
-                          <td className="py-3 px-2 text-xs text-emerald-400">+৳{bonus.bonusAmount?.toLocaleString() || 0}</td>
-                          <td className="py-3 px-2 text-[10px] text-gray-400">{bonus.bonusPercentage || (bonus.bonusRate * 100) + '%'}</td>
-                          <td className="py-3 px-2">
-                            <span className={`text-[9px] font-medium px-2 py-0.5 rounded ${
-                              bonus.status === 'claimed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-                            }`}>
-                              {bonus.status === 'claimed' ? <><FaCheckCircle className="inline mr-1 text-[8px]" /> Claimed</> : <><FaClock className="inline mr-1 text-[8px]" /> Unclaimed</>}
-                            </span>
+                          <td className="py-3 px-2 text-xs text-white">{bonus.username}</td>
+                          <td className="py-3 px-2 text-xs text-amber-400">৳{bonus.betAmount?.toLocaleString()}</td>
+                          <td className="py-3 px-2 text-xs text-emerald-400">+৳{bonus.amount?.toLocaleString()}</td>
+                          <td className="py-3 px-2 text-[10px] text-gray-400">
+                            {bonus.bonusType === 'weekly' ? '0.8%' : '0.5%'}
+                          </td>
+                          <td className="py-3 px-2 text-[10px] text-gray-400">
+                            {bonus.bonusType === 'weekly' 
+                              ? `Week ${bonus.weekNumber}, ${bonus.year}`
+                              : `${getMonthName(bonus.month)} ${bonus.year}`
+                            }
                           </td>
                         </tr>
                       ))}
@@ -654,6 +582,12 @@ const WeeklyMonthlyBonus = () => {
       </div>
     </section>
   );
+};
+
+// Helper function to get month name
+const getMonthName = (month) => {
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return monthNames[month - 1];
 };
 
 export default WeeklyMonthlyBonus;

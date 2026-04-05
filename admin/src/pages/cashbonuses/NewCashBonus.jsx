@@ -489,60 +489,57 @@ const NewCashBonus = () => {
                         </div>
                       )}
                     </div>
-                    
-                    <div className="mt-3 p-3 bg-[#0F111A] rounded border border-gray-800">
-                      <p className="text-[9px] text-gray-500 uppercase font-black">How it works</p>
-                      <ul className="text-[10px] text-gray-400 mt-2 space-y-1 list-disc list-inside">
-                        <li>Selected users will see this bonus in their account</li>
-                        <li>Users can claim the bonus from their dashboard</li>
-                        <li>Once claimed, the amount is added to their main balance</li>
-                        <li>Users cannot claim the same bonus twice</li>
-                      </ul>
-                    </div>
+           
                   </div>
                 </div>
 
                 {/* Expiry Settings */}
-                <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
-                  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
-                      <div className="w-1 h-4 bg-amber-500"></div> <FaClock className="text-amber-500" /> Expiry Settings
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="noExpiry"
-                        checked={formData.noExpiry}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 rounded border-gray-700 bg-[#0F111A] text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
-                      />
-                      <span className="text-sm text-gray-300">No Expiry - This bonus never expires</span>
-                    </label>
-                    
-                    {!formData.noExpiry && (
-                      <div>
-                        <label className={labelClass}>Expiry Date <span className="text-rose-400">*</span></label>
-                        <div className="relative">
-                          <FaCalendarAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
-                          <input
-                            type="datetime-local"
-                            name="expiresAt"
-                            value={formData.expiresAt}
-                            onChange={handleInputChange}
-                            min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
-                            className={inputClass('expiresAt') + ' pl-8'}
-                          />
-                        </div>
-                        {errors.expiresAt && <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1"><FaInfoCircle /> {errors.expiresAt}</p>}
-                        <p className="mt-1.5 text-[10px] text-gray-600">
-                          Users cannot claim the bonus after this date and time
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+        {/* Expiry Settings */}
+<div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
+  <div className="bg-[#1C2128] -mx-5 -mt-5 px-5 py-3 mb-5 border-b border-gray-800">
+    <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2">
+      <div className="w-1 h-4 bg-amber-500"></div> <FaClock className="text-amber-500" /> Expiry Settings
+    </p>
+  </div>
+  <div className="space-y-4">
+    <label className="flex items-center gap-3 cursor-pointer">
+      <input
+        type="checkbox"
+        name="noExpiry"
+        checked={formData.noExpiry}
+        onChange={handleInputChange}
+        className="w-4 h-4 rounded border-gray-700 bg-[#0F111A] text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+      />
+      <span className="text-sm text-gray-300">No Expiry - This bonus never expires</span>
+    </label>
+    
+    {!formData.noExpiry && (
+      <div>
+        <label className={labelClass}>Expiry Date <span className="text-rose-400">*</span></label>
+        <div className="relative">
+          <FaCalendarAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs z-10" />
+          <input
+            type="datetime-local"
+            name="expiresAt"
+            value={formData.expiresAt}
+            onChange={handleInputChange}
+            min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+            className={`${inputClass('expiresAt')} pl-8 [color-scheme:dark]`}
+            style={{ 
+              colorScheme: 'dark',
+              WebkitAppearance: 'none',
+              appearance: 'auto'
+            }}
+          />
+        </div>
+        {errors.expiresAt && <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1"><FaInfoCircle /> {errors.expiresAt}</p>}
+        <p className="mt-1.5 text-[10px] text-gray-600">
+          Users cannot claim the bonus after this date and time
+        </p>
+      </div>
+    )}
+  </div>
+</div>
 
                 {/* Summary Preview */}
                 <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5">
