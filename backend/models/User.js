@@ -183,11 +183,8 @@ const UserSchema = new Schema({
     email: {
         type: String,
         unique: true,
-        sparse: true, // Allows multiple null values but ensures unique if present
         lowercase: true,
-        default:"",
         trim: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
     },
     fullName: {
         type: String,
@@ -267,7 +264,7 @@ const UserSchema = new Schema({
     // ========== COIN SYSTEM ==========
     coinBalance: {
         type: Number,
-        default: 0
+        default: 100
     },
     coinHistory: [{
         amount: Number,
