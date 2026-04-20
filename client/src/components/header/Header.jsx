@@ -842,7 +842,7 @@ const refreshCoinBalance = async () => {
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     
     const response = await axios.get(`${API_BASE_URL}/api/user/my-information`);
-    
+    console.log("Refresh Coin Balance Response:", response);
     if (response.data.success) {
       setUserData(response.data.data);
       localStorage.setItem("user", JSON.stringify(response.data.data));

@@ -133,6 +133,7 @@ Userrouter.get("/my-information", authenticateToken, async (req, res) => {
         isEmailVerified: user.isEmailVerified,
         isPhoneVerified: user.isPhoneVerified,
         kycStatus: user.kycStatus,
+        coinBalance: user.coinBalance,
       },
     });
   } catch (error) {
