@@ -108,6 +108,7 @@ Userrouter.get("/all-information/:id", authenticateToken, async (req, res) => {
 });
 
 // Get user information
+// Get user information
 Userrouter.get("/my-information", authenticateToken, async (req, res) => {
   try {
     const user = req.user;
@@ -134,6 +135,9 @@ Userrouter.get("/my-information", authenticateToken, async (req, res) => {
         isPhoneVerified: user.isPhoneVerified,
         kycStatus: user.kycStatus,
         coinBalance: user.coinBalance,
+        lifetime_bet: user.lifetime_bet,
+        claimedLevels: user.claimedLevels || [],  // ADD THIS LINE
+        claimedLevelsAt: user.claimedLevelsAt || {}  // ADD THIS LINE (optional)
       },
     });
   } catch (error) {
@@ -5653,4 +5657,648 @@ Userrouter.get("/betting-bonus/summary", authenticateToken, async (req, res) => 
     });
   }
 });
+
+
+// ==================== COIN SYSTEM ROUTES ====================
+
+// Claim coins
+Userrouter.post("/claim-coins", authenticateToken, async (req, res) => {
+  try {
+    const { amount = 50 } = req.body;
+    const user = req.user;
+    
+    // Add coins to user's balance
+    user.coinBalance = (user.coinBalance || 0) + amount;
+    
+    // Add to coin history
+    if (!user.coinHistory) {
+      user.coinHistory = [];
+    }
+    
+    user.coinHistory.push({
+      amount: amount,
+      reason: "claimed",
+      date: new Date()
+    });
+    
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: `Successfully claimed ${amount} coins!`,
+      data: {
+        coinsAdded: amount,
+        newBalance: user.coinBalance
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error claiming coins:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to claim coins"
+    });
+  }
+});
+
+// Convert coins to balance (100 coins = 1 BDT)
+Userrouter.post("/convert-coins-to-balance", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const CONVERSION_RATE = 100;
+    const currentCoinBalance = user.coinBalance || 0;
+    
+    // Check if user has enough coins (minimum 100)
+    if (currentCoinBalance < CONVERSION_RATE) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum ${CONVERSION_RATE} coins required for conversion`,
+        data: {
+          currentCoinBalance: currentCoinBalance,
+          needed: CONVERSION_RATE - currentCoinBalance
+        }
+      });
+    }
+    
+    // Calculate conversion (only full 100 coin increments)
+    const coinsToConvert = Math.floor(currentCoinBalance / CONVERSION_RATE) * CONVERSION_RATE;
+    const balanceToAdd = coinsToConvert / CONVERSION_RATE;
+    
+    // Update balances
+    user.coinBalance = currentCoinBalance - coinsToConvert;
+    user.balance = (user.balance || 0) + balanceToAdd;
+    
+    // Add to coin history
+    if (!user.coinHistory) {
+      user.coinHistory = [];
+    }
+    
+    user.coinHistory.push({
+      amount: -coinsToConvert,
+      reason: `converted_to_balance_${balanceToAdd}_BDT`,
+      date: new Date()
+    });
+    
+    await user.save();
+    
+    res.status(200).json({
+      success: true,
+      message: `Successfully converted ${coinsToConvert} coins to ${balanceToAdd} BDT!`,
+      data: {
+        coinsConverted: coinsToConvert,
+        amountAdded: balanceToAdd,
+        newCoinBalance: user.coinBalance,
+        newRealBalance: user.balance
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error converting coins:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to convert coins"
+    });
+  }
+});
+
+// ==================== LEVEL COMPLETION COIN REWARD SYSTEM ====================
+
+// Level definitions based on lifetime_bet (in BDT)
+const LEVELS = [
+  { id: 0, name: "Bronze", nameBn: "ব্রোঞ্জ", minBet: 0, maxBet: 9999, coinReward: 1000 },
+  { id: 1, name: "Silver", nameBn: "সিলভার", minBet: 10000, maxBet: 49999, coinReward: 2000 },
+  { id: 2, name: "Gold", nameBn: "গোল্ড", minBet: 50000, maxBet: 199999, coinReward: 5000 },
+  { id: 3, name: "Platinum", nameBn: "প্লাটিনাম", minBet: 200000, maxBet: 499999, coinReward: 10000 },
+  { id: 4, name: "Diamond", nameBn: "ডায়মন্ড", minBet: 500000, maxBet: 999999, coinReward: 20000 },
+  { id: 5, name: "Royal", nameBn: "রয়্যাল", minBet: 1000000, maxBet: 4999999, coinReward: 50000 },
+  { id: 6, name: "Legend", nameBn: "লিজেন্ড", minBet: 5000000, maxBet: Infinity, coinReward: 100000 }
+];
+
+// Helper function to get level by lifetime bet
+function getCurrentLevel(lifetimeBet) {
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (lifetimeBet >= LEVELS[i].minBet) {
+      return LEVELS[i];
+    }
+  }
+  return LEVELS[0];
+}
+
+// Helper function to get all claimable levels
+function getClaimableLevels(lifetimeBet, claimedLevels) {
+  const claimable = [];
+  for (const level of LEVELS) {
+    // Skip Bronze (level 0) as it's the starting level with no reward
+    if (level.id === 0) continue;
+    
+    // Check if user has reached this level and not claimed yet
+    if (lifetimeBet >= level.minBet && !claimedLevels.includes(level.id)) {
+      claimable.push(level);
+    }
+  }
+  return claimable;
+}
+
+// GET user's level information (current level, next level, progress, claimable levels)
+Userrouter.get("/level/info", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const lifetimeBet = user.lifetime_bet || 0;
+    const claimedLevels = user.claimedLevels || [];
+    
+    // Get current level
+    const currentLevel = getCurrentLevel(lifetimeBet);
+    
+    // Get next level
+    const currentLevelIndex = LEVELS.findIndex(l => l.id === currentLevel.id);
+    const nextLevel = LEVELS[currentLevelIndex + 1] || null;
+    
+    // Calculate progress to next level
+    let progress = 100;
+    let amountToNext = 0;
+    
+    if (nextLevel && nextLevel.minBet !== Infinity) {
+      const range = nextLevel.minBet - currentLevel.minBet;
+      const achieved = lifetimeBet - currentLevel.minBet;
+      progress = Math.min(100, Math.max(0, (achieved / range) * 100));
+      amountToNext = nextLevel.minBet - lifetimeBet;
+    } else {
+      progress = 100;
+      amountToNext = 0;
+    }
+    
+    // Get claimable levels
+    const claimableLevels = getClaimableLevels(lifetimeBet, claimedLevels);
+    
+    // Get claimed levels with details
+    const claimedLevelsWithDetails = claimedLevels.map(levelId => {
+      const level = LEVELS.find(l => l.id === levelId);
+      return level ? {
+        id: level.id,
+        name: level.name,
+        nameBn: level.nameBn,
+        coinReward: level.coinReward,
+        claimedAt: user.claimedLevelsAt?.[levelId] || null
+      } : null;
+    }).filter(l => l !== null);
+    
+    res.json({
+      success: true,
+      data: {
+        currentLevel: {
+          id: currentLevel.id,
+          name: currentLevel.name,
+          nameBn: currentLevel.nameBn,
+          minBet: currentLevel.minBet,
+          maxBet: currentLevel.maxBet,
+          coinReward: currentLevel.coinReward,
+          icon: getLevelIcon(currentLevel.id)
+        },
+        nextLevel: nextLevel ? {
+          id: nextLevel.id,
+          name: nextLevel.name,
+          nameBn: nextLevel.nameBn,
+          minBet: nextLevel.minBet,
+          coinReward: nextLevel.coinReward,
+          amountNeeded: amountToNext,
+          icon: getLevelIcon(nextLevel.id)
+        } : null,
+        progress: {
+          percentage: Math.floor(progress),
+          currentAmount: lifetimeBet,
+          nextLevelMin: nextLevel ? nextLevel.minBet : lifetimeBet,
+          amountToNext: amountToNext
+        },
+        claimableLevels: claimableLevels.map(level => ({
+          id: level.id,
+          name: level.name,
+          nameBn: level.nameBn,
+          coinReward: level.coinReward,
+          minBet: level.minBet,
+          icon: getLevelIcon(level.id)
+        })),
+        claimedLevels: claimedLevelsWithDetails,
+        lifetimeBet: lifetimeBet,
+        totalClaimedCoins: claimedLevels.reduce((sum, levelId) => {
+          const level = LEVELS.find(l => l.id === levelId);
+          return sum + (level?.coinReward || 0);
+        }, 0)
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching level info:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch level information",
+      error: error.message
+    });
+  }
+});
+
+// Helper function to get level icon
+function getLevelIcon(levelId) {
+  const icons = {
+    0: "🥉",
+    1: "🥈", 
+    2: "🥇",
+    3: "💎",
+    4: "🔹",
+    5: "👑",
+    6: "🏆"
+  };
+  return icons[levelId] || "⭐";
+}
+
+// POST claim level completion coin reward
+Userrouter.post("/claim-level-reward", authenticateToken, async (req, res) => {
+  try {
+    const { levelId } = req.body;
+    const user = req.user;
+    
+    // Validate levelId
+    if (levelId === undefined || levelId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Level ID is required"
+      });
+    }
+    
+    // Find the level
+    const level = LEVELS.find(l => l.id === levelId);
+    if (!level) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid level ID"
+      });
+    }
+    
+    // Skip Bronze (level 0) as it's the starting level
+    if (level.id === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Bronze level has no reward to claim"
+      });
+    }
+    
+    // Check if user has reached this level
+    const lifetimeBet = user.lifetime_bet || 0;
+    if (lifetimeBet < level.minBet) {
+      return res.status(400).json({
+        success: false,
+        message: `You haven't reached ${level.name} level yet. Need ৳${level.minBet.toLocaleString()} lifetime bet.`,
+        data: {
+          currentLifetimeBet: lifetimeBet,
+          required: level.minBet,
+          shortfall: level.minBet - lifetimeBet
+        }
+      });
+    }
+    
+    // Check if already claimed
+    const claimedLevels = user.claimedLevels || [];
+    if (claimedLevels.includes(levelId)) {
+      return res.status(400).json({
+        success: false,
+        message: `You have already claimed the ${level.name} level reward`
+      });
+    }
+    
+    // Add coin reward to user's balance
+    const coinReward = level.coinReward;
+    const oldCoinBalance = user.coinBalance || 0;
+    user.coinBalance = oldCoinBalance + coinReward;
+    
+    // Track claimed levels
+    if (!user.claimedLevels) {
+      user.claimedLevels = [];
+    }
+    user.claimedLevels.push(levelId);
+    
+    // Track when each level was claimed
+    if (!user.claimedLevelsAt) {
+      user.claimedLevelsAt = {};
+    }
+    user.claimedLevelsAt[levelId] = new Date();
+    
+    // Add to coin history
+    if (!user.coinHistory) {
+      user.coinHistory = [];
+    }
+    user.coinHistory.push({
+      amount: coinReward,
+      reason: `level_${level.id}_reward_${level.name.toLowerCase()}`,
+      date: new Date(),
+      metadata: {
+        levelId: level.id,
+        levelName: level.name,
+        lifetimeBetAtClaim: lifetimeBet
+      }
+    });
+    
+    // Add to transaction history
+    if (!user.transactionHistory) {
+      user.transactionHistory = [];
+    }
+    user.transactionHistory.push({
+      type: "level_reward",
+      amount: coinReward,
+      balanceBefore: oldCoinBalance,
+      balanceAfter: user.coinBalance,
+      description: `Level ${level.name} completion reward: ${coinReward.toLocaleString()} coins`,
+      referenceId: `LEVEL-${level.id}-${Date.now()}`,
+      createdAt: new Date(),
+      metadata: {
+        levelId: level.id,
+        levelName: level.name,
+        rewardType: "coin"
+      }
+    });
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: `🎉 Congratulations! You've claimed ${coinReward.toLocaleString()} coins for reaching ${level.name} level!`,
+      data: {
+        levelId: level.id,
+        levelName: level.name,
+        levelNameBn: level.nameBn,
+        coinReward: coinReward,
+        oldCoinBalance: oldCoinBalance,
+        newCoinBalance: user.coinBalance,
+        claimedAt: new Date(),
+        nextLevel: getNextClaimableLevel(lifetimeBet, user.claimedLevels)
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error claiming level reward:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to claim level reward",
+      error: error.message
+    });
+  }
+});
+
+// Helper function to get next claimable level
+function getNextClaimableLevel(lifetimeBet, claimedLevels) {
+  for (const level of LEVELS) {
+    if (level.id === 0) continue;
+    if (lifetimeBet >= level.minBet && !claimedLevels.includes(level.id)) {
+      return {
+        id: level.id,
+        name: level.name,
+        nameBn: level.nameBn,
+        coinReward: level.coinReward,
+        minBet: level.minBet
+      };
+    }
+  }
+  return null;
+}
+
+// GET all level rewards status (for displaying all levels with claim status)
+Userrouter.get("/level/all-rewards", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const lifetimeBet = user.lifetime_bet || 0;
+    const claimedLevels = user.claimedLevels || [];
+    
+    const allLevels = LEVELS.map(level => {
+      const isReached = lifetimeBet >= level.minBet;
+      const isClaimed = claimedLevels.includes(level.id);
+      const isClaimable = isReached && !isClaimed && level.id !== 0;
+      
+      return {
+        id: level.id,
+        name: level.name,
+        nameBn: level.nameBn,
+        minBet: level.minBet,
+        maxBet: level.maxBet === Infinity ? "∞" : level.maxBet,
+        coinReward: level.coinReward,
+        icon: getLevelIcon(level.id),
+        status: {
+          isReached: isReached,
+          isClaimed: isClaimed,
+          isClaimable: isClaimable,
+          canClaim: isClaimable
+        },
+        progressToReach: level.id === 0 ? 100 : Math.min(100, Math.max(0, (lifetimeBet / level.minBet) * 100))
+      };
+    });
+    
+    // Calculate total available rewards
+    const totalAvailableRewards = allLevels
+      .filter(l => l.status.isClaimable)
+      .reduce((sum, l) => sum + l.coinReward, 0);
+    
+    const totalClaimedRewards = allLevels
+      .filter(l => l.status.isClaimed)
+      .reduce((sum, l) => sum + l.coinReward, 0);
+    
+    res.json({
+      success: true,
+      data: {
+        levels: allLevels,
+        summary: {
+          totalLevels: LEVELS.length,
+          reachedLevels: allLevels.filter(l => l.status.isReached).length,
+          claimedLevels: allLevels.filter(l => l.status.isClaimed).length,
+          claimableLevels: allLevels.filter(l => l.status.isClaimable).length,
+          totalClaimableRewards: totalAvailableRewards,
+          totalClaimedRewards: totalClaimedRewards,
+          currentLifetimeBet: lifetimeBet
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching all level rewards:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch level rewards",
+      error: error.message
+    });
+  }
+});
+
+// POST claim all available level rewards at once
+Userrouter.post("/claim-all-level-rewards", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const lifetimeBet = user.lifetime_bet || 0;
+    const claimedLevels = user.claimedLevels || [];
+    
+    // Find all claimable levels
+    const claimableLevels = [];
+    for (const level of LEVELS) {
+      if (level.id === 0) continue;
+      if (lifetimeBet >= level.minBet && !claimedLevels.includes(level.id)) {
+        claimableLevels.push(level);
+      }
+    }
+    
+    if (claimableLevels.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No claimable level rewards available"
+      });
+    }
+    
+    // Calculate total reward
+    const totalReward = claimableLevels.reduce((sum, level) => sum + level.coinReward, 0);
+    const oldCoinBalance = user.coinBalance || 0;
+    
+    // Add all rewards
+    user.coinBalance = oldCoinBalance + totalReward;
+    
+    // Mark all as claimed
+    if (!user.claimedLevels) {
+      user.claimedLevels = [];
+    }
+    if (!user.claimedLevelsAt) {
+      user.claimedLevelsAt = {};
+    }
+    
+    claimableLevels.forEach(level => {
+      if (!user.claimedLevels.includes(level.id)) {
+        user.claimedLevels.push(level.id);
+        user.claimedLevelsAt[level.id] = new Date();
+      }
+    });
+    
+    // Add to coin history
+    if (!user.coinHistory) {
+      user.coinHistory = [];
+    }
+    user.coinHistory.push({
+      amount: totalReward,
+      reason: "all_level_rewards_bulk_claim",
+      date: new Date(),
+      metadata: {
+        levelsClaimed: claimableLevels.map(l => ({ id: l.id, name: l.name, reward: l.coinReward })),
+        totalReward: totalReward
+      }
+    });
+    
+    // Add to transaction history
+    user.transactionHistory.push({
+      type: "level_rewards_bulk",
+      amount: totalReward,
+      balanceBefore: oldCoinBalance,
+      balanceAfter: user.coinBalance,
+      description: `Bulk claim of ${claimableLevels.length} level rewards: ${claimableLevels.map(l => l.name).join(", ")}`,
+      referenceId: `BULK-LEVEL-${Date.now()}`,
+      createdAt: new Date()
+    });
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: `🎉 Successfully claimed ${totalReward.toLocaleString()} coins from ${claimableLevels.length} levels!`,
+      data: {
+        levelsClaimed: claimableLevels.map(level => ({
+          id: level.id,
+          name: level.name,
+          nameBn: level.nameBn,
+          coinReward: level.coinReward
+        })),
+        totalReward: totalReward,
+        oldCoinBalance: oldCoinBalance,
+        newCoinBalance: user.coinBalance,
+        claimedCount: claimableLevels.length
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error claiming all level rewards:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to claim level rewards",
+      error: error.message
+    });
+  }
+});
+
+// GET level progress tracking (for dashboard widget)
+Userrouter.get("/level/progress", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const lifetimeBet = user.lifetime_bet || 0;
+    const claimedLevels = user.claimedLevels || [];
+    
+    const currentLevel = getCurrentLevel(lifetimeBet);
+    const currentLevelIndex = LEVELS.findIndex(l => l.id === currentLevel.id);
+    const nextLevel = LEVELS[currentLevelIndex + 1] || null;
+    
+    // Calculate progress to next level
+    let progress = 100;
+    let amountToNext = 0;
+    let nextLevelReward = 0;
+    
+    if (nextLevel) {
+      const range = nextLevel.minBet - currentLevel.minBet;
+      const achieved = lifetimeBet - currentLevel.minBet;
+      progress = Math.min(100, Math.max(0, (achieved / range) * 100));
+      amountToNext = nextLevel.minBet - lifetimeBet;
+      nextLevelReward = nextLevel.coinReward;
+    }
+    
+    // Check if next level reward is claimable
+    const isNextLevelClaimable = nextLevel && 
+      lifetimeBet >= nextLevel.minBet && 
+      !claimedLevels.includes(nextLevel.id);
+    
+    res.json({
+      success: true,
+      data: {
+        currentLevel: {
+          id: currentLevel.id,
+          name: currentLevel.name,
+          nameBn: currentLevel.nameBn,
+          icon: getLevelIcon(currentLevel.id),
+          minBet: currentLevel.minBet,
+          coinReward: currentLevel.coinReward,
+          isClaimed: claimedLevels.includes(currentLevel.id)
+        },
+        nextLevel: nextLevel ? {
+          id: nextLevel.id,
+          name: nextLevel.name,
+          nameBn: nextLevel.nameBn,
+          icon: getLevelIcon(nextLevel.id),
+          minBet: nextLevel.minBet,
+          coinReward: nextLevel.coinReward,
+          amountNeeded: amountToNext,
+          isClaimable: isNextLevelClaimable
+        } : null,
+        progress: {
+          percentage: Math.floor(progress),
+          currentAmount: lifetimeBet,
+          targetAmount: nextLevel ? nextLevel.minBet : lifetimeBet,
+          remainingAmount: amountToNext
+        },
+        stats: {
+          totalLifetimeBet: lifetimeBet,
+          totalClaimedCoins: claimedLevels.reduce((sum, levelId) => {
+            const level = LEVELS.find(l => l.id === levelId);
+            return sum + (level?.coinReward || 0);
+          }, 0),
+          levelsClaimed: claimedLevels.length,
+          levelsAvailable: LEVELS.length - 1
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching level progress:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch level progress",
+      error: error.message
+    });
+  }
+});
+
+// ==================== END OF LEVEL COMPLETION COIN REWARD SYSTEM ====================
+
 module.exports = Userrouter;

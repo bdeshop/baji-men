@@ -271,6 +271,10 @@ const UserSchema = new Schema({
         reason: String,
         date: { type: Date, default: Date.now }
     }],
+    claimedLevels: {
+  type: [Number],
+  default: []  // Stores level IDs that have been claimed
+},
     // ========== FINANCIAL INFORMATION ==========
     currency: {
         type: String,

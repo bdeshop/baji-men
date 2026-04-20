@@ -842,14 +842,12 @@ const refreshCoinBalance = async () => {
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     
     const response = await axios.get(`${API_BASE_URL}/api/user/my-information`);
-    console.log("Refresh Coin Balance Response:", response);
     if (response.data.success) {
       setUserData(response.data.data);
       localStorage.setItem("user", JSON.stringify(response.data.data));
     }
   } catch (error) {
     console.error("Error refreshing coin balance:", error);
-    toast.error(t.failedRefreshCoinBalance);
   } finally {
     setIsRefreshingCoinBalance(false);
   }
@@ -857,7 +855,7 @@ const refreshCoinBalance = async () => {
   return (
     <>
       <Toaster />
-      <header className="flex justify-between items-center px-1 py-2 bg-[#1a1a1a] text-white border-b border-[#333] relative z-[10000]">
+      <header className="flex justify-between items-center px-1 py-2 bg-[#1a1a1a] text-white border-b border-[#333] relative z-[1000]">
         <div className="flex items-center space-x-4 md:space-x-7">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
