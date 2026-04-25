@@ -2663,7 +2663,7 @@ const Newgames = () => {
 
       {/* Delete Selected Games Modal - Now just a confirmation dialog using SweetAlert */}
       {showDeleteSelectedModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[rgba(0,0,0,0.4)] bg-opacity-50">
           {(() => {
             handleDeleteSelectedGames();
             return null;
