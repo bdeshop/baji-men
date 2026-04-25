@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle, FaChevronLeft, FaChevronRight, FaTrash, FaExclamationTriangle } from "react-icons/fa";
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
@@ -34,13 +34,14 @@ const Newgames = () => {
 
   // Selection states
   const [selectedGames, setSelectedGames] = useState(new Set());
-  const [selectAll, setSelectAll] = useState(false);
+  const [selectAllUnsaved, setSelectAllUnsaved] = useState(false);
+  const [selectAllSaved, setSelectAllSaved] = useState(false);
   const [bulkActionMode, setBulkActionMode] = useState(false);
 
   // Bulk add states
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkGames, setBulkGames] = useState([]);
-  const [bulkCategories, setBulkCategories] = useState([]); // Changed to array for multiple categories
+  const [bulkCategories, setBulkCategories] = useState([]);
   const [bulkFeatured, setBulkFeatured] = useState(false);
   const [bulkStatus, setBulkStatus] = useState(true);
   const [bulkFullScreen, setBulkFullScreen] = useState(false);
@@ -66,6 +67,9 @@ const Newgames = () => {
   const [updatingGameId, setUpdatingGameId] = useState(null);
   const [showProvidersDropdown, setShowProvidersDropdown] = useState(false);
   const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
+  
+  // Debounce timer for search
+  const searchTimeoutRef = useRef(null);
 
   // Create axios instances
   const api = axios.create({
@@ -300,35 +304,57 @@ const Newgames = () => {
     </div>
   );
 
-  // Search Component
-  const SearchBar = () => (
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <FaSearch className="h-5 w-5 text-gray-500" />
+  // --- FIXED: Search Component with debouncing to prevent typing lag ---
+  const SearchBar = () => {
+    const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
+    
+    useEffect(() => {
+      setLocalSearchTerm(searchTerm);
+    }, [searchTerm]);
+    
+    const handleSearchChange = (e) => {
+      const value = e.target.value;
+      setLocalSearchTerm(value);
+      
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Set new timeout to update search term after user stops typing
+      searchTimeoutRef.current = setTimeout(() => {
+        setSearchTerm(value);
+        setCurrentPage(1);
+      }, 300);
+    };
+    
+    return (
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <FaSearch className="h-5 w-5 text-gray-500" />
+        </div>
+        <input
+          type="text"
+          value={localSearchTerm}
+          onChange={handleSearchChange}
+          placeholder="Search games by name..."
+          className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
+        />
+        {localSearchTerm && (
+          <button
+            onClick={() => {
+              setLocalSearchTerm("");
+              setSearchTerm("");
+              setCurrentPage(1);
+            }}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+          >
+            <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
+          </button>
+        )}
       </div>
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setCurrentPage(1);
-        }}
-        placeholder="Search games by name..."
-        className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
-      />
-      {searchTerm && (
-        <button
-          onClick={() => {
-            setSearchTerm("");
-            setCurrentPage(1);
-          }}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-        >
-          <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
-        </button>
-      )}
-    </div>
-  );
+    );
+  };
 
   // Pagination Component
   const Pagination = ({ currentPage, totalPages, onPageChange }) => {
@@ -410,7 +436,7 @@ const Newgames = () => {
   };
 
   // Function to filter games based on search term
-  const filterGamesBySearch = (gamesList, term) => {
+  const filterGamesBySearch = useCallback((gamesList, term) => {
     if (!term.trim()) return gamesList;
     
     const searchTermLower = term.toLowerCase();
@@ -419,7 +445,7 @@ const Newgames = () => {
       game.name?.toLowerCase().includes(searchTermLower) ||
       (game.provider?.providerName?.toLowerCase().includes(searchTermLower) || false)
     );
-  };
+  }, []);
 
   // Update paginated games when filtered games or current page changes
   useEffect(() => {
@@ -430,15 +456,24 @@ const Newgames = () => {
     setTotalPages(Math.ceil(filteredGames.length / gamesPerPage));
   }, [filteredGames, currentPage, gamesPerPage]);
 
-  // Reset select all when page changes
+  // --- FIXED: Update select all states when page changes or selections change ---
   useEffect(() => {
+    // For unsaved games
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
-    
     if (currentPageUnsavedGames.length > 0) {
-      setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length);
+      const currentPageSelectedUnsavedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
+      setSelectAllUnsaved(currentPageSelectedUnsavedCount === currentPageUnsavedGames.length);
     } else {
-      setSelectAll(false);
+      setSelectAllUnsaved(false);
+    }
+    
+    // For saved games
+    const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
+    if (currentPageSavedGames.length > 0) {
+      const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
+      setSelectAllSaved(currentPageSelectedSavedCount === currentPageSavedGames.length);
+    } else {
+      setSelectAllSaved(false);
     }
   }, [paginatedGames, selectedGames]);
 
@@ -611,7 +646,8 @@ const Newgames = () => {
       setUseDefaultImage({});
       setEditingGame(null);
       setSelectedGames(new Set());
-      setSelectAll(false);
+      setSelectAllUnsaved(false);
+      setSelectAllSaved(false);
       
       // Store current page before loading
       const currentPageBeforeLoad = currentPage;
@@ -741,10 +777,11 @@ const Newgames = () => {
     const searchFiltered = filterGamesBySearch(games, searchTerm);
     setFilteredGames(searchFiltered);
     setSelectedGames(new Set());
-    setSelectAll(false);
-  }, [games, searchTerm]);
+    setSelectAllUnsaved(false);
+    setSelectAllSaved(false);
+  }, [games, searchTerm, filterGamesBySearch]);
 
-  // Selection handlers
+  // --- FIXED: Selection handlers with separate select all for unsaved and saved ---
   const toggleGameSelection = (gameId) => {
     const newSelected = new Set(selectedGames);
     if (newSelected.has(gameId)) {
@@ -754,13 +791,21 @@ const Newgames = () => {
     }
     setSelectedGames(newSelected);
     
+    // Update select all states based on new selections
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game.uniqueId)).length;
-    setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
+    const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
+    
+    const currentPageSelectedUnsavedCount = currentPageUnsavedGames.filter(game => newSelected.has(game.uniqueId)).length;
+    setSelectAllUnsaved(currentPageSelectedUnsavedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
+    
+    const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => newSelected.has(game.uniqueId)).length;
+    setSelectAllSaved(currentPageSelectedSavedCount === currentPageSavedGames.length && currentPageSavedGames.length > 0);
   };
 
-  const toggleSelectAll = () => {
-    if (selectAll) {
+  // Select all unsaved games on current page
+  const toggleSelectAllUnsaved = () => {
+    if (selectAllUnsaved) {
+      // Deselect all unsaved games on current page
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
         if (!game.isSaved) {
@@ -768,8 +813,9 @@ const Newgames = () => {
         }
       });
       setSelectedGames(newSelected);
-      setSelectAll(false);
+      setSelectAllUnsaved(false);
     } else {
+      // Select all unsaved games on current page
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
         if (!game.isSaved) {
@@ -777,13 +823,39 @@ const Newgames = () => {
         }
       });
       setSelectedGames(newSelected);
-      setSelectAll(true);
+      setSelectAllUnsaved(true);
+    }
+  };
+
+  // Select all saved games on current page for deletion
+  const toggleSelectAllSaved = () => {
+    if (selectAllSaved) {
+      // Deselect all saved games on current page
+      const newSelected = new Set(selectedGames);
+      paginatedGames.forEach(game => {
+        if (game.isSaved) {
+          newSelected.delete(game.uniqueId);
+        }
+      });
+      setSelectedGames(newSelected);
+      setSelectAllSaved(false);
+    } else {
+      // Select all saved games on current page
+      const newSelected = new Set(selectedGames);
+      paginatedGames.forEach(game => {
+        if (game.isSaved) {
+          newSelected.add(game.uniqueId);
+        }
+      });
+      setSelectedGames(newSelected);
+      setSelectAllSaved(true);
     }
   };
 
   const clearSelections = () => {
     setSelectedGames(new Set());
-    setSelectAll(false);
+    setSelectAllUnsaved(false);
+    setSelectAllSaved(false);
   };
 
   const handleBulkAction = () => {
@@ -801,7 +873,7 @@ const Newgames = () => {
     }
 
     setBulkGames(selectedGamesList);
-    setBulkCategories([selectedCategory]); // Use selected category as default
+    setBulkCategories([selectedCategory]);
     setShowBulkModal(true);
     setBulkImage(null);
     setBulkImagePreview(null);
@@ -1575,7 +1647,8 @@ const Newgames = () => {
       }
 
       setSelectedGames(new Set());
-      setSelectAll(false);
+      setSelectAllUnsaved(false);
+      setSelectAllSaved(false);
       setShowDeleteSelectedModal(false);
       setDeletingSelected(false);
       setEditingGame(null);
@@ -1669,7 +1742,8 @@ const Newgames = () => {
           setDeleteConfirmText("");
           setEditingGame(null);
           setSelectedGames(new Set());
-          setSelectAll(false);
+          setSelectAllUnsaved(false);
+          setSelectAllSaved(false);
         }
       } catch (error) {
         console.error("Error deleting all added games:", error);
@@ -1709,7 +1783,7 @@ const Newgames = () => {
 
   const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
   const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
-  const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
+  const currentPageSelectedUnsavedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
   const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
 
   const handlePageChange = (pageNumber) => {
@@ -1798,32 +1872,52 @@ const Newgames = () => {
             {!loadingGames && filteredGames.length > 0 && (
               <div className="mb-6 bg-[#161B22] rounded-xl border border-gray-800 overflow-hidden">
                 <div className="p-4 bg-[#1C2128] border-b border-gray-800">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={toggleSelectAll}
-                        className="flex items-center space-x-2 text-gray-400 hover:text-indigo-400 transition-colors"
-                        disabled={currentPageUnsavedGames.length === 0 && currentPageSavedGames.length === 0}
-                      >
-                        {selectAll ? (
-                          <FaCheckCircle className="text-indigo-500 text-xl" />
-                        ) : (
-                          <FaRegCircle className="text-gray-500 text-xl" />
-                        )}
-                        <span className="font-medium text-sm">
-                          {selectAll ? 'Deselect All on Page' : 'Select All on Page'}
-                        </span>
-                      </button>
+                  <div className="flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Select All Unsaved Button */}
+                      {currentPageUnsavedGames.length > 0 && (
+                        <button
+                          onClick={toggleSelectAllUnsaved}
+                          className="flex items-center justify-center space-x-2 text-gray-400 hover:text-indigo-400 transition-colors px-3 py-2 rounded-lg bg-[#161B22] border border-gray-700"
+                        >
+                          {selectAllUnsaved ? (
+                            <FaCheckCircle className="text-indigo-500 text-lg" />
+                          ) : (
+                            <FaRegCircle className="text-gray-500 text-lg" />
+                          )}
+                          <span className="font-medium text-sm whitespace-nowrap">
+                            {selectAllUnsaved ? 'Deselect All New' : 'Select All New'} ({currentPageUnsavedGames.length})
+                          </span>
+                        </button>
+                      )}
+                      
+                      {/* Select All Saved Button for Delete */}
+                      {currentPageSavedGames.length > 0 && (
+                        <button
+                          onClick={toggleSelectAllSaved}
+                          className="flex items-center justify-center space-x-2 text-gray-400 hover:text-red-400 transition-colors px-3 py-2 rounded-lg bg-[#161B22] border border-gray-700"
+                        >
+                          {selectAllSaved ? (
+                            <FaCheckCircle className="text-red-500 text-lg" />
+                          ) : (
+                            <FaRegCircle className="text-gray-500 text-lg" />
+                          )}
+                          <span className="font-medium text-sm whitespace-nowrap">
+                            {selectAllSaved ? 'Deselect All Saved' : 'Select All Saved'} ({currentPageSavedGames.length})
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-3">
                       {selectedGames.size > 0 && (
                         <>
                           <span className="text-sm text-gray-500">
-                            {currentPageSelectedCount + currentPageSelectedSavedCount} of {paginatedGames.length} on this page • 
-                            {selectedUnsavedCount > 0 && <span className="text-indigo-400 ml-1">{selectedUnsavedCount} new</span>}
-                            {selectedSavedCount > 0 && <span className="text-green-500 ml-1">{selectedSavedCount} saved</span>}
+                            {selectedUnsavedCount} new • {selectedSavedCount} saved selected
                           </span>
                           <button
                             onClick={clearSelections}
-                            className="text-sm text-red-400 hover:text-red-300 transition-colors"
+                            className="text-sm text-red-400 hover:text-red-300 transition-colors px-2 py-1"
                           >
                             Clear All
                           </button>
@@ -1831,7 +1925,7 @@ const Newgames = () => {
                       )}
                     </div>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       {/* Delete Selected Button - Only shows if there are selected saved games */}
                       {selectedSavedCount > 0 && (
                         <button
@@ -1870,7 +1964,7 @@ const Newgames = () => {
                 {selectedGames.size > 0 && (
                   <div className="px-4 py-2 bg-indigo-900/30 text-sm text-indigo-300 flex items-center">
                     <FaCheckCircle className="mr-2 text-indigo-400" />
-                    {selectedUnsavedCount} unsaved • {selectedSavedCount} saved games selected
+                    {selectedUnsavedCount} new • {selectedSavedCount} saved games selected
                   </div>
                 )}
               </div>
@@ -1905,7 +1999,7 @@ const Newgames = () => {
                         <>
                           Showing <span className="font-semibold text-indigo-400">{paginatedGames.length}</span> of <span className="font-semibold">{filteredGames.length}</span> games from {selectedProviderName}
                           <span className="ml-2 text-sm">
-                            (<span className="text-green-500">{filteredGames.filter(g => g.isSaved).length} saved</span> • 
+                            (<span className="text-green-500">{savedGamesCount} saved</span> • 
                             <span className="text-indigo-400"> {unsavedGamesCount} new</span>)
                           </span>
                         </>
@@ -1915,7 +2009,11 @@ const Newgames = () => {
                   <div className="flex items-center space-x-4">
                     {searchTerm && (
                       <button
-                        onClick={() => setSearchTerm("")}
+                        onClick={() => {
+                          setSearchTerm("");
+                          const searchInput = document.querySelector('input[type="text"]');
+                          if (searchInput) searchInput.value = "";
+                        }}
                         className="px-4 py-2 text-sm font-medium text-gray-300 bg-[#1F2937] hover:bg-gray-700 rounded-lg transition-colors duration-200"
                       >
                         Clear Search
@@ -2284,7 +2382,11 @@ const Newgames = () => {
                   No games found matching "<span className="font-semibold">{searchTerm}</span>" in {selectedProviderName}.
                 </p>
                 <button
-                  onClick={() => setSearchTerm("")}
+                  onClick={() => {
+                    setSearchTerm("");
+                    const searchInput = document.querySelector('input[type="text"]');
+                    if (searchInput) searchInput.value = "";
+                  }}
                   className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors duration-200"
                 >
                   Clear Search
@@ -2562,8 +2664,6 @@ const Newgames = () => {
       {/* Delete Selected Games Modal - Now just a confirmation dialog using SweetAlert */}
       {showDeleteSelectedModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50">
-          {/* This modal is just a placeholder, actual delete confirmation is handled by SweetAlert */}
-          {/* We keep this modal to trigger the SweetAlert */}
           {(() => {
             handleDeleteSelectedGames();
             return null;
