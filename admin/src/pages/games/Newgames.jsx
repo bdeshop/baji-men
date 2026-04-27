@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, FaEdit, FaCheck, FaPlusCircle, FaList, FaCheckCircle, FaRegCircle, FaChevronLeft, FaChevronRight, FaTrash, FaExclamationTriangle } from "react-icons/fa";
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
@@ -31,11 +31,11 @@ const Newgames = () => {
   const [useDefaultImage, setUseDefaultImage] = useState({});
   const [localGames, setLocalGames] = useState([]);
   const [editingGame, setEditingGame] = useState(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState("");
 
   // Selection states
   const [selectedGames, setSelectedGames] = useState(new Set());
-  const [selectAllUnsaved, setSelectAllUnsaved] = useState(false);
-  const [selectAllSaved, setSelectAllSaved] = useState(false);
+  const [selectAll, setSelectAll] = useState(false);
   const [bulkActionMode, setBulkActionMode] = useState(false);
 
   // Bulk add states
@@ -67,9 +67,6 @@ const Newgames = () => {
   const [updatingGameId, setUpdatingGameId] = useState(null);
   const [showProvidersDropdown, setShowProvidersDropdown] = useState(false);
   const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
-  
-  // Debounce timer for search
-  const searchTimeoutRef = useRef(null);
 
   // Create axios instances
   const api = axios.create({
@@ -88,16 +85,6 @@ const Newgames = () => {
   });
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  // Helper function to generate unique game ID
-  const generateUniqueGameId = (game) => {
-    if (game.game_uuid) {
-      return game.game_uuid;
-    }
-    const gameCode = game.game_code || game.code || game._id;
-    const providerCode = game.provider?.provider_code || game.provider?.code || 'unknown';
-    return `${gameCode}-${providerCode}`;
-  };
 
   // Custom Select Component
   const CustomSelect = ({ 
@@ -304,57 +291,35 @@ const Newgames = () => {
     </div>
   );
 
-  // --- FIXED: Search Component with debouncing to prevent typing lag ---
-  const SearchBar = () => {
-    const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
-    
-    useEffect(() => {
-      setLocalSearchTerm(searchTerm);
-    }, [searchTerm]);
-    
-    const handleSearchChange = (e) => {
-      const value = e.target.value;
-      setLocalSearchTerm(value);
-      
-      // Clear previous timeout
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-      
-      // Set new timeout to update search term after user stops typing
-      searchTimeoutRef.current = setTimeout(() => {
-        setSearchTerm(value);
-        setCurrentPage(1);
-      }, 300);
-    };
-    
-    return (
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <FaSearch className="h-5 w-5 text-gray-500" />
-        </div>
-        <input
-          type="text"
-          value={localSearchTerm}
-          onChange={handleSearchChange}
-          placeholder="Search games by name..."
-          className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
-        />
-        {localSearchTerm && (
-          <button
-            onClick={() => {
-              setLocalSearchTerm("");
-              setSearchTerm("");
-              setCurrentPage(1);
-            }}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-          >
-            <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
-          </button>
-        )}
+  // Search Component
+  const SearchBar = () => (
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <FaSearch className="h-5 w-5 text-gray-500" />
       </div>
-    );
-  };
+      <input
+        type="text"
+        value={searchTerm}
+        onChange={(e) => {
+          setSearchTerm(e.target.value);
+          setCurrentPage(1);
+        }}
+        placeholder="Search games by name..."
+        className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
+      />
+      {searchTerm && (
+        <button
+          onClick={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
+          }}
+          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+        >
+          <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
+        </button>
+      )}
+    </div>
+  );
 
   // Pagination Component
   const Pagination = ({ currentPage, totalPages, onPageChange }) => {
@@ -436,7 +401,7 @@ const Newgames = () => {
   };
 
   // Function to filter games based on search term
-  const filterGamesBySearch = useCallback((gamesList, term) => {
+  const filterGamesBySearch = (gamesList, term) => {
     if (!term.trim()) return gamesList;
     
     const searchTermLower = term.toLowerCase();
@@ -445,7 +410,7 @@ const Newgames = () => {
       game.name?.toLowerCase().includes(searchTermLower) ||
       (game.provider?.providerName?.toLowerCase().includes(searchTermLower) || false)
     );
-  }, []);
+  };
 
   // Update paginated games when filtered games or current page changes
   useEffect(() => {
@@ -456,24 +421,15 @@ const Newgames = () => {
     setTotalPages(Math.ceil(filteredGames.length / gamesPerPage));
   }, [filteredGames, currentPage, gamesPerPage]);
 
-  // --- FIXED: Update select all states when page changes or selections change ---
+  // Reset select all when page changes
   useEffect(() => {
-    // For unsaved games
-    const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-    if (currentPageUnsavedGames.length > 0) {
-      const currentPageSelectedUnsavedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
-      setSelectAllUnsaved(currentPageSelectedUnsavedCount === currentPageUnsavedGames.length);
-    } else {
-      setSelectAllUnsaved(false);
-    }
+    const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSavedInSelectedCategory);
+    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
     
-    // For saved games
-    const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
-    if (currentPageSavedGames.length > 0) {
-      const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
-      setSelectAllSaved(currentPageSelectedSavedCount === currentPageSavedGames.length);
+    if (currentPageUnsavedGames.length > 0) {
+      setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length);
     } else {
-      setSelectAllSaved(false);
+      setSelectAll(false);
     }
   }, [paginatedGames, selectedGames]);
 
@@ -486,13 +442,7 @@ const Newgames = () => {
         setCategories(response.data);
       } catch (error) {
         console.error('Error fetching categories:', error);
-        if (error.response) {
-          toast.error(`Failed to fetch categories: ${error.response.data.message || error.response.statusText}`);
-        } else if (error.request) {
-          toast.error('Failed to fetch categories: No response from server');
-        } else {
-          toast.error('Failed to fetch categories: ' + error.message);
-        }
+        toast.error('Failed to fetch categories');
       } finally {
         setLoadingCategories(false);
       }
@@ -501,13 +451,22 @@ const Newgames = () => {
     fetchCategories();
   }, []);
 
+  // Update selected category name when selectedCategory changes
+  useEffect(() => {
+    if (selectedCategory && categories.length > 0) {
+      const categoryObj = categories.find(c => c._id === selectedCategory);
+      setSelectedCategoryName(categoryObj?.name || "");
+    } else {
+      setSelectedCategoryName("");
+    }
+  }, [selectedCategory, categories]);
+
   // Fetch local providers
   useEffect(() => {
     const fetchLocalProviders = async () => {
       setLoadingProviders(true);
       try {
         const response = await api.get('/api/admin/game-providers');
-        console.log("Local providers:", response.data);
         setLocalProviders(response.data);
       } catch (error) {
         console.error("Error fetching local providers:", error);
@@ -527,14 +486,10 @@ const Newgames = () => {
       
       if (selectedCategoryObj) {
         const categoryName = selectedCategoryObj.name?.toLowerCase();
-        console.log("Selected category name:", categoryName);
-        
         const filtered = localProviders.filter(provider => {
           const providerCategory = provider.category?.toLowerCase();
           return providerCategory === categoryName;
         });
-        
-        console.log("Filtered local providers:", filtered);
         setFilteredProviders(filtered);
         
         if (selectedProvider) {
@@ -563,8 +518,6 @@ const Newgames = () => {
         const externalRes = await oracleApi.get('/providers');
         const externalProviders = externalRes.data.data || [];
         
-        console.log("External providers:", externalProviders);
-        
         const localProviderMap = new Map();
         filteredProviders.forEach(p => {
           if (p.providercode) localProviderMap.set(p.providercode.toLowerCase(), p);
@@ -584,17 +537,10 @@ const Newgames = () => {
                  localProviderMap.has(id);
         });
 
-        console.log("Merged Providers:", mergedProviders);
         setProviders(mergedProviders);
       } catch (error) {
         console.error("Error fetching and merging providers:", error);
-        if (error.response) {
-          toast.error(`Failed to fetch providers: ${error.response.data.message || error.response.statusText}`);
-        } else if (error.request) {
-          toast.error('Failed to fetch providers: No response from server');
-        } else {
-          toast.error('Failed to fetch providers: ' + error.message);
-        }
+        toast.error('Failed to fetch providers');
       } finally {
         setLoadingProviders(false);
       }
@@ -610,13 +556,7 @@ const Newgames = () => {
       return response.data;
     } catch (error) {
       console.error('Error fetching local games:', error);
-      if (error.response) {
-        toast.error(`Failed to fetch local games: ${error.response.data.message || error.response.statusText}`);
-      } else if (error.request) {
-        toast.error('Failed to fetch local games: No response from server');
-      } else {
-        toast.error('Failed to fetch local games: ' + error.message);
-      }
+      toast.error('Failed to fetch local games');
       return [];
     }
   };
@@ -646,10 +586,8 @@ const Newgames = () => {
       setUseDefaultImage({});
       setEditingGame(null);
       setSelectedGames(new Set());
-      setSelectAllUnsaved(false);
-      setSelectAllSaved(false);
+      setSelectAll(false);
       
-      // Store current page before loading
       const currentPageBeforeLoad = currentPage;
       
       try {
@@ -667,16 +605,25 @@ const Newgames = () => {
         const localGamesList = await fetchAllLocalGames();
         setLocalGames(localGamesList);
         
-        // Create a map using combination of gameApiID AND provider
+        // Create maps for existing games
         const existingGamesMap = new Map();
+        const existingGamesByGameId = new Map();
+        const existingGamesByUniqueId = new Map();
+        
         localGamesList.forEach(game => {
-          const gameApiID = game.gameApiID;
-          const provider = game.provider;
-          const compositeKey = `${gameApiID}-${provider}`;
+          const compositeKey = `${game.gameApiID}-${game.provider}`;
           existingGamesMap.set(compositeKey, game);
+          
+          if (game.gameApiID) {
+            existingGamesByGameId.set(game.gameApiID, game);
+          }
           
           if (game._id) {
             existingGamesMap.set(`id-${game._id}`, game);
+          }
+          
+          if (game.uniqueId) {
+            existingGamesByUniqueId.set(game.uniqueId, game);
           }
         });
 
@@ -693,22 +640,32 @@ const Newgames = () => {
           const gameUuid = externalGame._id || externalGame.game_uuid;
           
           const compositeKey = `${gameApiID}-${provider}`;
+          let existingGame = null;
           
-          let existingGame = existingGamesMap.get(compositeKey);
+          // Try multiple matching strategies
+          existingGame = existingGamesMap.get(compositeKey);
+          
+          if (!existingGame) {
+            existingGame = existingGamesByGameId.get(gameApiID);
+          }
           
           if (!existingGame && gameUuid) {
-            existingGame = existingGamesMap.get(`id-${gameUuid}`);
+            existingGame = existingGamesByUniqueId.get(gameUuid);
+            if (!existingGame) {
+              existingGame = existingGamesMap.get(`id-${gameUuid}`);
+            }
           }
           
           if (!existingGame) {
             existingGame = localGamesList.find(g => 
-              g.gameApiID === gameApiID && g.provider === provider
+              (g.name === (externalGame.gameName || externalGame.name)) && 
+              g.provider === provider
             );
           }
           
           const uniqueId = gameUuid || compositeKey;
           
-          // Parse existing categories (could be array or string)
+          // Parse existing categories
           let existingCategories = [];
           if (existingGame?.category) {
             if (Array.isArray(existingGame.category)) {
@@ -718,21 +675,32 @@ const Newgames = () => {
             }
           }
           
+          // CRITICAL FIX: Determine if game should show "Edit Game" based on current selected category
+          // A game is considered "saved for this category" ONLY if it already has the selected category in its categories
+          const isSavedInSelectedCategory = existingGame && selectedCategoryName && 
+            existingCategories.some(cat => cat.toLowerCase() === selectedCategoryName.toLowerCase());
+          
+          // For cases where no category is selected, default to existing game existence
+          const defaultIsSaved = !!existingGame;
+          
           return {
             ...externalGame,
             _id: uniqueId,
             uniqueId: uniqueId,
             game_uuid: gameUuid,
             name: externalGame.gameName || externalGame.name,
-            gameCode: gameApiID,
+            game_code: gameApiID,
             provider: externalGame.provider,
             coverImage: externalGame.image,
-            isSaved: !!existingGame,
+            image: externalGame.image,
+            isSaved: !!existingGame, // Overall saved status
+            isSavedInSelectedCategory: selectedCategoryName ? isSavedInSelectedCategory : defaultIsSaved, // Category-specific saved status
             existingGameData: existingGame,
+            existingCategories: existingCategories, // Store existing categories for reference
             localFeatured: existingGame?.featured || false,
             localStatus: existingGame?.status ?? true,
             localFullScreen: existingGame?.fullScreen || false,
-            localCategories: existingCategories.length > 0 ? existingCategories : [selectedCategory || ""],
+            localCategories: existingCategories.length > 0 ? existingCategories : (selectedCategoryName ? [selectedCategoryName] : []),
             localPortraitImage: null,
             localPortraitPreview: null,
             localLandscapeImage: null,
@@ -741,7 +709,14 @@ const Newgames = () => {
           };
         });
         
-        console.log("transformedGames", transformedGames);
+        console.log("Transformed games:", transformedGames.map(g => ({ 
+          name: g.name, 
+          isSaved: g.isSaved, 
+          isSavedInSelectedCategory: g.isSavedInSelectedCategory,
+          existingCategories: g.existingCategories,
+          selectedCategoryName: selectedCategoryName
+        })));
+        
         setGames(transformedGames);
         setFilteredGames(transformedGames);
         
@@ -755,13 +730,7 @@ const Newgames = () => {
         
       } catch (error) {
         console.error("Error fetching and filtering games:", error);
-        if (error.response) {
-          toast.error(`Failed to fetch games: ${error.response.data.message || error.response.statusText}`);
-        } else if (error.request) {
-          toast.error('Failed to fetch games: No response from server');
-        } else {
-          toast.error('Failed to fetch games: ' + error.message);
-        }
+        toast.error('Failed to fetch games');
       } finally {
         setLoadingGames(false);
       }
@@ -770,18 +739,17 @@ const Newgames = () => {
     if (selectedProvider) {
       fetchAndFilterGames();
     }
-  }, [selectedProvider, providers, selectedCategory]);
+  }, [selectedProvider, providers, selectedCategoryName]);
 
   // Apply search filter whenever games or search term changes
   useEffect(() => {
     const searchFiltered = filterGamesBySearch(games, searchTerm);
     setFilteredGames(searchFiltered);
     setSelectedGames(new Set());
-    setSelectAllUnsaved(false);
-    setSelectAllSaved(false);
-  }, [games, searchTerm, filterGamesBySearch]);
+    setSelectAll(false);
+  }, [games, searchTerm]);
 
-  // --- FIXED: Selection handlers with separate select all for unsaved and saved ---
+  // Selection handlers
   const toggleGameSelection = (gameId) => {
     const newSelected = new Set(selectedGames);
     if (newSelected.has(gameId)) {
@@ -791,71 +759,36 @@ const Newgames = () => {
     }
     setSelectedGames(newSelected);
     
-    // Update select all states based on new selections
-    const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-    const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
-    
-    const currentPageSelectedUnsavedCount = currentPageUnsavedGames.filter(game => newSelected.has(game.uniqueId)).length;
-    setSelectAllUnsaved(currentPageSelectedUnsavedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
-    
-    const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => newSelected.has(game.uniqueId)).length;
-    setSelectAllSaved(currentPageSelectedSavedCount === currentPageSavedGames.length && currentPageSavedGames.length > 0);
+    const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSavedInSelectedCategory);
+    const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game.uniqueId)).length;
+    setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
   };
 
-  // Select all unsaved games on current page
-  const toggleSelectAllUnsaved = () => {
-    if (selectAllUnsaved) {
-      // Deselect all unsaved games on current page
+  const toggleSelectAll = () => {
+    if (selectAll) {
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
-        if (!game.isSaved) {
+        if (!game.isSavedInSelectedCategory) {
           newSelected.delete(game.uniqueId);
         }
       });
       setSelectedGames(newSelected);
-      setSelectAllUnsaved(false);
+      setSelectAll(false);
     } else {
-      // Select all unsaved games on current page
       const newSelected = new Set(selectedGames);
       paginatedGames.forEach(game => {
-        if (!game.isSaved) {
+        if (!game.isSavedInSelectedCategory) {
           newSelected.add(game.uniqueId);
         }
       });
       setSelectedGames(newSelected);
-      setSelectAllUnsaved(true);
-    }
-  };
-
-  // Select all saved games on current page for deletion
-  const toggleSelectAllSaved = () => {
-    if (selectAllSaved) {
-      // Deselect all saved games on current page
-      const newSelected = new Set(selectedGames);
-      paginatedGames.forEach(game => {
-        if (game.isSaved) {
-          newSelected.delete(game.uniqueId);
-        }
-      });
-      setSelectedGames(newSelected);
-      setSelectAllSaved(false);
-    } else {
-      // Select all saved games on current page
-      const newSelected = new Set(selectedGames);
-      paginatedGames.forEach(game => {
-        if (game.isSaved) {
-          newSelected.add(game.uniqueId);
-        }
-      });
-      setSelectedGames(newSelected);
-      setSelectAllSaved(true);
+      setSelectAll(true);
     }
   };
 
   const clearSelections = () => {
     setSelectedGames(new Set());
-    setSelectAllUnsaved(false);
-    setSelectAllSaved(false);
+    setSelectAll(false);
   };
 
   const handleBulkAction = () => {
@@ -864,10 +797,10 @@ const Newgames = () => {
       return;
     }
 
-    const selectedGamesList = filteredGames.filter(game => selectedGames.has(game.uniqueId) && !game.isSaved);
+    const selectedGamesList = filteredGames.filter(game => selectedGames.has(game.uniqueId) && !game.isSavedInSelectedCategory);
     
     if (selectedGamesList.length === 0) {
-      toast.error("Selected games are already saved");
+      toast.error("Selected games are already saved for this category");
       clearSelections();
       return;
     }
@@ -881,10 +814,15 @@ const Newgames = () => {
     setBulkActionMode(true);
   };
 
-  // New function to handle single game add
   const handleSingleGameAdd = (game) => {
     setBulkGames([game]);
-    setBulkCategories(game.localCategories.length > 0 ? game.localCategories : [selectedCategory]);
+    // Use existing categories plus current selected category
+    const existingCats = game.existingCategories || [];
+    const mergedCats = [...new Set([...existingCats, selectedCategoryName])];
+    setBulkCategories(mergedCats.map(catName => {
+      const catObj = categories.find(c => c.name === catName);
+      return catObj ? catObj._id : null;
+    }).filter(id => id));
     setShowBulkModal(true);
     setBulkImage(null);
     setBulkImagePreview(null);
@@ -1011,15 +949,22 @@ const Newgames = () => {
     setEditingGame(null);
   };
 
+  // handleSaveOrUpdateGame function
   const handleSaveOrUpdateGame = async (gameId) => {
     const gameToSave = games.find((g) => g.uniqueId === gameId);
     
-    if (!gameToSave.localCategories || gameToSave.localCategories.length === 0) {
+    // Get category names from IDs
+    const categoryNames = gameToSave.localCategories
+      .map(catId => {
+        const cat = categories.find(c => c._id === catId);
+        return cat ? cat.name : null;
+      })
+      .filter(name => name !== null);
+    
+    if (categoryNames.length === 0) {
       toast.error("Please select at least one category for the game.");
       return;
     }
-    
-    console.log("gameToSave", gameToSave);
     
     const isUsingDefaultImage = useDefaultImage[gameId];
     
@@ -1042,14 +987,6 @@ const Newgames = () => {
       formData.append("name", gameToSave.gameName || gameToSave.name);
       formData.append("provider", gameToSave.provider?.provider_code);
       formData.append("uniqueId", gameToSave.uniqueId);
-      
-      // Get category names from IDs
-      const categoryNames = gameToSave.localCategories
-        .map(catId => {
-          const cat = categories.find(c => c._id === catId);
-          return cat ? cat.name : null;
-        })
-        .filter(name => name !== null);
       
       // Send categories as comma-separated string
       formData.append("category", categoryNames.join(','));
@@ -1085,90 +1022,64 @@ const Newgames = () => {
       let response;
       if (isUpdate) {
         response = await api.put(url, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
         response = await api.post(url, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
 
-      console.log("response", response.data);
-      
-      if (response.data.message === 'Game updated successfully' || response.status === 200 || response.status === 201) {
+      if (response.status === 200 || response.status === 201) {
         const updatedGameData = response.data.game || response.data;
         
-        toast.success(response.data.message || `Game ${isUpdate ? 'updated' : 'added'} successfully`);
+        // Refresh local games list
+        const refreshedLocalGames = await fetchAllLocalGames();
+        setLocalGames(refreshedLocalGames);
         
+        // Create a map for quick lookup
+        const refreshedGamesMap = new Map();
+        refreshedLocalGames.forEach(game => {
+          const compositeKey = `${game.gameApiID}-${game.provider}`;
+          refreshedGamesMap.set(compositeKey, game);
+        });
+        
+        // Update the games state with refreshed data
         setGames(prevGames => 
           prevGames.map(game => {
             if (game.uniqueId === gameId) {
-              const updatedGame = {
+              const compositeKey = `${game.game_code}-${game.provider?.provider_code}`;
+              const refreshedGame = refreshedGamesMap.get(compositeKey);
+              
+              let updatedCategories = categoryNames;
+              if (refreshedGame?.category) {
+                updatedCategories = refreshedGame.category;
+              } else if (updatedGameData?.category) {
+                updatedCategories = updatedGameData.category;
+              }
+              
+              // Update isSavedInSelectedCategory based on whether selected category is in updated categories
+              const isSavedInSelectedCategory = selectedCategoryName && 
+                updatedCategories.some(cat => cat.toLowerCase() === selectedCategoryName.toLowerCase());
+              
+              return {
                 ...game,
                 isSaved: true,
-                existingGameData: updatedGameData,
+                existingGameData: refreshedGame || updatedGameData,
+                existingCategories: updatedCategories,
+                isSavedInSelectedCategory: isSavedInSelectedCategory,
+                localCategories: updatedCategories,
                 localPortraitImage: null,
                 localPortraitPreview: null,
                 localLandscapeImage: null,
                 localLandscapePreview: null,
               };
-              
-              if (!isUsingDefaultImage && updatedGameData) {
-                if (updatedGameData.portraitImage) {
-                  updatedGame.portraitImage = updatedGameData.portraitImage;
-                }
-                if (updatedGameData.landscapeImage) {
-                  updatedGame.landscapeImage = updatedGameData.landscapeImage;
-                }
-                if (updatedGameData.defaultImage) {
-                  updatedGame.defaultImage = updatedGameData.defaultImage;
-                }
-              }
-              
-              return updatedGame;
             }
             return game;
           })
         );
         
-        setFilteredGames(prevGames => 
-          prevGames.map(game => {
-            if (game.uniqueId === gameId) {
-              const updatedGame = {
-                ...game,
-                isSaved: true,
-                existingGameData: updatedGameData,
-                localPortraitImage: null,
-                localPortraitPreview: null,
-                localLandscapeImage: null,
-                localLandscapePreview: null,
-              };
-              
-              if (!isUsingDefaultImage && updatedGameData) {
-                if (updatedGameData.portraitImage) {
-                  updatedGame.portraitImage = updatedGameData.portraitImage;
-                }
-                if (updatedGameData.landscapeImage) {
-                  updatedGame.landscapeImage = updatedGameData.landscapeImage;
-                }
-                if (updatedGameData.defaultImage) {
-                  updatedGame.defaultImage = updatedGameData.defaultImage;
-                }
-              }
-              
-              return updatedGame;
-            }
-            return game;
-          })
-        );
-        
-        const updatedLocalGames = await fetchAllLocalGames();
-        setLocalGames(updatedLocalGames);
-        
+        toast.success(response.data.message || `Game ${isUpdate ? 'updated' : 'added'} successfully`);
         setEditingGame(null);
       } else {
         toast.error(`Failed to ${isUpdate ? 'update' : 'add'} game.`);
@@ -1177,8 +1088,6 @@ const Newgames = () => {
       console.error(`Error ${isUpdate ? 'updating' : 'saving'} game:`, error);
       if (error.response) {
         toast.error(`❌ ${error.response.data.error || error.response.data.message || `Failed to ${isUpdate ? 'update' : 'add'} game.`}`);
-      } else if (error.request) {
-        toast.error(`❌ No response from server while ${isUpdate ? 'updating' : 'saving'} game.`);
       } else {
         toast.error(`❌ ${error.message}`);
       }
@@ -1200,7 +1109,7 @@ const Newgames = () => {
       return;
     }
 
-    const unsavedGames = filteredGames.filter(game => !game.isSaved);
+    const unsavedGames = filteredGames.filter(game => !game.isSavedInSelectedCategory);
     
     if (unsavedGames.length === 0) {
       toast.info("No unsaved games available for bulk add");
@@ -1273,7 +1182,6 @@ const Newgames = () => {
         setBulkProgress({ current: 0, total: validGames.length });
       }
 
-      // Get category names from IDs
       const categoryNames = bulkCategories
         .map(catId => {
           const cat = categories.find(c => c._id === catId);
@@ -1292,7 +1200,11 @@ const Newgames = () => {
           formData.append("name", game.gameName || game.name);
           formData.append("provider", game.provider?.provider_code);
           formData.append("uniqueId", game.uniqueId);
-          formData.append("category", categoryNames.join(','));
+          
+          // Merge existing categories with new categories
+          const existingCatNames = game.existingCategories || [];
+          const mergedCategoryNames = [...new Set([...existingCatNames, ...categoryNames])];
+          formData.append("category", mergedCategoryNames.join(','));
           
           formData.append("featured", bulkFeatured ? "true" : "false");
           formData.append("status", bulkStatus ? "true" : "false");
@@ -1311,9 +1223,7 @@ const Newgames = () => {
           }
 
           const response = await api.post('/api/admin/games', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
+            headers: { 'Content-Type': 'multipart/form-data' },
           });
 
           if (response.status === 200 || response.status === 201) {
@@ -1340,51 +1250,43 @@ const Newgames = () => {
             <strong>Bulk Add Completed with Errors</strong>
             <p className="text-sm mt-1">✅ {results.successful.length} games added successfully</p>
             <p className="text-sm">❌ {results.failed.length} games failed</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          }
+          </div>
         );
-        console.log('Failed games:', results.failed);
       } else {
-        toast.success(
-          <div>
-            <strong>Bulk Add Successful!</strong>
-            <p className="text-sm mt-1">All {results.successful.length} games have been added successfully.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            icon: "🎮"
-          }
-        );
+        toast.success(`All ${results.successful.length} games have been added successfully.`);
       }
 
       const updatedLocalGames = await fetchAllLocalGames();
       setLocalGames(updatedLocalGames);
 
-      const successfulGameIds = results.successful.map(g => g.game_code);
-      setGames(prevGames => 
-        prevGames.map(game => ({
-          ...game,
-          isSaved: successfulGameIds.includes(game.game_code) ? true : game.isSaved
-        }))
-      );
+      // Refresh the games list
+      const refreshedGamesMap = new Map();
+      updatedLocalGames.forEach(game => {
+        const compositeKey = `${game.gameApiID}-${game.provider}`;
+        refreshedGamesMap.set(compositeKey, game);
+      });
 
-      setFilteredGames(prevGames => 
-        prevGames.map(game => ({
-          ...game,
-          isSaved: successfulGameIds.includes(game.game_code) ? true : game.isSaved
-        }))
+      setGames(prevGames => 
+        prevGames.map(game => {
+          const compositeKey = `${game.game_code}-${game.provider?.provider_code}`;
+          const refreshedGame = refreshedGamesMap.get(compositeKey);
+          
+          if (refreshedGame) {
+            const updatedCategories = refreshedGame.category || [];
+            const isSavedInSelectedCategory = selectedCategoryName && 
+              updatedCategories.some(cat => cat.toLowerCase() === selectedCategoryName.toLowerCase());
+            
+            return {
+              ...game,
+              isSaved: true,
+              existingGameData: refreshedGame,
+              existingCategories: updatedCategories,
+              isSavedInSelectedCategory: isSavedInSelectedCategory,
+              localCategories: updatedCategories,
+            };
+          }
+          return game;
+        })
       );
 
       clearSelections();
@@ -1472,27 +1374,12 @@ const Newgames = () => {
                   ...game,
                   isSaved: false,
                   existingGameData: null,
+                  existingCategories: [],
+                  isSavedInSelectedCategory: false,
                   localFeatured: false,
                   localStatus: true,
                   localFullScreen: false,
-                  localCategories: [selectedCategory || ""],
-                };
-              }
-              return game;
-            })
-          );
-          
-          setFilteredGames(prevGames => 
-            prevGames.map(game => {
-              if (game.uniqueId === gameId) {
-                return {
-                  ...game,
-                  isSaved: false,
-                  existingGameData: null,
-                  localFeatured: false,
-                  localStatus: true,
-                  localFullScreen: false,
-                  localCategories: [selectedCategory || ""],
+                  localCategories: [selectedCategoryName],
                 };
               }
               return game;
@@ -1526,7 +1413,7 @@ const Newgames = () => {
     }
   };
 
-  // Delete Selected Games Function with SweetAlert
+  // Delete Selected Games Function
   const handleDeleteSelectedGames = async () => {
     const selectedSavedGames = Array.from(selectedGames)
       .map(id => games.find(g => g.uniqueId === id))
@@ -1578,10 +1465,12 @@ const Newgames = () => {
                     ...g,
                     isSaved: false,
                     existingGameData: null,
+                    existingCategories: [],
+                    isSavedInSelectedCategory: false,
                     localFeatured: false,
                     localStatus: true,
                     localFullScreen: false,
-                    localCategories: [selectedCategory || ""],
+                    localCategories: [selectedCategoryName],
                   };
                 }
                 return g;
@@ -1601,24 +1490,6 @@ const Newgames = () => {
 
       const updatedLocalGames = await fetchAllLocalGames();
       setLocalGames(updatedLocalGames);
-      
-      setFilteredGames(prevGames => 
-        prevGames.map(game => {
-          const deletedGame = results.successful.find(g => g.uniqueId === game.uniqueId);
-          if (deletedGame) {
-            return {
-              ...game,
-              isSaved: false,
-              existingGameData: null,
-              localFeatured: false,
-              localStatus: true,
-              localFullScreen: false,
-              localCategories: [selectedCategory || ""],
-            };
-          }
-          return game;
-        })
-      );
 
       if (results.failed.length > 0) {
         Swal.fire({
@@ -1647,8 +1518,7 @@ const Newgames = () => {
       }
 
       setSelectedGames(new Set());
-      setSelectAllUnsaved(false);
-      setSelectAllSaved(false);
+      setSelectAll(false);
       setShowDeleteSelectedModal(false);
       setDeletingSelected(false);
       setEditingGame(null);
@@ -1657,7 +1527,7 @@ const Newgames = () => {
     }
   };
 
-  // Delete All Added Games Function with SweetAlert
+  // Delete All Added Games Function
   const handleDeleteAllAddedGames = async () => {
     if (deleteConfirmText !== "DELETE ALL ADDED GAMES") {
       Swal.fire({
@@ -1719,22 +1589,12 @@ const Newgames = () => {
               ...game,
               isSaved: false,
               existingGameData: null,
+              existingCategories: [],
+              isSavedInSelectedCategory: false,
               localFeatured: false,
               localStatus: true,
               localFullScreen: false,
-              localCategories: [selectedCategory || ""],
-            }))
-          );
-          
-          setFilteredGames(prevGames => 
-            prevGames.map(game => ({
-              ...game,
-              isSaved: false,
-              existingGameData: null,
-              localFeatured: false,
-              localStatus: true,
-              localFullScreen: false,
-              localCategories: [selectedCategory || ""],
+              localCategories: [selectedCategoryName],
             }))
           );
           
@@ -1742,8 +1602,7 @@ const Newgames = () => {
           setDeleteConfirmText("");
           setEditingGame(null);
           setSelectedGames(new Set());
-          setSelectAllUnsaved(false);
-          setSelectAllSaved(false);
+          setSelectAll(false);
         }
       } catch (error) {
         console.error("Error deleting all added games:", error);
@@ -1770,20 +1629,20 @@ const Newgames = () => {
   const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
   const selectedProviderName = selectedProviderObj?.providerName || selectedProviderObj?.name || "";
 
-  const unsavedGamesCount = filteredGames.filter(g => !g.isSaved).length;
-  const savedGamesCount = filteredGames.filter(g => g.isSaved).length;
+  const unsavedGamesCount = filteredGames.filter(g => !g.isSavedInSelectedCategory).length;
+  const savedGamesCount = filteredGames.filter(g => g.isSavedInSelectedCategory).length;
   const selectedSavedCount = Array.from(selectedGames).filter(id => {
     const game = filteredGames.find(g => g.uniqueId === id);
-    return game && game.isSaved;
+    return game && game.isSavedInSelectedCategory;
   }).length;
   const selectedUnsavedCount = Array.from(selectedGames).filter(id => {
     const game = filteredGames.find(g => g.uniqueId === id);
-    return game && !game.isSaved;
+    return game && !game.isSavedInSelectedCategory;
   }).length;
 
-  const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSaved);
-  const currentPageSavedGames = paginatedGames.filter(game => game.isSaved);
-  const currentPageSelectedUnsavedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
+  const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSavedInSelectedCategory);
+  const currentPageSavedGames = paginatedGames.filter(game => game.isSavedInSelectedCategory);
+  const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
   const currentPageSelectedSavedCount = currentPageSavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
 
   const handlePageChange = (pageNumber) => {
@@ -1806,14 +1665,13 @@ const Newgames = () => {
           }`}
         >
           <div className="w-full mx-auto">
-            {/* Header Section with Delete All Added Games Button */}
+            {/* Header Section */}
             <div className="rounded-lg mb-8 flex flex-col md:flex-row justify-between items-center">
               <div>
                 <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Manage Games</h1>
                 <p className="text-xs font-bold text-gray-500 mt-1">Add new games or update existing games from providers</p>
               </div>
               
-              {/* Delete All Added Games Button - Only shows if there are saved games */}
               {savedGamesCount > 0 && (
                 <button
                   onClick={() => setShowDeleteAllModal(true)}
@@ -1828,7 +1686,7 @@ const Newgames = () => {
             <div className="bg-[#161B22] border border-gray-800 rounded-lg p-6 mb-8 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-           Filter Games
+                  Filter Games
                 </h3>
                 {selectedProvider && (
                   <div className="px-3 py-1 bg-indigo-900 text-indigo-300 rounded-full text-xs font-medium">
@@ -1838,7 +1696,32 @@ const Newgames = () => {
               </div>
               
               <div>
-                <SearchBar />
+                <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <FaSearch className="h-5 w-5 text-gray-500" />
+      </div>
+      <input
+        type="text"
+        value={searchTerm}
+        onChange={(e) => {
+          setSearchTerm(e.target.value);
+          setCurrentPage(1);
+        }}
+        placeholder="Search games by name..."
+        className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
+      />
+      {searchTerm && (
+        <button
+          onClick={() => {
+            setSearchTerm("");
+            setCurrentPage(1);
+          }}
+          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+        >
+          <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
+        </button>
+      )}
+    </div>
               </div>
               
               <div className="flex mt-[20px] justify-center w-full gap-[20px]">
@@ -1872,52 +1755,32 @@ const Newgames = () => {
             {!loadingGames && filteredGames.length > 0 && (
               <div className="mb-6 bg-[#161B22] rounded-xl border border-gray-800 overflow-hidden">
                 <div className="p-4 bg-[#1C2128] border-b border-gray-800">
-                  <div className="flex flex-col sm:flex-row justify-between gap-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Select All Unsaved Button */}
-                      {currentPageUnsavedGames.length > 0 && (
-                        <button
-                          onClick={toggleSelectAllUnsaved}
-                          className="flex items-center justify-center space-x-2 text-gray-400 hover:text-indigo-400 transition-colors px-3 py-2 rounded-lg bg-[#161B22] border border-gray-700"
-                        >
-                          {selectAllUnsaved ? (
-                            <FaCheckCircle className="text-indigo-500 text-lg" />
-                          ) : (
-                            <FaRegCircle className="text-gray-500 text-lg" />
-                          )}
-                          <span className="font-medium text-sm whitespace-nowrap">
-                            {selectAllUnsaved ? 'Deselect All New' : 'Select All New'} ({currentPageUnsavedGames.length})
-                          </span>
-                        </button>
-                      )}
-                      
-                      {/* Select All Saved Button for Delete */}
-                      {currentPageSavedGames.length > 0 && (
-                        <button
-                          onClick={toggleSelectAllSaved}
-                          className="flex items-center justify-center space-x-2 text-gray-400 hover:text-red-400 transition-colors px-3 py-2 rounded-lg bg-[#161B22] border border-gray-700"
-                        >
-                          {selectAllSaved ? (
-                            <FaCheckCircle className="text-red-500 text-lg" />
-                          ) : (
-                            <FaRegCircle className="text-gray-500 text-lg" />
-                          )}
-                          <span className="font-medium text-sm whitespace-nowrap">
-                            {selectAllSaved ? 'Deselect All Saved' : 'Select All Saved'} ({currentPageSavedGames.length})
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center space-x-4">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="flex items-center space-x-2 text-gray-400 hover:text-indigo-400 transition-colors"
+                        disabled={currentPageUnsavedGames.length === 0 && currentPageSavedGames.length === 0}
+                      >
+                        {selectAll ? (
+                          <FaCheckCircle className="text-indigo-500 text-xl" />
+                        ) : (
+                          <FaRegCircle className="text-gray-500 text-xl" />
+                        )}
+                        <span className="font-medium text-sm">
+                          {selectAll ? 'Deselect All on Page' : 'Select All on Page'}
+                        </span>
+                      </button>
                       {selectedGames.size > 0 && (
                         <>
                           <span className="text-sm text-gray-500">
-                            {selectedUnsavedCount} new • {selectedSavedCount} saved selected
+                            {currentPageSelectedCount + currentPageSelectedSavedCount} of {paginatedGames.length} on this page • 
+                            {selectedUnsavedCount > 0 && <span className="text-indigo-400 ml-1">{selectedUnsavedCount} new</span>}
+                            {selectedSavedCount > 0 && <span className="text-green-500 ml-1">{selectedSavedCount} saved</span>}
                           </span>
                           <button
                             onClick={clearSelections}
-                            className="text-sm text-red-400 hover:text-red-300 transition-colors px-2 py-1"
+                            className="text-sm text-red-400 hover:text-red-300 transition-colors"
                           >
                             Clear All
                           </button>
@@ -1925,8 +1788,7 @@ const Newgames = () => {
                       )}
                     </div>
                     
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* Delete Selected Button - Only shows if there are selected saved games */}
+                    <div className="flex items-center space-x-3">
                       {selectedSavedCount > 0 && (
                         <button
                           onClick={() => setShowDeleteSelectedModal(true)}
@@ -1937,7 +1799,6 @@ const Newgames = () => {
                         </button>
                       )}
                       
-                      {/* Add Selected Button - Only shows if there are selected unsaved games */}
                       {selectedUnsavedCount > 0 && (
                         <button
                           onClick={handleBulkAction}
@@ -1948,7 +1809,6 @@ const Newgames = () => {
                         </button>
                       )}
                       
-                      {/* Add All Unsaved Button */}
                       <button
                         onClick={openBulkModal}
                         className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center shadow-md text-sm"
@@ -1964,7 +1824,7 @@ const Newgames = () => {
                 {selectedGames.size > 0 && (
                   <div className="px-4 py-2 bg-indigo-900/30 text-sm text-indigo-300 flex items-center">
                     <FaCheckCircle className="mr-2 text-indigo-400" />
-                    {selectedUnsavedCount} new • {selectedSavedCount} saved games selected
+                    {selectedUnsavedCount} unsaved • {selectedSavedCount} saved games selected
                   </div>
                 )}
               </div>
@@ -1999,7 +1859,7 @@ const Newgames = () => {
                         <>
                           Showing <span className="font-semibold text-indigo-400">{paginatedGames.length}</span> of <span className="font-semibold">{filteredGames.length}</span> games from {selectedProviderName}
                           <span className="ml-2 text-sm">
-                            (<span className="text-green-500">{savedGamesCount} saved</span> • 
+                            (<span className="text-green-500">{filteredGames.filter(g => g.isSavedInSelectedCategory).length} saved in {selectedCategoryName || 'this category'}</span> • 
                             <span className="text-indigo-400"> {unsavedGamesCount} new</span>)
                           </span>
                         </>
@@ -2009,11 +1869,7 @@ const Newgames = () => {
                   <div className="flex items-center space-x-4">
                     {searchTerm && (
                       <button
-                        onClick={() => {
-                          setSearchTerm("");
-                          const searchInput = document.querySelector('input[type="text"]');
-                          if (searchInput) searchInput.value = "";
-                        }}
+                        onClick={() => setSearchTerm("")}
                         className="px-4 py-2 text-sm font-medium text-gray-300 bg-[#1F2937] hover:bg-gray-700 rounded-lg transition-colors duration-200"
                       >
                         Clear Search
@@ -2030,7 +1886,6 @@ const Newgames = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {paginatedGames.map((game) => {
-                    // Determine which image to show
                     let imageSource;
                     
                     if (useDefaultImage[game.uniqueId]) {
@@ -2072,12 +1927,12 @@ const Newgames = () => {
                         id={`game-${game.uniqueId}`}
                         key={game.uniqueId}
                         className={`bg-[#161B22] rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${
-                          game.isSaved 
+                          game.isSavedInSelectedCategory 
                             ? 'border-green-700 hover:border-green-600' 
                             : 'border-indigo-700 hover:border-indigo-600'
                         } ${editingGame === game.uniqueId ? 'ring-4 ring-indigo-500' : ''} ${
-                          selectedGames.has(game.uniqueId) && !game.isSaved ? 'ring-2 ring-blue-500' : ''
-                        } ${selectedGames.has(game.uniqueId) && game.isSaved ? 'ring-2 ring-red-500' : ''}`}
+                          selectedGames.has(game.uniqueId) && !game.isSavedInSelectedCategory ? 'ring-2 ring-blue-500' : ''
+                        } ${selectedGames.has(game.uniqueId) && game.isSavedInSelectedCategory ? 'ring-2 ring-red-500' : ''}`}
                       >
                         {/* Selection Checkbox */}
                         <div className="absolute top-2 left-2 z-10">
@@ -2085,7 +1940,7 @@ const Newgames = () => {
                             onClick={() => toggleGameSelection(game.uniqueId)}
                             className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 ${
                               selectedGames.has(game.uniqueId)
-                                ? game.isSaved
+                                ? game.isSavedInSelectedCategory
                                   ? 'bg-red-600 text-white shadow-lg'
                                   : 'bg-blue-600 text-white shadow-lg'
                                 : 'bg-[#0F111A] text-gray-500 border-2 border-gray-600 hover:border-blue-500'
@@ -2099,8 +1954,8 @@ const Newgames = () => {
                           </button>
                         </div>
 
-                        {/* Delete Button for Saved Games */}
-                        {game.isSaved && editingGame !== game.uniqueId && (
+                        {/* Delete Button for Saved Games (only show if saved in this category) */}
+                        {game.isSavedInSelectedCategory && editingGame !== game.uniqueId && (
                           <div className="absolute top-2 right-2 z-10">
                             <button
                               onClick={() => handleDeleteGame(game.uniqueId)}
@@ -2120,7 +1975,7 @@ const Newgames = () => {
 
                         {/* Game Header */}
                         <div className={`p-4 bg-gradient-to-r ${
-                          game.isSaved 
+                          game.isSavedInSelectedCategory 
                             ? 'from-green-900/30 to-[#161B22]' 
                             : 'from-indigo-900/30 to-[#161B22]'
                         }`}>
@@ -2128,9 +1983,13 @@ const Newgames = () => {
                             <h3 className="text-lg font-bold text-white truncate pr-2">
                               {game.gameName || game.name}
                             </h3>
-                            {game.isSaved ? (
+                            {game.isSavedInSelectedCategory ? (
                               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-900 text-green-300 flex items-center">
-                                <FaCheck className="mr-1 text-xs" /> Added
+                                <FaCheck className="mr-1 text-xs" /> Added to {selectedCategoryName}
+                              </span>
+                            ) : game.isSaved ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-900 text-yellow-300">
+                                In Other Categories
                               </span>
                             ) : (
                               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-900 text-indigo-300">
@@ -2151,8 +2010,10 @@ const Newgames = () => {
                             </p>
                             {game.isSaved && game.existingGameData && (
                               <p className="flex items-center text-xs text-green-500 mt-1">
-                                <span className="font-medium mr-2">Status:</span>
-                                {game.existingGameData.status ? 'Active' : 'Inactive'}
+                                <span className="font-medium mr-2">Categories:</span>
+                                <span className="text-xs">
+                                  {game.existingCategories?.join(', ') || 'None'}
+                                </span>
                               </p>
                             )}
                           </div>
@@ -2184,7 +2045,8 @@ const Newgames = () => {
                             )}
                           </div>
 
-                          {game.isSaved && editingGame !== game.uniqueId && (
+                          {/* Show Edit Game button for games saved in this category */}
+                          {game.isSavedInSelectedCategory && editingGame !== game.uniqueId && (
                             <div className="mt-3">
                               <button
                                 onClick={() => handleEditGame(game)}
@@ -2218,7 +2080,7 @@ const Newgames = () => {
                                   Assign Categories <span className="text-red-500">*</span>
                                   <span className="text-xs text-gray-500 ml-2">(Select multiple)</span>
                                 </label>
-                                <div className="flex flex-wrap gap-2 max-h-32 p-2">
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2">
                                   {categories
                                     .filter(cat => cat.status)
                                     .map((category) => (
@@ -2267,7 +2129,6 @@ const Newgames = () => {
                               {!useDefaultImage[game.uniqueId] && (
                                 <div className="mt-6">
                                   <div>
-                              
                                     {game.localPortraitPreview ? (
                                       <div className="relative group">
                                         <div className="h-32 bg-gradient-to-br from-[#0F111A] to-[#1A1F2E] rounded-xl overflow-hidden">
@@ -2339,7 +2200,7 @@ const Newgames = () => {
                                     </>
                                   ) : (
                                     <>
-                                      {game.isSaved ? 'Update Game' : 'Add Game'}
+                                      Update Game
                                     </>
                                   )}
                                 </button>
@@ -2347,13 +2208,14 @@ const Newgames = () => {
                             </>
                           )}
 
-                          {!game.isSaved && editingGame !== game.uniqueId && (
+                          {/* Show Add Game button only if game is not saved in this category */}
+                          {!game.isSavedInSelectedCategory && editingGame !== game.uniqueId && (
                             <div className="mt-3">
                               <button
                                 onClick={() => handleSingleGameAdd(game)}
                                 className="w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center justify-center"
                               >
-                                <FaPlusCircle className="mr-2" /> Add Game
+                                <FaPlusCircle className="mr-2" /> Add to {selectedCategoryName || 'Category'}
                               </button>
                             </div>
                           )}
@@ -2371,7 +2233,7 @@ const Newgames = () => {
               </div>
             )}
 
-            {/* Search Results Empty State */}
+            {/* Empty states */}
             {!loadingGames && selectedProvider && searchTerm && filteredGames.length === 0 && (
               <div className="text-center py-16 bg-[#161B22] rounded-2xl shadow-lg border border-gray-800">
                 <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center">
@@ -2382,11 +2244,7 @@ const Newgames = () => {
                   No games found matching "<span className="font-semibold">{searchTerm}</span>" in {selectedProviderName}.
                 </p>
                 <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    const searchInput = document.querySelector('input[type="text"]');
-                    if (searchInput) searchInput.value = "";
-                  }}
+                  onClick={() => setSearchTerm("")}
                   className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors duration-200"
                 >
                   Clear Search
@@ -2394,7 +2252,6 @@ const Newgames = () => {
               </div>
             )}
 
-            {/* Empty State - No games found */}
             {!loadingGames && selectedProvider && !searchTerm && filteredGames.length === 0 && (
               <div className="text-center py-16 bg-[#161B22] rounded-2xl shadow-lg border border-gray-800">
                 <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center">
@@ -2412,7 +2269,7 @@ const Newgames = () => {
                 </button>
               </div>
             )}
-            {/* Category selected but no providers */}
+
             {!loadingGames && selectedCategory && providers.length === 0 && (
               <div className="text-center py-20">
                 <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-yellow-900/30 to-yellow-800/10 rounded-full flex items-center justify-center">
@@ -2449,7 +2306,7 @@ const Newgames = () => {
                         {bulkActionMode ? 'Add Selected Games' : 'Add Games'}
                       </h3>
                       <p className="text-indigo-200 text-sm mt-1">
-                        Adding {bulkGames.length} game{bulkGames.length !== 1 ? 's' : ''} from {selectedProviderName}
+                        Adding {bulkGames.length} game{bulkGames.length !== 1 ? 's' : ''} to {selectedCategoryName}
                       </p>
                     </div>
                   </div>
@@ -2466,9 +2323,7 @@ const Newgames = () => {
               </div>
 
               <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
-                {/* Bulk Settings */}
                 <div className="space-y-6">
-                  {/* Category Selection - Multi-select */}
                   <div>
                     <MultiCategorySelect
                       options={categories}
@@ -2481,7 +2336,6 @@ const Newgames = () => {
                     )}
                   </div>
 
-                  {/* Image Source Toggle */}
                   <div className="bg-[#0F111A] p-4 rounded-xl border border-gray-800">
                     <div className="flex items-center justify-between">
                       <div>
@@ -2513,7 +2367,6 @@ const Newgames = () => {
                     </div>
                   </div>
 
-                  {/* Bulk Image Upload - Only show if not using default images */}
                   {!bulkUseDefaultImage && (
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -2556,7 +2409,6 @@ const Newgames = () => {
                     </div>
                   )}
 
-                  {/* Bulk Settings */}
                   <div className="bg-[#0F111A] rounded-xl p-4 border border-gray-800">
                     <h4 className="font-medium text-gray-300 mb-3">Game Settings</h4>
                     <CustomCheckbox
@@ -2582,7 +2434,6 @@ const Newgames = () => {
                     />
                   </div>
 
-                  {/* Progress Bar with Game Name */}
                   {bulkSaving && (
                     <div className="mt-4 space-y-3">
                       <div className="flex justify-between text-sm text-gray-400 mb-1">
@@ -2616,7 +2467,6 @@ const Newgames = () => {
                 </div>
               </div>
 
-              {/* Modal Footer */}
               <div className="bg-[#0F111A] px-6 py-4 flex justify-end space-x-3 border-t border-gray-800">
                 <button
                   type="button"
@@ -2638,7 +2488,7 @@ const Newgames = () => {
                     (!bulkUseDefaultImage && !bulkImage) ||
                     (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
                   }
-                  className={`px-6 py-2  text-[14px] bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
+                  className={`px-6 py-2 text-[14px] bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
                     bulkSaving || bulkCategories.length === 0 || (!bulkUseDefaultImage && !bulkImage) || (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
                       ? 'opacity-50 cursor-not-allowed'
                       : 'hover:from-indigo-700 hover:to-indigo-800'
@@ -2661,9 +2511,9 @@ const Newgames = () => {
         </div>
       )}
 
-      {/* Delete Selected Games Modal - Now just a confirmation dialog using SweetAlert */}
+      {/* Delete Selected Games Modal */}
       {showDeleteSelectedModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(0,0,0,0.4)] bg-opacity-50">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(0,0,0,0.4)] bg-opacity-50">
           {(() => {
             handleDeleteSelectedGames();
             return null;
@@ -2729,7 +2579,6 @@ const Newgames = () => {
                 </div>
               </div>
 
-              {/* Modal Footer */}
               <div className="bg-[#0F111A] px-6 py-4 flex justify-end space-x-3 border-t border-gray-800">
                 <button
                   type="button"

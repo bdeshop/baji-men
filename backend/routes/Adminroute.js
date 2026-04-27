@@ -3012,19 +3012,6 @@ Adminrouter.post(
         });
       }
 
-      // Check if combination of gameApiID and provider already exists
-      const existingGame = await Game.findOne({ 
-        gameApiID: gameApiID,
-        provider: provider,
-        uniqueId: req.body.uniqueId
-      });
-      
-      if (existingGame) {
-        return res.status(400).json({ 
-          error: `Game with API ID "${gameApiID}" and provider "${provider}" already exists!` 
-        });
-      }
-      
       // Enhanced validation
       const requiredFields = { name, provider, gameApiID };
       const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field]);
@@ -3035,6 +3022,12 @@ Adminrouter.post(
         });
       }
 
+      // Check if game exists with same gameApiID and provider combination
+      const existingGame = await Game.findOne({ 
+        gameApiID: gameApiID,
+        provider: provider
+      });
+      
       let portraitImageValue;
       let landscapeImageValue;
 
@@ -3047,36 +3040,81 @@ Adminrouter.post(
         // Using default image from API - use the same URL for both
         portraitImageValue = defaultImage;
         landscapeImageValue = defaultImage;
-      } else {
+      } else if (!existingGame) {
+        // Only require images if it's a new game
         return res.status(400).json({ 
-          error: "Either upload images or provide default image URL" 
+          error: "Either upload images or provide default image URL for new game" 
         });
       }
 
-      const gameData = {
-        name,
-        gameId: gameApiID,
-        provider,
-        category: categoriesArray,
-        portraitImage: portraitImageValue,
-        landscapeImage: landscapeImageValue,
-        defaultImage: defaultImage || null,
-        featured: featured === "true" || featured === true,
-        status: status !== "false" && status !== false,
-        fullScreen: fullScreen === "true" || fullScreen === true,
-        gameApiID,
-        uniqueId: req.body.uniqueId
-      };
+      let savedGame;
 
-      const newGame = new Game(gameData);
-      const savedGame = await newGame.save();
-
-      res.status(201).json({
-        message: "Game created successfully",
-        game: savedGame,
-      });
+      if (existingGame) {
+        // Game exists - merge categories and update other fields if needed
+        console.log("Existing game found, merging categories...");
+        
+        // Merge categories (combine existing with new, remove duplicates)
+        const mergedCategories = [...new Set([...existingGame.category, ...categoriesArray])];
+        
+        // Prepare update data
+        const updateData = {
+          name: name || existingGame.name,
+          category: mergedCategories,
+          // Only update images if new ones are provided
+          ...(portraitImageValue && { portraitImage: portraitImageValue }),
+          ...(landscapeImageValue && { landscapeImage: landscapeImageValue }),
+          ...(defaultImage && !portraitImageValue && { defaultImage: defaultImage }),
+          featured: featured !== undefined ? (featured === "true" || featured === true) : existingGame.featured,
+          status: status !== undefined ? (status !== "false" && status !== false) : existingGame.status,
+          fullScreen: fullScreen !== undefined ? (fullScreen === "true" || fullScreen === true) : existingGame.fullScreen,
+          uniqueId: req.body.uniqueId || existingGame.uniqueId
+        };
+        
+        // Update the existing game
+        const updatedGame = await Game.findOneAndUpdate(
+          { gameApiID: gameApiID, provider: provider },
+          updateData,
+          { new: true, runValidators: true }
+        );
+        
+        savedGame = updatedGame;
+        
+        res.status(200).json({
+          message: "Game updated successfully with merged categories",
+          game: savedGame,
+          addedCategories: categoriesArray.filter(cat => !existingGame.category.includes(cat)),
+          existingCategories: existingGame.category,
+          mergedCategories: mergedCategories
+        });
+      } else {
+        // Game doesn't exist - create new game
+        console.log("Creating new game...");
+        
+        const gameData = {
+          name,
+          gameId: gameApiID,
+          provider,
+          category: categoriesArray,
+          portraitImage: portraitImageValue,
+          landscapeImage: landscapeImageValue,
+          defaultImage: defaultImage || null,
+          featured: featured === "true" || featured === true,
+          status: status !== "false" && status !== false,
+          fullScreen: fullScreen === "true" || fullScreen === true,
+          gameApiID,
+          uniqueId: req.body.uniqueId
+        };
+        
+        const newGame = new Game(gameData);
+        savedGame = await newGame.save();
+        
+        res.status(201).json({
+          message: "Game created successfully",
+          game: savedGame,
+        });
+      }
     } catch (error) {
-      console.error("Error creating game:", error);
+      console.error("Error creating/updating game:", error);
       
       // Handle duplicate key error (gameApiID + provider combination)
       if (error.code === 11000) {
@@ -3085,11 +3123,10 @@ Adminrouter.post(
         });
       }
       
-      res.status(500).json({ error: "Failed to create game" });
+      res.status(500).json({ error: "Failed to create/update game: " + error.message });
     }
   }
 );
-
 // PUT update game
 Adminrouter.put(
   "/games/:id",
