@@ -253,18 +253,30 @@ const AllGamesContent = () => {
   useEffect(() => {
     const fetchData = async () => {
       const categoryFromQuery = searchParams.get('category');
+      const providerFromQuery = searchParams.get('provider');
       
       if (categoryFromQuery) {
         const decodedCategory = decodeURIComponent(categoryFromQuery);
         setSelectedCategory(decodedCategory);
         setCategoryName(decodedCategory);
         
-        // Always reset provider - All Games active by default
-        window.history.replaceState({}, '', `/games?category=${encodeURIComponent(decodedCategory)}`);
-        setSelectedProvider(null);
+        // Set selected provider from query if it exists
+        if (providerFromQuery) {
+          const decodedProvider = decodeURIComponent(providerFromQuery);
+          setSelectedProvider(decodedProvider);
+        } else {
+          setSelectedProvider(null);
+        }
         
         await fetchProvidersByCategory(decodedCategory);
-        await fetchGamesByCategory(decodedCategory);
+        
+        // Fetch games based on category and provider from query
+        if (providerFromQuery) {
+          const decodedProvider = decodeURIComponent(providerFromQuery);
+          await fetchGamesByCategoryAndProvider(decodedCategory, decodedProvider);
+        } else {
+          await fetchGamesByCategory(decodedCategory);
+        }
       } else {
         await fetchCategories();
         await fetchAllGames();
@@ -283,9 +295,8 @@ const AllGamesContent = () => {
     // Update selected provider
     setSelectedProvider(provider.providercode);
     
-    // Update URL without causing navigation/reload
-    const newUrl = `/games?category=${encodeURIComponent(categoryName)}&provider=${encodeURIComponent(provider.providercode)}`;
-    window.history.pushState({}, '', newUrl);
+    // Update URL without causing navigation/reload - but we're using navigate to maintain React Router state
+    navigate(`/games?category=${encodeURIComponent(categoryName)}&provider=${encodeURIComponent(provider.providercode)}`, { replace: true });
     
     // Fetch games for this provider
     await fetchGamesByCategoryAndProvider(categoryName, provider.providercode);
@@ -303,8 +314,7 @@ const AllGamesContent = () => {
     setSelectedProvider(null);
     
     // Update URL without causing navigation/reload
-    const newUrl = `/games?category=${encodeURIComponent(categoryName)}`;
-    window.history.pushState({}, '', newUrl);
+    navigate(`/games?category=${encodeURIComponent(categoryName)}`, { replace: true });
     
     // Fetch all games for this category
     await fetchGamesByCategory(categoryName);
@@ -697,7 +707,7 @@ const AllGamesContent = () => {
     handleOpenGame(game);
   };
 
-  // Handle opening the game
+// Handle opening the game
   const handleOpenGame = async (game) => {
     // Check if user is logged in
     if (!user) {
@@ -731,8 +741,9 @@ const AllGamesContent = () => {
         }
       }
 
-      // Navigate with provider and category as query parameters
-      navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`);
+      // Open game in new window/tab
+      const gameUrl = `/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`;
+      window.open(gameUrl, '_blank');
     } catch (err) {
       console.error("Error:", err);
       toast.error("Error connecting to game server");
@@ -766,7 +777,7 @@ const AllGamesContent = () => {
   const providerDisplayName = getProviderDisplayName();
 
   return (
-    <div className="h-screen overflow-hidden font-poppins bg-[#141515] text-white">
+    <div className="h-screen overflow-hidden font-poppins bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e] text-white">
       <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       <Toaster />
 
@@ -927,7 +938,7 @@ const AllGamesContent = () => {
                   <input
                     type="text"
                     placeholder="Search all games..."
-                    className="w-full pl-12 pr-4 py-3 bg-[#222] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-theme_color focus:border-transparent transition-all duration-300 ease-in-out placeholder-gray-400"
+                    className="w-full pl-12 pr-4 py-3 bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e] border border-blue-500 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-theme_color focus:border-transparent transition-all duration-300 ease-in-out placeholder-gray-400"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onFocus={() => setShowSuggestions(true)}
@@ -974,7 +985,7 @@ const AllGamesContent = () => {
                         >
                           {/* ── Image container with glow sweep and proper aspect ratio ── */}
                           <div className="games-game-image-container relative overflow-hidden w-full">
-                            <div className="relative w-full pb-[133.33%] overflow-hidden bg-[#1a1a1a]">
+                            <div className="relative w-full pb-[133.33%] overflow-hidden bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                               <img 
                                 src={imageUrl} 
                                 alt={game.name} 
@@ -1057,7 +1068,7 @@ const AllGamesContent = () => {
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] z-40" onClick={() => setShowFilterSidebar(false)} />
       )}
       {showFilterSidebar && (
-        <div ref={filterSidebarRef} className={`fixed pt-6 top-0 right-0 h-full ${isMobile ? 'left-0 w-full' : 'w-80'} bg-[#0f0f0f] z-50 shadow-lg overflow-y-auto flex flex-col`}>
+        <div ref={filterSidebarRef} className={`fixed pt-6 top-0 right-0 h-full ${isMobile ? 'left-0 w-full' : 'w-80'} bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e] z-50 shadow-lg overflow-y-auto flex flex-col`}>
           <div className="flex items-center justify-between pt-[60px] px-4 pb-3 border-b border-[#333]">
             <h2 className="text-lg font-[600] text-white">Filter</h2>
             {isMobile && (
@@ -1096,7 +1107,7 @@ const AllGamesContent = () => {
               </label>
               {showGameTypeDropdown && (
                 <div className="mt-2 pl-4 space-y-3">
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedGameTypes.includes('hot games')} 
@@ -1107,7 +1118,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">Hot Games</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedGameTypes.includes('new games')} 
@@ -1132,7 +1143,7 @@ const AllGamesContent = () => {
               </label>
               {showThemeDropdown && (
                 <div className="mt-2 pl-4 space-y-3">
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedThemes.includes('all')} 
@@ -1143,7 +1154,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">All</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedThemes.includes('lucky7')} 
@@ -1154,7 +1165,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">Lucky7</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedThemes.includes('monetary')} 
@@ -1165,7 +1176,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">Monetary</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedThemes.includes('western')} 
@@ -1176,7 +1187,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">Western</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedThemes.includes('egyptian')} 
@@ -1187,7 +1198,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">Egyptian</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedThemes.includes('mythology')} 
@@ -1212,7 +1223,7 @@ const AllGamesContent = () => {
               </label>
               {showSpecialFeatureDropdown && (
                 <div className="mt-2 pl-4 space-y-3">
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedSpecialFeatures.includes('bonus games')} 
@@ -1223,7 +1234,7 @@ const AllGamesContent = () => {
                       <span className="select-none text-gray-300">Bonus Games</span>
                     </div>
                   </label>
-                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-[#1a1a1a]">
+                  <label className="flex items-center cursor-pointer text-sm relative py-2 px-1 rounded transition-colors hover:bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                     <input 
                       type="checkbox" 
                       checked={selectedSpecialFeatures.includes('buy feature')} 
@@ -1239,7 +1250,7 @@ const AllGamesContent = () => {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-[#0f0f0f] p-4 border-t border-[#333] flex justify-between space-x-3">
+          <div className="sticky bottom-0 bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e] p-4 border-t border-[#333] flex justify-between space-x-3">
             <button 
               onClick={clearAllFilters} 
               className="px-6 py-3 bg-[#222] border-[1px] text-nowrap border-gray-800 text-white rounded-[4px] text-[15px] cursor-pointer transition-all duration-200 flex-1 hover:bg-[#333] hover:border-gray-600"
