@@ -2675,7 +2675,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
       const response = await axios.post('https://crazybet99.com/getgameurl/v2', 
         {
           username: username+"45",
-          money: money,
+          money: money==0 ? '0':money,
           game_code: gameID,
           provider_code: provider,  // Add provider from request body
           game_type: category,      // Add category from request body
