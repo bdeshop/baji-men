@@ -3110,7 +3110,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
 // });
 
 
-router.post("/callback-data-game", async (req, res) => {
+Userrouter.post("/callback-data-game", async (req, res) => {
   try {
     // Extract fields from request body
     let { username, provider_code, amount, game_code, bet_type, transaction_id, verification_key, times } = req.body;
