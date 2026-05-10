@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
-import { FiBell, FiUser, FiLock, FiCheckCircle, FiFileText, FiTrendingUp, FiUsers, FiLogOut } from "react-icons/fi";
+import { FiBell, FiUser, FiLock, FiCheckCircle, FiFileText, FiTrendingUp, FiUsers, FiLogOut, FiRefreshCw } from "react-icons/fi";
+import { FaCoins, FaGift } from "react-icons/fa";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { MdSportsSoccer } from "react-icons/md";
@@ -17,6 +18,7 @@ const menuItems = [
   { id: "betting-records", label: "Betting records", desc: "Check your betting history", icon: <MdSportsSoccer />, path: "/member/betting-records/settled", color: "from-red-900/30 to-red-950/30", borderColor: "border-red-700/50", iconColor: "text-red-400" },
   { id: "turnover", label: "Turnover", desc: "Track your turnover progress", icon: <FiTrendingUp />, path: "/member/turnover/uncomplete", color: "from-pink-900/30 to-pink-950/30", borderColor: "border-pink-700/50", iconColor: "text-pink-400" },
   { id: "referral", label: "My referral", desc: "Manage your referral program", icon: <FiUsers />, path: "/referral-program/details", color: "from-teal-900/30 to-teal-950/30", borderColor: "border-teal-700/50", iconColor: "text-teal-400" },
+  { id: "bonuses", label: "Bonuses", desc: "View your available bonuses and rewards", icon: <FaGift />, path: "/member/bonuses", color: "from-orange-900/30 to-orange-950/30", borderColor: "border-orange-700/50", iconColor: "text-orange-400" },
 ];
 
 const Mprofile = () => {
@@ -26,6 +28,8 @@ const Mprofile = () => {
   const [error, setError] = useState(null);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
+  const [isRefreshingCoinBalance, setIsRefreshingCoinBalance] = useState(false);
   const navigate = useNavigate();
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
@@ -63,6 +67,44 @@ const Mprofile = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Refresh regular balance
+  const refreshBalance = async () => {
+    if (!token) return;
+
+    try {
+      setIsRefreshingBalance(true);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      const response = await axios.get(`${base_url}/api/user/my-information`);
+      if (response.data.success) {
+        setUserData(response.data.data);
+        localStorage.setItem("user", JSON.stringify(response.data.data));
+      }
+    } catch (error) {
+      console.error("Error refreshing balance:", error);
+    } finally {
+      setIsRefreshingBalance(false);
+    }
+  };
+
+  // Refresh coin balance
+  const refreshCoinBalance = async () => {
+    if (!token) return;
+    
+    try {
+      setIsRefreshingCoinBalance(true);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      const response = await axios.get(`${base_url}/api/user/my-information`);
+      if (response.data.success) {
+        setUserData(response.data.data);
+        localStorage.setItem("user", JSON.stringify(response.data.data));
+      }
+    } catch (error) {
+      console.error("Error refreshing coin balance:", error);
+    } finally {
+      setIsRefreshingCoinBalance(false);
     }
   };
 
@@ -179,7 +221,7 @@ const Mprofile = () => {
               {/* Background Pattern */}
               <div className="absolute inset-0 bg-gradient-to-br from-green-900/5 to-transparent opacity-20"></div>
               <div className="relative z-10">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <div className="relative">
                     <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 blur-sm opacity-60"></div>
                     <img
@@ -188,14 +230,54 @@ const Mprofile = () => {
                       className="w-[100px] h-[100px] sm:w-20 sm:h-20 rounded-full border-2 border-green-500 relative z-10"
                     />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                       {userData?.username || "User"}
                     </h2>
+                    
+                    {/* Regular Balance with Refresh */}
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-300">Balance:</span>
-                      <div className="relative group">
-                        ৳{userData?.balance?.toFixed(2) || "0.00"}
+                      <div className="bg-[#1f1f1f] rounded-lg px-3 py-1.5 flex items-center gap-2 border border-gray-800">
+                        <img
+                          src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/currency-type/bdt.png"
+                          className="w-4 h-4"
+                          alt="BDT"
+                        />
+                        <span className="text-white font-medium">
+                          {parseFloat(userData?.balance || 0).toFixed(2)}
+                        </span>
+                        <button
+                          className="p-1 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={refreshBalance}
+                          disabled={isRefreshingBalance}
+                          aria-label="Refresh balance"
+                        >
+                          <FiRefreshCw
+                            className={`w-3 h-3 ${isRefreshingBalance ? 'animate-spin' : ''}`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Coin Balance with Refresh */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-300">Coins:</span>
+                      <div className="bg-[#1f1f1f] rounded-lg px-3 py-1.5 flex items-center gap-2 border border-yellow-800/50">
+                        <FaCoins className="w-4 h-4 text-yellow-400" />
+                        <span className="text-yellow-400 font-medium">
+                          {userData?.coinBalance?.toLocaleString() || 0}
+                        </span>
+                        <button
+                          className="p-1 hover:bg-[#444] cursor-pointer text-yellow-400 transition-colors duration-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={refreshCoinBalance}
+                          disabled={isRefreshingCoinBalance}
+                          aria-label="Refresh coin balance"
+                        >
+                          <FiRefreshCw
+                            className={`w-3 h-3 ${isRefreshingCoinBalance ? 'animate-spin' : ''}`}
+                          />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -255,31 +337,30 @@ const Mprofile = () => {
                       </div>
                     </div>
                   ))}
-                      {/* Logout Button Section */}
-            {token && (
-              <div className="mt-8 mb-4 w-full">
-                
-                    <button
-                      onClick={handleLogout}
-                      className="relative inline-flex w-full items-center gap-3 px-6 py-3.5  sm:px-8 sm:py-4 bg-gradient-to-r from-red-900/30 to-red-950/30 hover:from-red-800/30 hover:to-red-900/30 border border-red-700/50 hover:border-red-600/50 rounded-xl transition-all duration-300 shadow-lg shadow-red-500/10 hover:shadow-red-500/20 group"
-                    >
-                      {/* Background glow effect on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      
-                      <FiLogOut className="text-xl text-red-400 group-hover:scale-110 transition-transform duration-300 relative z-10" />
-                      <span className="font-medium text-red-300 group-hover:text-red-200 transition-colors relative z-10">
-                        Logout from Account
-                      </span>
-                      
-                      {/* Arrow indicator */}
-                      <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 relative z-10">
-                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7"></path>
-                        </svg>
-                      </div>
-                    </button>
-              </div>
-            )}
+                  {/* Logout Button Section */}
+                  {token && (
+                    <div className="col-span-1 sm:col-span-3 lg:col-span-4 mt-2">
+                      <button
+                        onClick={handleLogout}
+                        className="relative inline-flex w-full items-center justify-center gap-3 px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-red-900/30 to-red-950/30 hover:from-red-800/30 hover:to-red-900/30 border border-red-700/50 hover:border-red-600/50 rounded-xl transition-all duration-300 shadow-lg shadow-red-500/10 hover:shadow-red-500/20 group"
+                      >
+                        {/* Background glow effect on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        
+                        <FiLogOut className="text-xl text-red-400 group-hover:scale-110 transition-transform duration-300 relative z-10" />
+                        <span className="font-medium text-red-300 group-hover:text-red-200 transition-colors relative z-10">
+                          Logout from Account
+                        </span>
+                        
+                        {/* Arrow indicator */}
+                        <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 relative z-10">
+                          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7"></path>
+                          </svg>
+                        </div>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -314,11 +395,8 @@ const Mprofile = () => {
                     <span className="relative">Sign In Now</span>
                   </a>
                 </div>
-
               </div>
             )}
-
-        
           </div>
           <Footer />
         </div>
