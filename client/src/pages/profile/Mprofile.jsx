@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "../../components/sidebar/Sidebar";
 import { Header } from "../../components/header/Header";
 import Footer from "../../components/footer/Footer";
-import { FiBell, FiUser, FiLock, FiCheckCircle, FiFileText, FiTrendingUp, FiUsers, FiLogOut, FiRefreshCw } from "react-icons/fi";
-import { FaCoins, FaGift } from "react-icons/fa";
+import { FiBell, FiUser, FiLock, FiCheckCircle, FiFileText, FiTrendingUp, FiUsers, FiLogOut, FiRefreshCw, FiAlertCircle } from "react-icons/fi";
+import { FaCoins, FaGift, FaExchangeAlt } from "react-icons/fa";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { MdSportsSoccer } from "react-icons/md";
 import logo from "../../assets/logo.png";
+import toast, { Toaster } from 'react-hot-toast';
 
 const menuItems = [
   { id: "notifications", label: "Notifications", desc: "View your latest updates", icon: <FiBell />, path: "/member/inbox/notification", color: "from-purple-900/30 to-purple-950/30", borderColor: "border-purple-700/50", iconColor: "text-purple-400" },
@@ -30,8 +31,15 @@ const Mprofile = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [isRefreshingCoinBalance, setIsRefreshingCoinBalance] = useState(false);
+  
+  // Coin conversion states
+  const [convertingCoins, setConvertingCoins] = useState(false);
+  
   const navigate = useNavigate();
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
+
+  // Minimum coins required for conversion
+  const MIN_COINS_FOR_CONVERSION = 1000;
 
   // Get user and token from localStorage
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -108,6 +116,72 @@ const Mprofile = () => {
     }
   };
 
+  // Convert coins to balance
+  const convertCoinsToBalance = async () => {
+    const coinBalance = userData?.coinBalance || 0;
+    
+    if (coinBalance < MIN_COINS_FOR_CONVERSION) {
+      toast.error(`Minimum ${MIN_COINS_FOR_CONVERSION} coins required for conversion`);
+      return;
+    }
+    
+    setConvertingCoins(true);
+    try {
+      const response = await axios.post(
+        `${base_url}/api/user/convert-coins-to-balance`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setUserData(prev => ({
+          ...prev,
+          coinBalance: response.data.data.newCoinBalance,
+          balance: response.data.data.newRealBalance
+        }));
+        
+        // Update user in localStorage
+        const updatedUser = { ...user, balance: response.data.data.newRealBalance, coinBalance: response.data.data.newCoinBalance };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      } else {
+        toast.error(response.data.message || "Failed to convert coins");
+      }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || "Failed to convert coins";
+      toast.error(errorMessage);
+      console.error("Error converting coins:", err);
+    } finally {
+      setConvertingCoins(false);
+    }
+  };
+
+  // Check if user can convert coins (minimum 1000)
+  const canConvertCoins = (userData?.coinBalance || 0) >= MIN_COINS_FOR_CONVERSION;
+  
+  // Calculate conversion details
+  const getConversionDetails = () => {
+    const coinBalance = userData?.coinBalance || 0;
+    if (!canConvertCoins) {
+      return {
+        coinsToConvert: 0,
+        amountToGet: 0,
+        remainingCoins: coinBalance,
+        needed: MIN_COINS_FOR_CONVERSION - coinBalance
+      };
+    }
+    const coinsToConvert = Math.floor(coinBalance / 100) * 100;
+    const amountToGet = coinsToConvert / 100;
+    const remainingCoins = coinBalance - coinsToConvert;
+    return { coinsToConvert, amountToGet, remainingCoins, needed: 0 };
+  };
+
+  const conversionDetails = getConversionDetails();
+
   // Load data on component mount
   useEffect(() => {
     checkAuthAndFetchData();
@@ -168,6 +242,29 @@ const Mprofile = () => {
 
   return (
     <div className="h-screen overflow-hidden w-full font-poppins bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] text-white">
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#1a1a1a',
+            color: '#fff',
+            border: '1px solid #2a2a2a',
+          },
+          success: {
+            iconTheme: {
+              primary: '#22c55e',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       
       {/* Logout Confirmation Popup */}
@@ -281,6 +378,129 @@ const Mprofile = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Coin Conversion Box - NEW SECTION ADDED */}
+                <div className={`mt-4 rounded-lg p-4 transition-all duration-300 ${
+                  canConvertCoins 
+                    ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30" 
+                    : "bg-[#1a1a1a] border border-[#2a2a2a] opacity-70"
+                }`}>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        canConvertCoins ? "bg-yellow-500/20" : "bg-gray-500/20"
+                      }`}>
+                        <FaCoins className={canConvertCoins ? "text-yellow-500 text-2xl" : "text-gray-500 text-2xl"} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                          Convert Coins to Balance
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            canConvertCoins 
+                              ? "bg-yellow-500/20 text-yellow-400" 
+                              : "bg-gray-500/20 text-gray-400"
+                          }`}>
+                            {userData?.coinBalance?.toLocaleString() || 0} Coins
+                          </span>
+                        </h3>
+                        <p className="text-xs text-gray-400 mt-1">
+                          100 coins = 1 BDT • Minimum {MIN_COINS_FOR_CONVERSION} coins required
+                        </p>
+                        {!canConvertCoins && userData?.coinBalance > 0 && (
+                          <p className="text-xs text-red-400 mt-1">
+                            Need {conversionDetails.needed} more coins to convert
+                          </p>
+                        )}
+                        {userData?.coinBalance === 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Earn coins by completing levels and claiming rewards
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={convertCoinsToBalance}
+                      disabled={!canConvertCoins || convertingCoins}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
+                        canConvertCoins && !convertingCoins
+                          ? "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-lg shadow-yellow-500/20 cursor-pointer"
+                          : "bg-gray-600 cursor-not-allowed opacity-50"
+                      }`}
+                    >
+                      {convertingCoins ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <FaExchangeAlt className="text-sm" />
+                      )}
+                      {convertingCoins 
+                        ? "Converting..." 
+                        : canConvertCoins 
+                          ? `Convert ${conversionDetails.coinsToConvert} Coins` 
+                          : "Minimum 1000 Coins Required"}
+                    </button>
+                  </div>
+                  
+                  {canConvertCoins && (
+                    <div className="mt-3 pt-3 border-t border-yellow-500/20">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">Current Coins:</span>
+                          <span className="text-yellow-400 font-medium">{userData?.coinBalance?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">Will Convert:</span>
+                          <span className="text-yellow-400 font-medium">{conversionDetails.coinsToConvert.toLocaleString()} coins</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">You Get:</span>
+                          <span className="text-green-400 font-medium">৳{conversionDetails.amountToGet}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">Remaining Coins:</span>
+                          <span className="text-gray-400">{conversionDetails.remainingCoins.toLocaleString()} coins</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!canConvertCoins && userData?.coinBalance > 0 && (
+                    <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">Current Coins:</span>
+                          <span className="text-yellow-400 font-medium">{userData?.coinBalance?.toLocaleString() || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">Need More:</span>
+                          <span className="text-red-400 font-medium">{conversionDetails.needed} coins</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">Progress:</span>
+                          <div className="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-yellow-500 rounded-full transition-all duration-300"
+                              style={{ width: `${((userData?.coinBalance || 0) / MIN_COINS_FOR_CONVERSION) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-gray-400">{Math.floor(((userData?.coinBalance || 0) / MIN_COINS_FOR_CONVERSION) * 100)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Info message about earning coins */}
+                  {!canConvertCoins && userData?.coinBalance === 0 && (
+                    <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <FiAlertCircle className="text-yellow-500" />
+                        <span>Complete betting levels to earn coins! Visit the <button 
+                          onClick={() => navigate("/member/bonuses")}
+                          className="text-yellow-400 hover:underline cursor-pointer"
+                        >Bonuses page</button> to see available level rewards.</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Menu Items Boxes */}

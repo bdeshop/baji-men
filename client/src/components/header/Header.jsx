@@ -1556,7 +1556,7 @@ const refreshCoinBalance = async () => {
 
         {/* WhatsApp Button - Bottom */}
         <a
-          href="https://wa.me/+4407386588951"
+          href="https://wa.me/+447311133922"
           target="_blank"
           rel="noopener noreferrer"
           className="transition-all duration-300 animate-bounce hover:animate-pulse"

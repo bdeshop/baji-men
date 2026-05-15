@@ -6,7 +6,7 @@ import { NavLink, useSearchParams } from 'react-router-dom';
 import logo from "../../assets/logo.png";
 import { LanguageContext } from "../../context/LanguageContext"; // ← import context
 
-export default function Login() {
+export default function Register() {
   // ── Translation hook ──────────────────────────────────────────────────────
   const { t } = useContext(LanguageContext);
   // ─────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export default function Login() {
   const [otpError, setOtpError] = useState("");
   const [referralError, setReferralError] = useState("");
   
-  const [isSignUpActive, setIsSignUpActive] = useState(false);
+  const [isSignUpActive, setIsSignUpActive] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingReferral, setIsCheckingReferral] = useState(false);
   const [referralValid, setReferralValid] = useState(false);
