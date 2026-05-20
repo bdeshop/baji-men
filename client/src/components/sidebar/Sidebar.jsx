@@ -128,7 +128,7 @@ const Sidebar = ({ sidebarOpen, onCategorySelect }) => {
         }`}
       >
         {sidebarOpen ? (
-          <span className="bg-theme_gray p-2 rounded-[3px] text-center flex justify-center items-center gap-3">
+          <span onClick={()=>{window.open("https://wh")}} className="bg-theme_gray p-2 rounded-[3px] text-center flex justify-center items-center gap-3">
             <MdSupportAgent className="text-white text-[20px]" />
             <span className="text-[13px]">24/7 Live Chat</span>
           </span>

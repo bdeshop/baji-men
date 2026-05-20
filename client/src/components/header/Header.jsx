@@ -293,7 +293,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const getDefaultSocialLinks = () => [
     {
       platform: "whatsapp",
-      url: "https://wa.me/+4407386588951",
+      url: "https://wa.me/+447311133922",
       title: t.whatsapp,
       icon: <FaWhatsapp className="w-4 h-4 mr-2" />
     },
@@ -1099,7 +1099,7 @@ const refreshCoinBalance = async () => {
         >
           <div className="w-full flex justify-start items-center px-4 pt-4 pb-3 md:sticky top-0 left-0 bg-[#1A1A1A]">
             <a
-              href="https://wa.me/+4407386588951"
+              href="https://wa.me/+447311133922"
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full"
@@ -1370,7 +1370,7 @@ const refreshCoinBalance = async () => {
                       <div className="grid grid-cols-2 gap-3 p-2">
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-green-900/20 to-green-700/10 border border-green-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
-                          onClick={() => window.open("https://wa.me/+4407386588951", "_blank")}
+                          onClick={() => window.open("https://wa.me/+447311133922", "_blank")}
                         >
                           <div className="mb-2">
                             <FaWhatsapp className="text-2xl text-green-400" />
