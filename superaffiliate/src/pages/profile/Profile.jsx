@@ -628,7 +628,6 @@ const Profile = () => {
                               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300"
                             >
                               <option value="personal">Personal</option>
-                              <option value="merchant">Merchant</option>
                             </select>
                           </div>
                         </>

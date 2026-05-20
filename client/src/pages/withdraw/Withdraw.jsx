@@ -225,7 +225,6 @@ const Withdraw = () => {
   const [formData, setFormData] = useState({
     // bKash fields
     bkashPhoneNumber: "",
-    bkashAccountType: "personal",
     
     // Rocket fields
     rocketPhoneNumber: "",
@@ -243,7 +242,8 @@ const Withdraw = () => {
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
-  const quickAmounts = [100, 500, 1000, 2000, 5000];
+  const quickAmounts = [300, 500, 1000, 2000, 5000];
+  const MIN_WITHDRAW_AMOUNT = 300;
 
   // Check if KYC is required (assignkyc is "assigned" and kycStatus is "pending" or "rejected" or "processing")
   const isKycRequired = () => {
@@ -450,10 +450,7 @@ const Withdraw = () => {
     const labels = {
       bkash: {
         phoneLabel: language.code === 'bn' ? "আপনার বিকাশ নাম্বার লিখুন" : "Enter your bKash number",
-        phonePlaceholder: "01XXXXXXXXX",
-        accountTypeLabel: language.code === 'bn' ? "মেথড ধরন সিলেক্ট করুন" : "Select account type",
-        personal: language.code === 'bn' ? "পারসোনাল" : "Personal",
-        agent: language.code === 'bn' ? "এজেন্ট" : "Agent"
+        phonePlaceholder: "01XXXXXXXXX"
       },
       rocket: {
         phoneLabel: language.code === 'bn' ? "আপনার রকেট নাম্বার লিখুন" : "Enter your Rocket number",
@@ -643,8 +640,8 @@ const Withdraw = () => {
       { 
         step: language.code === 'bn' ? "পরিমাণ লিখুন" : "Enter Amount", 
         description: language.code === 'bn'
-          ? `উত্তোলনের পরিমাণ লিখুন (ন্যূনতম: ৳${method.minAmount}, সর্বোচ্চ: ৳${method.maxAmount})`
-          : `Input the withdrawal amount (Min: ৳${method.minAmount}, Max: ৳${method.maxAmount}).`
+          ? `উত্তোলনের পরিমাণ লিখুন (ন্যূনতম: ৳${MIN_WITHDRAW_AMOUNT}, সর্বোচ্চ: ৳${method.maxAmount})`
+          : `Input the withdrawal amount (Min: ৳${MIN_WITHDRAW_AMOUNT}, Max: ৳${method.maxAmount}).`
       },
       {
         step: language.code === 'bn' ? "চার্জ যাচাই করুন" : "Review Charges",
@@ -694,8 +691,7 @@ const Withdraw = () => {
     switch(activeMethod.gatewayName?.toLowerCase()) {
       case "bkash":
         return {
-          phoneNumber: formData.bkashPhoneNumber,
-          accountType: formData.bkashAccountType
+          phoneNumber: formData.bkashPhoneNumber
         };
       case "rocket":
         return {
@@ -761,9 +757,6 @@ const Withdraw = () => {
         } else if (!/^(01[3-9]\d{8})$/.test(currentData.phoneNumber)) {
           errors.phoneNumber = language.code === 'bn' ? "সঠিক বিকাশ নাম্বার দিন (01XXXXXXXXX)" : "Enter valid bKash number (01XXXXXXXXX)";
         }
-        if (!currentData.accountType) {
-          errors.accountType = language.code === 'bn' ? "অ্যাকাউন্ট টাইপ নির্বাচন করুন" : "Account type is required";
-        }
       } else if (methodName === "rocket") {
         if (!currentData.phoneNumber) {
           errors.phoneNumber = language.code === 'bn' ? "রকেট নাম্বার প্রয়োজন" : "Rocket number is required";
@@ -792,10 +785,10 @@ const Withdraw = () => {
     // Amount validation
     if (!amount) {
       errors.amount = language.code === 'bn' ? "পরিমাণ প্রয়োজন" : "Amount is required";
-    } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 100)) {
+    } else if (parseFloat(amount) < MIN_WITHDRAW_AMOUNT) {
       errors.amount = language.code === 'bn'
-        ? `ন্যূনতম উত্তোলনের পরিমাণ ৳${activeMethod?.minAmount || 100}`
-        : `Minimum withdrawal amount is ৳${activeMethod?.minAmount || 100}`;
+        ? `ন্যূনতম উত্তোলনের পরিমাণ ৳${MIN_WITHDRAW_AMOUNT}`
+        : `Minimum withdrawal amount is ৳${MIN_WITHDRAW_AMOUNT}`;
     } else if (parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 30000)) {
       errors.amount = language.code === 'bn'
         ? `সর্বোচ্চ উত্তোলনের পরিমাণ ৳${activeMethod?.maxAmount || 30000}`
@@ -845,7 +838,6 @@ const Withdraw = () => {
 
       if (methodName === "bkash") {
         payload.phoneNumber = currentData.phoneNumber;
-        payload.accountType = currentData.accountType;
       } else if (methodName === "rocket" || methodName === "nagad") {
         payload.phoneNumber = currentData.phoneNumber;
       } else if (methodName === "bank") {
@@ -881,7 +873,6 @@ const Withdraw = () => {
         setAmount("");
         if (methodName === "bkash") {
           handleInputChange("bkashPhoneNumber", "");
-          handleInputChange("bkashAccountType", "personal");
         } else if (methodName === "rocket") {
           handleInputChange("rocketPhoneNumber", "");
         } else if (methodName === "nagad") {
@@ -1220,61 +1211,25 @@ const Withdraw = () => {
     switch(methodName) {
       case "bkash":
         return (
-          <>
-            <div className="mb-4 md:mb-6">
-              <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                {labels.phoneLabel}
-                <span className="text-[#ff6b6b] ml-1">*</span>
-              </label>
-              <input
-                type="tel"
-                className={`w-full bg-[#1f2525] border rounded-lg p-3 md:p-4 text-sm md:text-base text-white placeholder-[#5a6b78] focus:outline-none focus:ring-2 focus:ring-[#3a8a6f] ${
-                  formErrors.phoneNumber ? "border-[#ff6b6b]" : "border-[#2a2f2f]"
-                }`}
-                placeholder={labels.phonePlaceholder}
-                value={formData.bkashPhoneNumber}
-                onChange={(e) => handleInputChange("bkashPhoneNumber", e.target.value)}
-                disabled={!wageringInfo.isCompleted}
-              />
-              {formErrors.phoneNumber && (
-                <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">{formErrors.phoneNumber}</p>
-              )}
-            </div>
-            
-            <div className="mb-4 md:mb-6">
-              <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                {labels.accountTypeLabel}
-                <span className="text-[#ff6b6b] ml-1">*</span>
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    value="personal"
-                    checked={formData.bkashAccountType === "personal"}
-                    onChange={() => handleInputChange("bkashAccountType", "personal")}
-                    className="mr-2"
-                    disabled={!wageringInfo.isCompleted}
-                  />
-                  <span className="text-white text-sm">{labels.personal}</span>
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    value="agent"
-                    checked={formData.bkashAccountType === "agent"}
-                    onChange={() => handleInputChange("bkashAccountType", "agent")}
-                    className="mr-2"
-                    disabled={!wageringInfo.isCompleted}
-                  />
-                  <span className="text-white text-sm">{labels.agent}</span>
-                </label>
-              </div>
-              {formErrors.accountType && (
-                <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">{formErrors.accountType}</p>
-              )}
-            </div>
-          </>
+          <div className="mb-4 md:mb-6">
+            <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
+              {labels.phoneLabel}
+              <span className="text-[#ff6b6b] ml-1">*</span>
+            </label>
+            <input
+              type="tel"
+              className={`w-full bg-[#1f2525] border rounded-lg p-3 md:p-4 text-sm md:text-base text-white placeholder-[#5a6b78] focus:outline-none focus:ring-2 focus:ring-[#3a8a6f] ${
+                formErrors.phoneNumber ? "border-[#ff6b6b]" : "border-[#2a2f2f]"
+              }`}
+              placeholder={labels.phonePlaceholder}
+              value={formData.bkashPhoneNumber}
+              onChange={(e) => handleInputChange("bkashPhoneNumber", e.target.value)}
+              disabled={!wageringInfo.isCompleted}
+            />
+            {formErrors.phoneNumber && (
+              <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">{formErrors.phoneNumber}</p>
+            )}
+          </div>
         );
         
       case "rocket":
@@ -1829,7 +1784,7 @@ const Withdraw = () => {
                             </div>
                             <div>
                               <p className="text-[#8a9ba8]">{language.code === 'bn' ? "ন্যূনতম পরিমাণ" : "Min Amount"}</p>
-                              <p className="text-white font-medium">৳{activeMethod.minAmount}</p>
+                              <p className="text-white font-medium">৳{MIN_WITHDRAW_AMOUNT}</p>
                             </div>
                             <div>
                               <p className="text-[#8a9ba8]">{language.code === 'bn' ? "সর্বোচ্চ পরিমাণ" : "Max Amount"}</p>
@@ -1856,11 +1811,11 @@ const Withdraw = () => {
                                   formErrors.amount ? "border-[#ff6b6b]" : "border-[#2a2f2f]"
                                 }`}
                                 placeholder={language.code === 'bn'
-                                  ? `পরিমাণ লিখুন (ন্যূনতম: ৳${activeMethod.minAmount}, সর্বোচ্চ: ৳${activeMethod.maxAmount})`
-                                  : `Enter amount (Min: ৳${activeMethod.minAmount}, Max: ৳${activeMethod.maxAmount})`}
+                                  ? `পরিমাণ লিখুন (ন্যূনতম: ৳${MIN_WITHDRAW_AMOUNT}, সর্বোচ্চ: ৳${activeMethod.maxAmount})`
+                                  : `Enter amount (Min: ৳${MIN_WITHDRAW_AMOUNT}, Max: ৳${activeMethod.maxAmount})`}
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                min={activeMethod.minAmount}
+                                min={MIN_WITHDRAW_AMOUNT}
                                 max={Math.min(activeMethod.maxAmount, userData?.balance || 0)}
                                 required
                                 disabled={!wageringInfo.isCompleted}
@@ -1906,7 +1861,7 @@ const Withdraw = () => {
                                       !wageringInfo.isCompleted ||
                                       quickAmount > (userData?.balance || 0) || 
                                       quickAmount > activeMethod.maxAmount || 
-                                      quickAmount < activeMethod.minAmount
+                                      quickAmount < MIN_WITHDRAW_AMOUNT
                                     }
                                   >
                                     ৳ {quickAmount.toLocaleString()}
@@ -1923,7 +1878,7 @@ const Withdraw = () => {
                                 isProcessing ||
                                 !amount ||
                                 parseFloat(amount) > (userData?.balance || 0) ||
-                                parseFloat(amount) < parseFloat(activeMethod?.minAmount || 100) ||
+                                parseFloat(amount) < MIN_WITHDRAW_AMOUNT ||
                                 parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 30000)
                               }
                             >
@@ -2032,7 +1987,7 @@ const Withdraw = () => {
                       <ul className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3">
                         <li className="flex items-start">
                           <span className="text-[#3a8a6f] mr-2">•</span>
-                          <span>{language.code === 'bn' ? "ন্যূনতম উত্তোলনের পরিমাণ:" : "Minimum withdrawal amount:"} ৳{activeMethod?.minAmount || 100}</span>
+                          <span>{language.code === 'bn' ? "ন্যূনতম উত্তোলনের পরিমাণ:" : "Minimum withdrawal amount:"} ৳{MIN_WITHDRAW_AMOUNT}</span>
                         </li>
                         <li className="flex items-start">
                           <span className="text-[#3a8a6f] mr-2">•</span>

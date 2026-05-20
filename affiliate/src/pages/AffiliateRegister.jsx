@@ -236,7 +236,6 @@ const AffiliateRegister = () => {
                 disabled={loading}
               >
                 <option value="personal">Personal Account</option>
-                <option value="merchant">Merchant Account</option>
               </select>
             </div>
           </div>

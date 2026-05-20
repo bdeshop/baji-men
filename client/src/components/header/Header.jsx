@@ -1398,15 +1398,6 @@ const refreshCoinBalance = async () => {
                           <span className="text-xs font-medium text-indigo-300">{t.facebook}</span>
                         </div>
 
-                        <div
-                          className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-pink-900/20 to-purple-700/10 border border-pink-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
-                          onClick={() => window.open("https://instagram.com", "_blank")}
-                        >
-                          <div className="mb-2">
-                            <FaInstagram className="text-2xl text-pink-400" />
-                          </div>
-                          <span className="text-xs font-medium text-pink-300">{t.instagram}</span>
-                        </div>
 
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-sky-900/20 to-sky-700/10 border border-sky-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
@@ -1418,15 +1409,7 @@ const refreshCoinBalance = async () => {
                           <span className="text-xs font-medium text-sky-300">{t.telegram}</span>
                         </div>
 
-                        <div
-                          className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-gray-900/20 to-gray-700/10 border border-gray-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
-                          onClick={() => window.open("https://twitter.com", "_blank")}
-                        >
-                          <div className="mb-2">
-                            <FaTwitter className="text-2xl text-gray-400" />
-                          </div>
-                          <span className="text-xs font-medium text-gray-300">{t.twitter}</span>
-                        </div>
+            
                       </div>
                     )}
                   </div>

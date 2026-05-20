@@ -31,7 +31,8 @@ const Deposit = () => {
   // Get translation function from context
   const { t } = useContext(LanguageContext);
 
-  const quickAmounts = [300, 500, 1000, 2000, 5000];
+  // Updated quick amounts (minimum 100)
+  const quickAmounts = [100, 300, 500, 1000, 2000, 5000];
 
   // Fetch deposit methods
   useEffect(() => {
@@ -186,19 +187,19 @@ const Deposit = () => {
     // Reset previous status
     setTransactionStatus(null);
     
-    // Validate form
+    // Validate form with new minimum deposit (100)
     const errors = {};
     if (!activeMethod) {
       errors.method = t.pleaseSelectPaymentMethod || "Please select a payment method";
     }
     if (!amount) {
       errors.amount = t.amountRequired || "Amount is required";
-    } else if (parseFloat(amount) < 5) {
-      errors.amount = t.minDepositAmount || "Minimum deposit amount is ৳5";
+    } else if (parseFloat(amount) < 100) {  // Changed from 5 to 100
+      errors.amount = t.minDepositAmount || "Minimum deposit amount is ৳100";
     } else if (!/^\d+$/.test(amount)) {
       errors.amount = t.amountMustBeWholeNumber || "Amount must be a whole number";
-    } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 5)) {
-      errors.amount = `${t.minDepositAmount || "Minimum deposit amount is"} ৳${activeMethod?.minAmount || 5}`;
+    } else if (parseFloat(amount) < parseFloat(activeMethod?.minAmount || 100)) { // Changed default to 100
+      errors.amount = `${t.minDepositAmount || "Minimum deposit amount is"} ৳${activeMethod?.minAmount || 100}`;
     } else if (parseFloat(amount) > parseFloat(activeMethod?.maxAmount || 50000)) {
       errors.amount = `${t.maxDepositAmount || "Maximum deposit amount is"} ৳${activeMethod?.maxAmount || 50000}`;
     }
@@ -648,11 +649,11 @@ const Deposit = () => {
                                 ? "border-[#ff6b6b]"
                                 : "border-[#2a2f2f]"
                             }`}
-                            placeholder={t.enterDepositAmount || "Enter deposit amount (minimum ৳5)"}
+                            placeholder={t.enterDepositAmount || "Enter deposit amount (minimum ৳100)"}
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             required
-                            min="5"
+                            min="100"
                           />
                           {formErrors.amount && (
                             <p className="text-[#ff6b6b] text-xs md:text-sm mt-1">
@@ -731,18 +732,12 @@ const Deposit = () => {
                                       <span className="text-sm md:text-base font-medium text-left">
                                         {bonus.name}
                                       </span>
-                                      {amount && !isNaN(parseFloat(amount)) && calculatedAmount > 0 && (
-                                        <span className="text-xs bg-[#2a5c45] text-white px-2 py-1 rounded">
-                                          +৳{calculatedAmount.toFixed(2)}
-                                        </span>
-                                      )}
+                                 
                                     </div>
                                     <span className="text-xs text-[#8a9ba8] text-left w-full mt-1">
                                       {t.bonusCode || "Code"}: {bonus.bonusCode}
                                     </span>
-                                    <span className="text-xs text-[#3a8a6f] text-left w-full">
-                                      {bonus.description}
-                                    </span>
+                                 
                                   </button>
                                 );
                               })}
@@ -901,7 +896,7 @@ const Deposit = () => {
                 </h3>
                 <ol className="text-xs md:text-sm text-[#8a9ba8] space-y-2 md:space-y-3 list-decimal list-inside">
                   <li>{t.selectPaymentMethod || "Select your preferred payment method"}</li>
-                  <li>{t.enterDepositAmountInstruction || "Enter the amount you want to deposit (minimum ৳5)"}</li>
+                  <li>{t.enterDepositAmountInstruction || "Enter the amount you want to deposit (minimum ৳100)"}</li>
                   <li>{t.selectBonusIfAvailable || "Select a bonus option if available (optional)"}</li>
                   <li>{t.clickProceedToPayment || `Click "Proceed to [Payment Method] Payment"`}</li>
                   <li>{t.redirectedToOraclePay || "You will be redirected to OraclePay secure payment page"}</li>
