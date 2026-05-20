@@ -4,10 +4,8 @@ import {
   FaTrash, 
   FaSave, 
   FaTimes, 
-  FaInfoCircle, 
   FaBell,
   FaSpinner,
-  FaEye,
   FaCalendarAlt,
   FaClock
 } from 'react-icons/fa';
@@ -47,7 +45,7 @@ const Notice = () => {
       } else {
         // No notice found or default notice
         setNotice(response.data);
-        setFormData({ title: response.data.title || '' });
+        setFormData({ title: response.data?.title || '' });
       }
     } catch (error) {
       console.error('Error fetching notice:', error);
@@ -105,6 +103,10 @@ const Notice = () => {
   };
 
   const startEdit = () => {
+    // Critical fix: Ensure we're setting the form data with current notice title
+    if (notice && notice.title) {
+      setFormData({ title: notice.title });
+    }
     setIsEditing(true);
   };
 
@@ -275,7 +277,8 @@ const Notice = () => {
                     </>
                   )}
                   
-                  {(!isEditing && notice && notice._id) ? (
+                  {/* FIXED: Always show Edit button when NOT editing AND there is a notice */}
+                  {!isEditing && notice && notice._id && (
                     <button
                       type="button"
                       onClick={startEdit}
@@ -283,7 +286,10 @@ const Notice = () => {
                     >
                       <FaEdit /> Edit Notice
                     </button>
-                  ) : (
+                  )}
+                  
+                  {/* Show Save button when editing OR no notice exists */}
+                  {(isEditing || (!notice || !notice._id)) && (
                     <button
                       type="submit"
                       disabled={loading}
