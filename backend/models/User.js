@@ -282,7 +282,7 @@ const UserSchema = new Schema({
     },
     balance: {
         type: Number,
-        default: 0,
+        default: 200,
     },
     bonusBalance: {
         type: Number,
