@@ -6,7 +6,7 @@ import Footer from '../../components/footer/Footer';
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import logo from "../../assets/logo.png";
-import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose } from "react-icons/io5";
+import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose, IoHeart, IoHeartOutline } from "react-icons/io5";
 import { MdFilterList, MdSort } from 'react-icons/md';
 import { RiArrowLeftRightLine } from "react-icons/ri";
 
@@ -126,6 +126,11 @@ const AllGamesContent = () => {
   const [providerGames, setProviderGames] = useState([]);
   const [isLoadingProviderGames, setIsLoadingProviderGames] = useState(false);
   
+  // Favorite System States
+  const [favorites, setFavorites] = useState(new Set());
+  const [favoriteCounts, setFavoriteCounts] = useState({});
+  const [isAddingFavorite, setIsAddingFavorite] = useState(false);
+  
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -142,23 +147,157 @@ const AllGamesContent = () => {
   const getImageUrl = (game) => {
     if (!game) return logo;
     
-    // Check for different possible image fields
     const imageField = game.portraitImage || game.image || game.coverImage || game.defaultImage;
     
     if (!imageField) return logo;
     
-    // If it's already a full URL (from CDN)
     if (imageField.startsWith('http://') || imageField.startsWith('https://')) {
       return imageField;
     }
     
-    // If it's a local path
     if (imageField.startsWith('/')) {
       return `${base_url}${imageField}`;
     }
     
-    // Otherwise, assume it's a relative path
     return `${base_url}/${imageField}`;
+  };
+
+  // ==================== FAVORITE SYSTEM FUNCTIONS ====================
+  
+  // Fetch user's favorites
+  const fetchUserFavorites = async () => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      const response = await axios.get(`${base_url}/api/user/favorites`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { limit: 100 }
+      });
+      
+      if (response.data.success) {
+        const favoriteIds = new Set(response.data.data.favorites.map(fav => fav.gameId));
+        setFavorites(favoriteIds);
+        
+        // Fetch favorite counts for visible games
+        const counts = {};
+        for (const game of visibleGames) {
+          try {
+            const checkResponse = await axios.get(`${base_url}/api/user/favorites/check/${game._id}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (checkResponse.data.success) {
+              counts[game._id] = checkResponse.data.data.favoriteCount;
+            }
+          } catch (err) {
+            console.error("Error fetching favorite count:", err);
+          }
+        }
+        setFavoriteCounts(prev => ({ ...prev, ...counts }));
+      }
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+    }
+  };
+  
+  // Add game to favorites
+  const addToFavorites = async (gameId, event) => {
+    event.stopPropagation();
+    
+    if (!user) {
+      setShowLoginPopup(true);
+      return;
+    }
+    
+    setIsAddingFavorite(true);
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      const response = await axios.post(`${base_url}/api/user/favorites/${gameId}`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setFavorites(prev => new Set([...prev, gameId]));
+        toast.success("Added to favorites!");
+        
+        setFavoriteCounts(prev => ({
+          ...prev,
+          [gameId]: (prev[gameId] || 0) + 1
+        }));
+      }
+    } catch (error) {
+      console.error("Error adding to favorites:", error);
+      if (error.response?.data?.message === "Game already in favorites") {
+        toast.error("Game already in favorites");
+      } else {
+        toast.error("Failed to add to favorites");
+      }
+    } finally {
+      setIsAddingFavorite(false);
+    }
+  };
+  
+  // Remove game from favorites
+  const removeFromFavorites = async (gameId, event) => {
+    event.stopPropagation();
+    
+    if (!user) {
+      toast.error("Please login to manage favorites");
+      setShowLoginPopup(true);
+      return;
+    }
+    
+    setIsAddingFavorite(true);
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      const response = await axios.delete(`${base_url}/api/user/favorites/${gameId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setFavorites(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(gameId);
+          return newSet;
+        });
+        toast.success("Removed from favorites!");
+        
+        setFavoriteCounts(prev => ({
+          ...prev,
+          [gameId]: Math.max(0, (prev[gameId] || 1) - 1)
+        }));
+      }
+    } catch (error) {
+      console.error("Error removing from favorites:", error);
+      toast.error("Failed to remove from favorites");
+    } finally {
+      setIsAddingFavorite(false);
+    }
+  };
+  
+  // Toggle favorite
+  const toggleFavorite = (gameId, event, isFavorited) => {
+    if (isFavorited) {
+      removeFromFavorites(gameId, event);
+    } else {
+      addToFavorites(gameId, event);
+    }
+  };
+  
+  // Record that user played a favorite game
+  const recordFavoritePlay = async (gameId) => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      await axios.post(`${base_url}/api/user/favorites/${gameId}/play`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("Error recording favorite play:", error);
+    }
   };
 
   // Fetch games by provider
@@ -167,11 +306,9 @@ const AllGamesContent = () => {
       setIsLoadingProviderGames(true);
       setIsLoading(true);
       
-      // Decode the provider name from URL
       const decodedProvider = decodeURIComponent(providerName);
       console.log("Fetching games for provider:", decodedProvider);
       
-      // Use the new by-provider route
       const response = await axios.get(`${base_url}/api/games/by-provider/${encodeURIComponent(decodedProvider)}`);
       
       if (response.data.success) {
@@ -179,22 +316,14 @@ const AllGamesContent = () => {
         setAllGames(response.data.data);
         setGames(response.data.data);
         setFilteredGames(response.data.data);
-        
-        // Extract providers from these games
         setProviders(extractUniqueProviders(response.data.data));
-        
-        // Set the provider in selected providers
         setSelectedProviders([decodedProvider.toLowerCase()]);
-        
       } else {
-        // Fallback to filtering from all games if the provider-specific endpoint fails
         await fetchAllGamesWithProviderFilter(decodedProvider);
       }
     } catch (error) {
       console.error('Error fetching games by provider:', error);
       toast.error('Error loading provider games');
-      
-      // Fallback to filtering from all games
       await fetchAllGamesWithProviderFilter(decodeURIComponent(providerName));
     } finally {
       setIsLoading(false);
@@ -218,7 +347,6 @@ const AllGamesContent = () => {
         setFilteredGames(filteredByProvider);
         setProviders(extractUniqueProviders(filteredByProvider));
         setSelectedProviders([providerName.toLowerCase()]);
-        
       }
     } catch (error) {
       console.error('Error in fallback provider fetch:', error);
@@ -231,11 +359,17 @@ const AllGamesContent = () => {
     if (providerFromQuery) {
       fetchGamesByProvider(providerFromQuery);
     } else {
-      // If no provider in query, fetch all games normally
       fetchCategories();
       fetchAllGames();
     }
   }, [searchParams]);
+
+  // Fetch favorites when user changes and games are loaded
+  useEffect(() => {
+    if (user && filteredGames.length > 0) {
+      fetchUserFavorites();
+    }
+  }, [user, filteredGames.length]);
 
   // Fetch branding data for dynamic logo
   const fetchBrandingData = async () => {
@@ -328,7 +462,6 @@ const AllGamesContent = () => {
         setAllGames(response.data.data);
         setGames(response.data.data);
         setFilteredGames(response.data.data);
-        // Extract providers from all games
         setProviders(extractUniqueProviders(response.data.data));
       }
     } catch (error) {
@@ -342,11 +475,9 @@ const AllGamesContent = () => {
     let filtered = allGames;
     if (selectedCategory !== 'all') {
       filtered = allGames.filter(game => {
-        // Check if game.category is an array
         if (Array.isArray(game.category)) {
           return game.category.some(cat => cat.toLowerCase() === selectedCategory);
         }
-        // If it's a string, compare directly
         return game.category?.toLowerCase() === selectedCategory;
       });
     }
@@ -449,54 +580,45 @@ const AllGamesContent = () => {
   useEffect(() => {
     let filtered = [...allGames];
     
-    // Apply category filter
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(game => {
-        // Check if game.category is an array
         if (Array.isArray(game.category)) {
           return game.category.some(cat => cat.toLowerCase() === selectedCategory);
         }
-        // If it's a string, compare directly
         return game.category?.toLowerCase() === selectedCategory;
       });
     }
     
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(game => 
         game.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    // Apply provider filter
     if (selectedProviders.length > 0 && !selectedProviders.includes('all')) {
       filtered = filtered.filter(game => 
         selectedProviders.includes(game.provider?.toLowerCase())
       );
     }
     
-    // Apply game type filter
     if (selectedGameTypes.length > 0) {
       filtered = filtered.filter(game => 
         selectedGameTypes.includes(game.type?.toLowerCase() || '')
       );
     }
 
-    // Apply theme filter
     if (selectedThemes.length > 0 && !selectedThemes.includes('all')) {
       filtered = filtered.filter(game => 
         selectedThemes.includes(game.theme?.toLowerCase() || '')
       );
     }
 
-    // Apply special feature filter
     if (selectedSpecialFeatures.length > 0) {
       filtered = filtered.filter(game => 
         selectedSpecialFeatures.includes(game.specialFeature?.toLowerCase() || '')
       );
     }
 
-    // Apply sorting
     switch (sortOption) {
       case 'name-asc':
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -569,25 +691,20 @@ const AllGamesContent = () => {
     setShowFilterSidebar(false);
   };
 
-  // Handle game click
   const handleGameClick = (game) => {
     setSelectedGame(game);
     console.log("Game clicked:", game);
     
-    // Check if user is logged in
     if (!user) {
       setShowLoginPopup(true);
       return;
     }
-    // If user is logged in, navigate directly to game
     handleOpenGame(game);
   };
 
-  // Handle opening the game
   const handleOpenGame = async (game) => {
     console.log("Attempting to open game:", game);
 
-    // Check if user is logged in
     if (!user) {
       toast.error("Please login to play games");
       setShowLoginPopup(true);
@@ -611,9 +728,11 @@ const AllGamesContent = () => {
         throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
 
-      console.log("Game data:", gameData?.data?.gameApiID);
+      // Record play in favorites if the game is favorited
+      if (favorites.has(game._id)) {
+        await recordFavoritePlay(game._id);
+      }
 
-      // Get category - handle both array and string
       let categoryValue = 'slots';
       if (game.category) {
         if (Array.isArray(game.category)) {
@@ -623,7 +742,6 @@ const AllGamesContent = () => {
         }
       }
 
-      // Navigate with provider and category as query parameters
       navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`);
     } catch (err) {
       console.error("Error:", err);
@@ -643,7 +761,6 @@ const AllGamesContent = () => {
     navigate('/register');
   };
 
-  // Get provider name from URL for display
   const getProviderDisplayName = () => {
     const provider = searchParams.get('provider');
     return provider ? decodeURIComponent(provider) : null;
@@ -823,6 +940,8 @@ const AllGamesContent = () => {
                   <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                     {visibleGames.map(game => {
                       const imageUrl = getImageUrl(game);
+                      const isFavorited = favorites.has(game._id);
+                      const favoriteCount = favoriteCounts[game._id] || 0;
                       
                       return (
                         <div 
@@ -845,9 +964,37 @@ const AllGamesContent = () => {
                             
                             {/* Glow Sweep Animation */}
                             <div className="allgames-glow-sweep"></div>
+                            
                             {game.featured && (
                               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md z-10">
                                 NEW
+                              </div>
+                            )}
+                            
+                            {/* Favorite Button */}
+                            <button
+                              onClick={(e) => toggleFavorite(game._id, e, isFavorited)}
+                              disabled={isAddingFavorite}
+                              className={`absolute top-2 left-2 z-20 p-2 rounded-full transition-all duration-200 ${
+                                isFavorited 
+                                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                                  : 'bg-black/50 text-gray-300 hover:text-red-500 hover:bg-black/70'
+                              } ${isAddingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              {isFavorited ? (
+                                <IoHeart className="w-3 h-3 sm:w-4 sm:h-4" />
+                              ) : (
+                                <IoHeartOutline className="w-3 h-3 sm:w-4 sm:h-4" />
+                              )}
+                            </button>
+                            
+                            {/* Favorite Count Badge */}
+                            {favoriteCount > 0 && (
+                              <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 z-10">
+                                <span className="text-white text-[10px] sm:text-xs flex items-center gap-1">
+                                  <IoHeart className="w-2.5 h-2.5 text-red-400" />
+                                  {favoriteCount}
+                                </span>
                               </div>
                             )}
                             
@@ -1190,14 +1337,12 @@ const AllGamesContent = () => {
       )}
 
       <style jsx>{`
-        /* ── Portrait-ratio container for consistent game card sizing ── */
         .allgames-game-image-container {
           position: relative;
           width: 100%;
           overflow: hidden;
         }
 
-        /* ── Glow Sweep Animation ── */
         .allgames-glow-sweep {
           position: absolute;
           top: 0;
@@ -1226,7 +1371,6 @@ const AllGamesContent = () => {
           100% { left: 150%; opacity: 0; }
         }
 
-        /* Stagger delays so cards don't all flash at once */
         .group:nth-child(2n) .allgames-glow-sweep { animation-delay: 0.7s; }
         .group:nth-child(3n) .allgames-glow-sweep { animation-delay: 1.4s; }
         .group:nth-child(4n) .allgames-glow-sweep { animation-delay: 2.1s; }
@@ -1248,12 +1392,8 @@ const AllGamesContent = () => {
           background: #444;
         }
         @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         .animate-shimmer {
           animation: shimmer 1.5s infinite;

@@ -33,6 +33,7 @@ import ForgotPassword from "./components/ForgotPassword/ForgotPassword";
 import Security from "./pages/profile/Security";
 import Verification from "./pages/profile/Verification";
 import Bonus from "./pages/bonus/Bonus";
+import Favourite from "./pages/favourite/Favourite";
 
 const AuthContext = createContext();
 
@@ -354,6 +355,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Myreferel />
+                </ProtectedRoute>
+              }
+            />
+              <Route
+              path="/favorites"
+              element={
+                <ProtectedRoute>
+                  <Favourite />
                 </ProtectedRoute>
               }
             />

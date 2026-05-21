@@ -237,7 +237,6 @@ const CasinoContent = () => {
     event.stopPropagation();
     
     if (!user) {
-      toast.error("Please login to add favorites");
       setShowLoginPopup(true);
       return;
     }

@@ -16,6 +16,7 @@ import {
   FaSnapchat,
   FaWeixin,
   FaSkype,
+  FaDownload,
 } from "react-icons/fa";
 import { SiTiktok, SiTelegram } from "react-icons/si";
 import { IoOpenOutline } from "react-icons/io5";
@@ -34,6 +35,9 @@ const Footer = () => {
   const [socialLinks, setSocialLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
+
+  // App download URL
+  const APP_DOWNLOAD_URL = "https://apps.bajiman.com/";
 
   useEffect(() => {
     fetchBrandingData();
@@ -194,7 +198,7 @@ const Footer = () => {
                 <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerVipClub}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerReferral}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerBrandAmbassadors}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerAppDownload}</a></li>
+                <li><a href={APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors duration-200 text-[10px] flex items-center gap-1">{t.footerAppDownload} <FaDownload size={10} /></a></li>
               </ul>
             )}
           </div>
@@ -277,6 +281,11 @@ const Footer = () => {
               <li><NavLink to="/vip-club" className="hover:text-white transition-colors duration-200">{t.footerVipClub}</NavLink></li>
               <li><NavLink to="/referral-program" className="hover:text-white transition-colors duration-200">{t.footerReferral}</NavLink></li>
               <li><NavLink to="/coming-soon?title=Brand Ambassadors" className="hover:text-white transition-colors duration-200">{t.footerBrandAmbassadors}</NavLink></li>
+              <li>
+                <a href={APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors duration-200 flex items-center gap-2">
+                  {t.footerAppDownload} <FaDownload size={14} />
+                </a>
+              </li>
             </ul>
           </div>
 

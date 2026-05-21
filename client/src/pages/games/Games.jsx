@@ -6,7 +6,7 @@ import Footer from '../../components/footer/Footer';
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import logo from "../../assets/logo.png";
-import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose } from "react-icons/io5";
+import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose, IoHeart, IoHeartOutline } from "react-icons/io5";
 import { MdFilterList, MdSort } from 'react-icons/md';
 import { RiArrowLeftRightLine } from "react-icons/ri";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -145,6 +145,11 @@ const AllGamesContent = () => {
   const [scrollLeft, setScrollLeft] = useState(0);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
+  // Favorite System States
+  const [favorites, setFavorites] = useState(new Set());
+  const [favoriteCounts, setFavoriteCounts] = useState({});
+  const [isAddingFavorite, setIsAddingFavorite] = useState(false);
+  
   const autoScrollRef = useRef(null);
   
   const { user } = useAuth();
@@ -164,23 +169,157 @@ const AllGamesContent = () => {
   const getImageUrl = (game) => {
     if (!game) return logo;
     
-    // Check for different possible image fields
     const imageField = game.portraitImage || game.image || game.coverImage || game.defaultImage;
     
     if (!imageField) return logo;
     
-    // If it's already a full URL (from CDN)
     if (imageField.startsWith('http://') || imageField.startsWith('https://')) {
       return imageField;
     }
     
-    // If it's a local path
     if (imageField.startsWith('/')) {
       return `${base_url}${imageField}`;
     }
     
-    // Otherwise, assume it's a relative path
     return `${base_url}/${imageField}`;
+  };
+
+  // ==================== FAVORITE SYSTEM FUNCTIONS ====================
+  
+  // Fetch user's favorites
+  const fetchUserFavorites = async () => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      const response = await axios.get(`${base_url}/api/user/favorites`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { limit: 100 }
+      });
+      
+      if (response.data.success) {
+        const favoriteIds = new Set(response.data.data.favorites.map(fav => fav.gameId));
+        setFavorites(favoriteIds);
+        
+        // Fetch favorite counts for visible games
+        const counts = {};
+        for (const game of visibleGames) {
+          try {
+            const checkResponse = await axios.get(`${base_url}/api/user/favorites/check/${game._id}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (checkResponse.data.success) {
+              counts[game._id] = checkResponse.data.data.favoriteCount;
+            }
+          } catch (err) {
+            console.error("Error fetching favorite count:", err);
+          }
+        }
+        setFavoriteCounts(prev => ({ ...prev, ...counts }));
+      }
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+    }
+  };
+  
+  // Add game to favorites
+  const addToFavorites = async (gameId, event) => {
+    event.stopPropagation();
+    
+    if (!user) {
+      setShowLoginPopup(true);
+      return;
+    }
+    
+    setIsAddingFavorite(true);
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      const response = await axios.post(`${base_url}/api/user/favorites/${gameId}`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setFavorites(prev => new Set([...prev, gameId]));
+        toast.success("Added to favorites!");
+        
+        setFavoriteCounts(prev => ({
+          ...prev,
+          [gameId]: (prev[gameId] || 0) + 1
+        }));
+      }
+    } catch (error) {
+      console.error("Error adding to favorites:", error);
+      if (error.response?.data?.message === "Game already in favorites") {
+        toast.error("Game already in favorites");
+      } else {
+        toast.error("Failed to add to favorites");
+      }
+    } finally {
+      setIsAddingFavorite(false);
+    }
+  };
+  
+  // Remove game from favorites
+  const removeFromFavorites = async (gameId, event) => {
+    event.stopPropagation();
+    
+    if (!user) {
+      toast.error("Please login to manage favorites");
+      setShowLoginPopup(true);
+      return;
+    }
+    
+    setIsAddingFavorite(true);
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      const response = await axios.delete(`${base_url}/api/user/favorites/${gameId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setFavorites(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(gameId);
+          return newSet;
+        });
+        toast.success("Removed from favorites!");
+        
+        setFavoriteCounts(prev => ({
+          ...prev,
+          [gameId]: Math.max(0, (prev[gameId] || 1) - 1)
+        }));
+      }
+    } catch (error) {
+      console.error("Error removing from favorites:", error);
+      toast.error("Failed to remove from favorites");
+    } finally {
+      setIsAddingFavorite(false);
+    }
+  };
+  
+  // Toggle favorite
+  const toggleFavorite = (gameId, event, isFavorited) => {
+    if (isFavorited) {
+      removeFromFavorites(gameId, event);
+    } else {
+      addToFavorites(gameId, event);
+    }
+  };
+  
+  // Record that user played a favorite game
+  const recordFavoritePlay = async (gameId) => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('usertoken');
+      await axios.post(`${base_url}/api/user/favorites/${gameId}/play`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("Error recording favorite play:", error);
+    }
   };
 
   // Function to truncate provider name
@@ -260,7 +399,6 @@ const AllGamesContent = () => {
         setSelectedCategory(decodedCategory);
         setCategoryName(decodedCategory);
         
-        // Set selected provider from query if it exists
         if (providerFromQuery) {
           const decodedProvider = decodeURIComponent(providerFromQuery);
           setSelectedProvider(decodedProvider);
@@ -270,7 +408,6 @@ const AllGamesContent = () => {
         
         await fetchProvidersByCategory(decodedCategory);
         
-        // Fetch games based on category and provider from query
         if (providerFromQuery) {
           const decodedProvider = decodeURIComponent(providerFromQuery);
           await fetchGamesByCategoryAndProvider(decodedCategory, decodedProvider);
@@ -287,39 +424,28 @@ const AllGamesContent = () => {
     fetchData();
   }, [searchParams]);
 
-  // Handle provider click - WITHOUT navigation to prevent page reload
+  // Fetch favorites when user changes and games are loaded
+  useEffect(() => {
+    if (user && filteredGames.length > 0) {
+      fetchUserFavorites();
+    }
+  }, [user, filteredGames.length]);
+
+  // Handle provider click
   const handleProviderClick = async (provider) => {
-    // Set loading state
     setIsLoading(true);
-    
-    // Update selected provider
     setSelectedProvider(provider.providercode);
-    
-    // Update URL without causing navigation/reload - but we're using navigate to maintain React Router state
     navigate(`/games?category=${encodeURIComponent(categoryName)}&provider=${encodeURIComponent(provider.providercode)}`, { replace: true });
-    
-    // Fetch games for this provider
     await fetchGamesByCategoryAndProvider(categoryName, provider.providercode);
-    
-    // End loading
     setIsLoading(false);
   };
 
   // Handle "All Games" click
   const handleAllGamesClick = async () => {
-    // Set loading state
     setIsLoading(true);
-    
-    // Clear selected provider
     setSelectedProvider(null);
-    
-    // Update URL without causing navigation/reload
     navigate(`/games?category=${encodeURIComponent(categoryName)}`, { replace: true });
-    
-    // Fetch all games for this category
     await fetchGamesByCategory(categoryName);
-    
-    // End loading
     setIsLoading(false);
   };
 
@@ -346,11 +472,9 @@ const AllGamesContent = () => {
       const response = await axios.get(`${base_url}/api/all-games`);
       if (response.data.success) {
         const filteredByCategory = response.data.data.filter(game => {
-          // Check if game.category is an array
           if (Array.isArray(game.category)) {
             return game.category.some(cat => cat.toLowerCase() === category.toLowerCase());
           }
-          // If it's a string, compare directly
           return game.category?.toLowerCase() === category.toLowerCase();
         });
         setAllGames(filteredByCategory);
@@ -372,14 +496,12 @@ const AllGamesContent = () => {
       const response = await axios.get(`${base_url}/api/all-games`);
       if (response.data.success) {
         const filteredByCategoryAndProvider = response.data.data.filter(game => {
-          // Check if game.category is an array
           let categoryMatches = false;
           if (Array.isArray(game.category)) {
             categoryMatches = game.category.some(cat => cat.toLowerCase() === category.toLowerCase());
           } else {
             categoryMatches = game.category?.toLowerCase() === category.toLowerCase();
           }
-          
           return categoryMatches && game.provider?.toLowerCase() === provider.toLowerCase();
         });
         setAllGames(filteredByCategoryAndProvider);
@@ -496,11 +618,9 @@ const AllGamesContent = () => {
     let filtered = allGames;
     if (selectedCategory !== 'all') {
       filtered = allGames.filter(game => {
-        // Check if game.category is an array
         if (Array.isArray(game.category)) {
           return game.category.some(cat => cat.toLowerCase() === selectedCategory);
         }
-        // If it's a string, compare directly
         return game.category?.toLowerCase() === selectedCategory;
       });
     }
@@ -573,54 +693,45 @@ const AllGamesContent = () => {
     
     let filtered = [...allGames];
     
-    // Apply category filter
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(game => {
-        // Check if game.category is an array
         if (Array.isArray(game.category)) {
           return game.category.some(cat => cat.toLowerCase() === selectedCategory);
         }
-        // If it's a string, compare directly
         return game.category?.toLowerCase() === selectedCategory;
       });
     }
     
-    // Apply provider filter (if selected from sidebar)
     if (selectedProviders.length > 0 && !selectedProviders.includes('all')) {
       filtered = filtered.filter(game => 
         selectedProviders.includes(game.provider?.toLowerCase())
       );
     }
     
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(game => 
         game.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    // Apply game type filter
     if (selectedGameTypes.length > 0) {
       filtered = filtered.filter(game => 
         selectedGameTypes.includes(game.type?.toLowerCase() || '')
       );
     }
 
-    // Apply theme filter
     if (selectedThemes.length > 0 && !selectedThemes.includes('all')) {
       filtered = filtered.filter(game => 
         selectedThemes.includes(game.theme?.toLowerCase() || '')
       );
     }
 
-    // Apply special feature filter
     if (selectedSpecialFeatures.length > 0) {
       filtered = filtered.filter(game => 
         selectedSpecialFeatures.includes(game.specialFeature?.toLowerCase() || '')
       );
     }
 
-    // Apply sorting
     switch (sortOption) {
       case 'name-asc':
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -694,22 +805,16 @@ const AllGamesContent = () => {
     setShowFilterSidebar(false);
   };
 
-  // Handle game click
   const handleGameClick = (game) => {
     setSelectedGame(game);
-    
-    // Check if user is logged in
     if (!user) {
       setShowLoginPopup(true);
       return;
     }
-    // If user is logged in, navigate directly to game
     handleOpenGame(game);
   };
 
-// Handle opening the game
   const handleOpenGame = async (game) => {
-    // Check if user is logged in
     if (!user) {
       toast.error("Please login to play games");
       setShowLoginPopup(true);
@@ -731,7 +836,11 @@ const AllGamesContent = () => {
         throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
 
-      // Get category - handle both array and string
+      // Record play in favorites if the game is favorited
+      if (favorites.has(game._id)) {
+        await recordFavoritePlay(game._id);
+      }
+
       let categoryValue = 'slots';
       if (game.category) {
         if (Array.isArray(game.category)) {
@@ -741,7 +850,6 @@ const AllGamesContent = () => {
         }
       }
 
-      // Open game in new window/tab
       const gameUrl = `/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`;
       window.open(gameUrl, '_blank');
     } catch (err) {
@@ -762,7 +870,6 @@ const AllGamesContent = () => {
     navigate('/register');
   };
 
-  // Get category name from URL for display
   const getCategoryDisplayName = () => {
     const category = searchParams.get('category');
     return category ? decodeURIComponent(category) : null;
@@ -817,7 +924,6 @@ const AllGamesContent = () => {
                     sliderRef.current.scrollLeft = scrollLeft - walk;
                   }}
                 >
-                  {/* All Games Box - Always visible first and active by default when no provider selected */}
                   <div
                     className={`provider-card flex-shrink-0 md:w-40 bg-box_bg flex rounded-[3px] items-center justify-center gap-4 p-2 py-2.5 snap-center transform transition-all duration-200 hover:scale-105 cursor-pointer ${
                       !selectedProvider 
@@ -833,7 +939,6 @@ const AllGamesContent = () => {
                   </div>
 
                   {isLoadingProviders ? (
-                    // Show skeleton loaders while loading providers
                     Array.from({ length: 6 }).map((_, index) => (
                       <SkeletonProviderCard key={index} />
                     ))
@@ -976,6 +1081,8 @@ const AllGamesContent = () => {
                   <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                     {visibleGames.map(game => {
                       const imageUrl = getImageUrl(game);
+                      const isFavorited = favorites.has(game._id);
+                      const favoriteCount = favoriteCounts[game._id] || 0;
                       
                       return (
                         <div 
@@ -983,7 +1090,6 @@ const AllGamesContent = () => {
                           className="group relative bg-gradient-to-br from-[#1a1a1a] to-[#222] rounded-[3px] overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer shadow-lg"
                           onClick={() => handleGameClick(game)}
                         >
-                          {/* ── Image container with glow sweep and proper aspect ratio ── */}
                           <div className="games-game-image-container relative overflow-hidden w-full">
                             <div className="relative w-full pb-[133.33%] overflow-hidden bg-gradient-to-br from-[#121212] via-[#1a2344] to-[#1e2b5e]">
                               <img 
@@ -1003,6 +1109,33 @@ const AllGamesContent = () => {
                             {game.featured && (
                               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md z-10">
                                 NEW
+                              </div>
+                            )}
+                            
+                            {/* Favorite Button */}
+                            <button
+                              onClick={(e) => toggleFavorite(game._id, e, isFavorited)}
+                              disabled={isAddingFavorite}
+                              className={`absolute top-2 left-2 z-20 p-2 rounded-full transition-all duration-200 ${
+                                isFavorited 
+                                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                                  : 'bg-black/50 text-gray-300 hover:text-red-500 hover:bg-black/70'
+                              } ${isAddingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              {isFavorited ? (
+                                <IoHeart className="w-3 h-3 sm:w-4 sm:h-4" />
+                              ) : (
+                                <IoHeartOutline className="w-3 h-3 sm:w-4 sm:h-4" />
+                              )}
+                            </button>
+                            
+                            {/* Favorite Count Badge */}
+                            {favoriteCount > 0 && (
+                              <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 z-10">
+                                <span className="text-white text-[10px] sm:text-xs flex items-center gap-1">
+                                  <IoHeart className="w-2.5 h-2.5 text-red-400" />
+                                  {favoriteCount}
+                                </span>
                               </div>
                             )}
                             
@@ -1333,14 +1466,12 @@ const AllGamesContent = () => {
       )}
 
       <style jsx>{`
-        /* ── Portrait-ratio container for consistent game card sizing ── */
         .games-game-image-container {
           position: relative;
           width: 100%;
           overflow: hidden;
         }
 
-        /* ── Glow Sweep Animation ── */
         .games-glow-sweep {
           position: absolute;
           top: 0;
@@ -1369,7 +1500,6 @@ const AllGamesContent = () => {
           100% { left: 150%; opacity: 0; }
         }
 
-        /* Stagger delays so cards don't all flash at once */
         .group:nth-child(2n) .games-glow-sweep { animation-delay: 0.7s; }
         .group:nth-child(3n) .games-glow-sweep { animation-delay: 1.4s; }
         .group:nth-child(4n) .games-glow-sweep { animation-delay: 2.1s; }
@@ -1391,12 +1521,8 @@ const AllGamesContent = () => {
           background: #444;
         }
         @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         .animate-shimmer {
           animation: shimmer 1.5s infinite;

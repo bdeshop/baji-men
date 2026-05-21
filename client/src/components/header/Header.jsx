@@ -17,7 +17,8 @@ import {
   FaTelegram,
   FaInstagram,
   FaTwitter,
-  FaCoins
+  FaCoins,
+  FaStar,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { MdSupportAgent } from "react-icons/md";
@@ -47,7 +48,7 @@ import { useAuth } from "../../App";
 import { LanguageContext } from "../../context/LanguageContext";
 import telegram_icon from "../../assets/social_icon/telegram.png"
 import whatsapp_icon from "../../assets/social_icon/whatsapp.png"
-
+import favourite_img from "../../assets/favorite.png"
 const APK_FILE = "https://bajiman.com/Bajiman.apk";
 
 // ── Flag URLs ─────────────────────────────────────────────────────────────────
@@ -181,6 +182,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const [showMobileAppBanner, setShowMobileAppBanner] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
+  const [isRefreshingCoinBalance, setIsRefreshingCoinBalance] = useState(false);
 
   // Social links states
   const [socialLinks, setSocialLinks] = useState([]);
@@ -467,7 +469,25 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       setIsLoadingCategories(true);
       const response = await axios.get(`${API_BASE_URL}/api/categories`);
       if (response.data && response.data.data) {
-        const sortedCategories = sortCategoriesWithExclusiveFirst(response.data.data);
+        // Map categories to ensure each has a proper image URL
+        const categoriesWithImages = response.data.data.map(cat => {
+          // If category already has an image that is a full URL, use it
+          if (cat.image && cat.image.startsWith('http')) {
+            return cat;
+          }
+          // If image is a relative path, prepend base URL
+          if (cat.image && !cat.image.startsWith('http')) {
+            const cleanPath = cat.image.startsWith('/') ? cat.image.substring(1) : cat.image;
+            return { ...cat, image: `${API_BASE_URL}/${cleanPath}` };
+          }
+          // If no image, try to find matching default category image by name
+          const defaultCat = defaultCategories.find(dc => dc.name.toLowerCase() === cat.name.toLowerCase());
+          if (defaultCat) {
+            return { ...cat, image: defaultCat.image };
+          }
+          return cat;
+        });
+        const sortedCategories = sortCategoriesWithExclusiveFirst(categoriesWithImages);
         setCategories(sortedCategories);
         localStorage.setItem("categories", JSON.stringify(sortedCategories));
       }
@@ -634,6 +654,26 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       toast.error(t.failedRefreshBalance);
     } finally {
       setIsRefreshingBalance(false);
+    }
+  };
+
+  const refreshCoinBalance = async () => {
+    if (!isLoggedIn) return;
+
+    try {
+      setIsRefreshingCoinBalance(true);
+      const token = localStorage.getItem("usertoken");
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      const response = await axios.get(`${API_BASE_URL}/api/user/my-information`);
+      if (response.data.success) {
+        setUserData(response.data.data);
+        localStorage.setItem("user", JSON.stringify(response.data.data));
+      }
+    } catch (error) {
+      console.error("Error refreshing coin balance:", error);
+    } finally {
+      setIsRefreshingCoinBalance(false);
     }
   };
 
@@ -831,27 +871,65 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
     return `${API_BASE_URL}/${cleanPath}`;
   };
-const [isRefreshingCoinBalance, setIsRefreshingCoinBalance] = useState(false);
 
-const refreshCoinBalance = async () => {
-  if (!isLoggedIn) return;
-  
-  try {
-    setIsRefreshingCoinBalance(true);
-    const token = localStorage.getItem("usertoken");
-    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  // Helper function to get category icon/image
+  const getCategoryImage = (category) => {
+    if (!category) return '';
     
-    const response = await axios.get(`${API_BASE_URL}/api/user/my-information`);
-    if (response.data.success) {
-      setUserData(response.data.data);
-      localStorage.setItem("user", JSON.stringify(response.data.data));
+    // If category has an image URL, use it
+    if (category.image) {
+      // If it's a full URL, return as is
+      if (category.image.startsWith('http')) {
+        return category.image;
+      }
+      // If it's a relative path, prepend base URL
+      const cleanPath = category.image.startsWith('/') ? category.image.substring(1) : category.image;
+      return `${API_BASE_URL}/${cleanPath}`;
     }
-  } catch (error) {
-    console.error("Error refreshing coin balance:", error);
-  } finally {
-    setIsRefreshingCoinBalance(false);
-  }
-};
+    
+    // Fallback to default category image by name
+    const defaultCat = defaultCategories.find(dc => dc.name.toLowerCase() === category.name.toLowerCase());
+    if (defaultCat) {
+      return defaultCat.image;
+    }
+    
+    // Ultimate fallback
+    return "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc";
+  };
+
+  // Create categories list with Favorite category if logged in
+  const getFilteredCategories = () => {
+    let filteredCategories = [...categories];
+    
+    // Add Favorite category at the top if user is logged in
+    if (isLoggedIn) {
+      const favoriteCategory = {
+        name: "Favorites",
+        image: favourite_img,
+        id: "favorites",
+        isFavorite: true,
+        path: "/favourites"
+      };
+      filteredCategories = [favoriteCategory, ...filteredCategories];
+    }
+    
+    return filteredCategories;
+  };
+
+  // Handle category click including favorite navigation
+  const handleSidebarCategoryClick = (category) => {
+    // If it's the favorites category, navigate directly
+    if (category.isFavorite) {
+      navigate(category.path);
+      setSidebarOpen(false);
+      setActiveMenu(null);
+      return;
+    }
+    
+    // Regular category handling
+    handleCategoryClick(category);
+  };
+
   return (
     <>
       <Toaster />
@@ -964,23 +1042,23 @@ const refreshCoinBalance = async () => {
               <div className="hidden md:flex items-center rounded overflow-hidden gap-2">
                 {/* Main Balance Box */}
                 <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
-  <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
-    <FaCoins className="w-4 h-4" />
-    <span className="min-w-[60px] font-medium">
-      {userData?.coinBalance?.toLocaleString() || 0}
-    </span>
-  </div>
-  <button
-    className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-    onClick={refreshCoinBalance}
-    disabled={isRefreshingCoinBalance}
-    aria-label={t.refreshCoinBalance}
-  >
-    <FiRefreshCw
-      className={`w-4 h-4 ${isRefreshingCoinBalance ? 'animate-spin' : ''}`}
-    />
-  </button>
-</div>
+                  <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
+                    <FaCoins className="w-4 h-4" />
+                    <span className="min-w-[60px] font-medium">
+                      {userData?.coinBalance?.toLocaleString() || 0}
+                    </span>
+                  </div>
+                  <button
+                    className="px-3 py-2 hover:bg-[#444] cursor-pointer text-white transition-colors duration-200 border-l border-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={refreshCoinBalance}
+                    disabled={isRefreshingCoinBalance}
+                    aria-label={t.refreshCoinBalance}
+                  >
+                    <FiRefreshCw
+                      className={`w-4 h-4 ${isRefreshingCoinBalance ? 'animate-spin' : ''}`}
+                    />
+                  </button>
+                </div>
                 <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
                   <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
                     <img
@@ -1004,9 +1082,7 @@ const refreshCoinBalance = async () => {
                   </button>
                 </div>
 
-                {/* Coin Balance Box */}
-           {/* Coin Balance Box - Same style as BDT but with different icon and color */}
-
+                {/* Coin Balance Box - Same style as BDT but with different icon and color */}
                 <div className="flex justify-center items-center gap-2">
                   <NavLink
                     to="/member/withdraw"
@@ -1132,20 +1208,6 @@ const refreshCoinBalance = async () => {
             <img className="w-full" src={banner} alt="" />
           </div>
 
-          {/* Download App in Sidebar */}
-          <div className="px-2 mt-4">
-            <button
-              className="flex items-center p-3 rounded w-full bg-gradient-to-r from-theme_color/20 to-theme_color/10 text-theme_color cursor-pointer hover:bg-theme_color/30 transition-all duration-200 border border-theme_color/30"
-              onClick={() => { downloadFileAtURL(APK_FILE) }}
-            >
-              <FaMobileAlt className="w-6 h-6 min-w-[24px]" />
-              <div className="flex items-center ml-3 w-full">
-                <span className="text-sm font-semibold flex-grow">{t.downloadAppNow}</span>
-                <FaChevronRight className="text-xs" />
-              </div>
-            </button>
-          </div>
-
           <div className="space-y-1 px-2 mt-[15px]">
             {isLoadingCategories && (
               <div className="text-center py-4 text-gray-400 text-sm">
@@ -1153,95 +1215,98 @@ const refreshCoinBalance = async () => {
               </div>
             )}
 
-            {/* Categories List - Exclusive always at top */}
-            {categories.map((category, index) => (
+            {/* Categories List - with Favorites at top when logged in */}
+            {getFilteredCategories().map((category, index) => (
               <div key={index}>
                 <div
                   className={`flex items-center p-3 rounded cursor-pointer hover:text-gray-500 text-gray-400 transition-colors duration-200 ${
                     activeMenu === category.name ? "" : ""
                   }`}
-                  onClick={() => handleCategoryClick(category)}
+                  onClick={() => handleSidebarCategoryClick(category)}
                 >
                   <img
-                    src={category.image}
+                    src={getCategoryImage(category)}
                     alt={category.name}
-                    className="w-5 h-5 min-w-[20px]"
+                    className="w-5 h-5 min-w-[20px] object-contain"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = `https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc`;
+                      e.target.src = "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc";
                     }}
                   />
                   <div className="flex items-center ml-3 w-full">
                     <span className="text-sm flex-grow whitespace-nowrap">
                       {category.name}
                     </span>
-                    {activeMenu === category.name ? (
+                    {!category.isFavorite && (activeMenu === category.name ? (
                       <FaChevronDown className="text-xs transition-transform duration-200" />
                     ) : (
                       <FaChevronRight className="text-xs transition-transform duration-200" />
-                    )}
+                    ))}
                   </div>
                 </div>
-                <div
-                  className={`overflow-y-auto transition-all duration-300 ease-in-out ${
-                    activeMenu === category.name ? "max-h-screen" : "max-h-0"
-                  }`}
-                >
-                  {activeMenu === category.name && (
-                    <div className="ml-2 mt-1 mb-2">
-                      {sidebarLoading ? (
-                        <div className="p-4 text-center text-[12px] text-gray-400">
-                          {t.loading}
-                        </div>
-                      ) : category.name.toLowerCase() === "exclusive" ? (
-                        <div className="grid grid-cols-2 md:grid-cols-2 gap-2 p-2">
-                          {exclusiveGames.map((game, gameIndex) => (
-                            <div
-                              key={gameIndex}
-                              className="flex flex-col items-center rounded-[3px] transition-all cursor-pointer group"
-                              onClick={() => handleGameClick(game)}
-                            >
-                              <div className="game-image-container w-full mb-2">
-                                <img
-                                  src={getGameImageUrl(game)}
-                                  alt={game.name || game.gameName}
-                                  className="game-image rounded-[6px] transition-transform duration-300 group-hover:scale-105"
-                                  onError={(e) => {
-                                    e.target.src = "https://via.placeholder.com/100x133?text=Game";
-                                  }}
-                                />
+                {/* Only show submenu for non-favorite categories */}
+                {!category.isFavorite && (
+                  <div
+                    className={`overflow-y-auto transition-all duration-300 ease-in-out ${
+                      activeMenu === category.name ? "max-h-screen" : "max-h-0"
+                    }`}
+                  >
+                    {activeMenu === category.name && (
+                      <div className="ml-2 mt-1 mb-2">
+                        {sidebarLoading ? (
+                          <div className="p-4 text-center text-[12px] text-gray-400">
+                            {t.loading}
+                          </div>
+                        ) : category.name.toLowerCase() === "exclusive" ? (
+                          <div className="grid grid-cols-2 md:grid-cols-2 gap-2 p-2">
+                            {exclusiveGames.map((game, gameIndex) => (
+                              <div
+                                key={gameIndex}
+                                className="flex flex-col items-center rounded-[3px] transition-all cursor-pointer group"
+                                onClick={() => handleGameClick(game)}
+                              >
+                                <div className="game-image-container w-full mb-2">
+                                  <img
+                                    src={getGameImageUrl(game)}
+                                    alt={game.name || game.gameName}
+                                    className="game-image rounded-[6px] transition-transform duration-300 group-hover:scale-105"
+                                    onError={(e) => {
+                                      e.target.src = "https://via.placeholder.com/100x133?text=Game";
+                                    }}
+                                  />
+                                </div>
+                                <div className="w-full pt-1">
+                                  <span className="text-xs text-gray-400 truncate block text-center">
+                                    {game.name || game.gameName || "Game"}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="w-full pt-1">
-                                <span className="text-xs text-gray-400 truncate block text-center">
-                                  {game.name || game.gameName || "Game"}
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {providers.map((provider, providerIndex) => (
+                              <div
+                                key={providerIndex}
+                                className="flex items-center p-2 rounded cursor-pointer hover:bg-[#333] transition-colors duration-200"
+                                onClick={() => handleProviderClick(provider)}
+                              >
+                                <img
+                                  src={`${API_BASE_URL}/${provider.image}`}
+                                  alt={provider.name}
+                                  className="w-6 h-6 mr-2"
+                                />
+                                <span className="text-xs text-gray-400">
+                                  {provider.name}
                                 </span>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {providers.map((provider, providerIndex) => (
-                            <div
-                              key={providerIndex}
-                              className="flex items-center p-2 rounded cursor-pointer hover:bg-[#333] transition-colors duration-200"
-                              onClick={() => handleProviderClick(provider)}
-                            >
-                              <img
-                                src={`${API_BASE_URL}/${provider.image}`}
-                                alt={provider.name}
-                                className="w-6 h-6 mr-2"
-                              />
-                              <span className="text-xs text-gray-400">
-                                {provider.name}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1398,7 +1463,6 @@ const refreshCoinBalance = async () => {
                           <span className="text-xs font-medium text-indigo-300">{t.facebook}</span>
                         </div>
 
-
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-sky-900/20 to-sky-700/10 border border-sky-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
                           onClick={() => window.open("https://t.me/bajiman", "_blank")}
@@ -1408,8 +1472,6 @@ const refreshCoinBalance = async () => {
                           </div>
                           <span className="text-xs font-medium text-sky-300">{t.telegram}</span>
                         </div>
-
-            
                       </div>
                     )}
                   </div>
