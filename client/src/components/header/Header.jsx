@@ -206,6 +206,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     );
   };
 
+  // ── Translate category name using translation keys ──
+  const translateCategoryName = (name) => {
+    if (!name) return name;
+    const key = name.toLowerCase();
+    return t[key] || name; // fallback to original name if no translation found
+  };
+
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const popupRef = useRef(null);
@@ -1155,7 +1162,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             {/* Static Favorites Category - shown first when logged in */}
             {renderFavoritesCategory()}
 
-            {/* Dynamic Categories from API */}
+            {/* Dynamic Categories from API with translated names */}
             {categories.map((category, index) => (
               <div key={index}>
                 <div
@@ -1175,7 +1182,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   />
                   <div className="flex items-center ml-3 w-full">
                     <span className="text-sm flex-grow whitespace-nowrap">
-                      {category.name}
+                      {translateCategoryName(category.name)}
                     </span>
                     {activeMenu === category.name ? (
                       <FaChevronDown className="text-xs transition-transform duration-200" />
@@ -1485,14 +1492,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <img src={slot_img} alt="Slots" className="h-6 w-6 mb-1" />
             <span>{t.slots}</span>
           </NavLink>
-
-          <button
-            onClick={() => downloadFileAtURL(APK_FILE)}
-            className="flex flex-col items-center justify-center p-2 text-xs text-theme_color hover:text-yellow-400 transition-colors"
-          >
-            <FaMobileAlt className="h-6 w-6 mb-1" />
-            <span>{t.app}</span>
-          </button>
 
           {isLoggedIn ? (
             <NavLink

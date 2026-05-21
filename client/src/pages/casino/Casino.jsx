@@ -9,7 +9,7 @@ import logo from "../../assets/logo.png";
 import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose, IoHeart, IoHeartOutline } from "react-icons/io5";
 import { MdFilterList, MdSort } from 'react-icons/md';
 import { RiArrowLeftRightLine } from "react-icons/ri";
-
+import favourite_img from "../../assets/favorite.png"
 // Create Auth Context
 const AuthContext = createContext();
 
