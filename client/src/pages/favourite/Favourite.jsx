@@ -625,7 +625,7 @@ const FavoritesContent = () => {
                     <span className="hidden sm:inline">{getSortOptionText()}</span>
                   </button>
                   {showSortDropdown && (
-                    <div className="absolute top-full right-0 bg-[#222] border border-[#333] rounded-lg shadow-lg z-20 mt-1 overflow-hidden w-48">
+                    <div className="absolute top-full right-0 bg-[#222] border border-[#333] rounded-lg shadow-lg z-[1000] mt-1 overflow-hidden w-48">
                       <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'createdAt-desc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('createdAt-desc')}>Newest First</div>
                       <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'createdAt-asc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('createdAt-asc')}>Oldest First</div>
                       <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'name-asc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('name-asc')}>Name (A-Z)</div>

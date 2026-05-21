@@ -827,6 +827,11 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const getCategoryImage = (category) => {
     if (!category) return '';
     
+    // For Favorites category, use the static favourite_img
+    if (category.name === "Favorites") {
+      return favourite_img;
+    }
+    
     if (category.image) {
       if (category.image.startsWith('http')) {
         return category.image;
@@ -843,32 +848,33 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     return "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc";
   };
 
-  const getFilteredCategories = () => {
-    let filteredCategories = [...categories];
+  // Static Favorites category - only shown when logged in
+  const renderFavoritesCategory = () => {
+    if (!isLoggedIn) return null;
     
-    if (isLoggedIn) {
-      const favoriteCategory = {
-        name: "Favorites",
-        image: favourite_img,
-        id: "favorites",
-        isFavorite: true,
-        path: "/favourites"
-      };
-      filteredCategories = [favoriteCategory, ...filteredCategories];
-    }
-    
-    return filteredCategories;
-  };
-
-  const handleSidebarCategoryClick = (category) => {
-    if (category.isFavorite) {
-      navigate(category.path);
-      setSidebarOpen(false);
-      setActiveMenu(null);
-      return;
-    }
-    
-    handleCategoryClick(category);
+    return (
+      <div key="favorites">
+        <div
+          className="flex items-center p-3 rounded cursor-pointer hover:text-gray-500 text-gray-400 transition-colors duration-200"
+          onClick={() => {
+            navigate("/favourites");
+            setSidebarOpen(false);
+            setActiveMenu(null);
+          }}
+        >
+          <img
+            src={favourite_img}
+            alt="Favorites"
+            className="w-5 h-5 min-w-[20px] object-contain"
+          />
+          <div className="flex items-center ml-3 w-full">
+            <span className="text-sm flex-grow whitespace-nowrap">
+              Favorites
+            </span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -1139,7 +1145,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <img className="w-full" src={banner} alt="" />
           </div>
 
-
           <div className="space-y-1 px-2 mt-[15px]">
             {isLoadingCategories && (
               <div className="text-center py-4 text-gray-400 text-sm">
@@ -1147,13 +1152,17 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
               </div>
             )}
 
-            {getFilteredCategories().map((category, index) => (
+            {/* Static Favorites Category - shown first when logged in */}
+            {renderFavoritesCategory()}
+
+            {/* Dynamic Categories from API */}
+            {categories.map((category, index) => (
               <div key={index}>
                 <div
                   className={`flex items-center p-3 rounded cursor-pointer hover:text-gray-500 text-gray-400 transition-colors duration-200 ${
                     activeMenu === category.name ? "" : ""
                   }`}
-                  onClick={() => handleSidebarCategoryClick(category)}
+                  onClick={() => handleCategoryClick(category)}
                 >
                   <img
                     src={getCategoryImage(category)}
@@ -1168,75 +1177,76 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     <span className="text-sm flex-grow whitespace-nowrap">
                       {category.name}
                     </span>
-                    {!category.isFavorite && (activeMenu === category.name ? (
+                    {activeMenu === category.name ? (
                       <FaChevronDown className="text-xs transition-transform duration-200" />
                     ) : (
                       <FaChevronRight className="text-xs transition-transform duration-200" />
-                    ))}
-                  </div>
-                </div>
-                {!category.isFavorite && (
-                  <div
-                    className={`overflow-y-auto transition-all duration-300 ease-in-out ${
-                      activeMenu === category.name ? "max-h-screen" : "max-h-0"
-                    }`}
-                  >
-                    {activeMenu === category.name && (
-                      <div className="ml-2 mt-1 mb-2">
-                        {sidebarLoading ? (
-                          <div className="p-4 text-center text-[12px] text-gray-400">
-                            {t.loading}
-                          </div>
-                        ) : category.name.toLowerCase() === "exclusive" ? (
-                          <div className="grid grid-cols-2 md:grid-cols-2 gap-2 p-2">
-                            {exclusiveGames.map((game, gameIndex) => (
-                              <div
-                                key={gameIndex}
-                                className="flex flex-col items-center rounded-[3px] transition-all cursor-pointer group"
-                                onClick={() => handleGameClick(game)}
-                              >
-                                <div className="game-image-container w-full mb-2">
-                                  <img
-                                    src={getGameImageUrl(game)}
-                                    alt={game.name || game.gameName}
-                                    className="game-image rounded-[6px] transition-transform duration-300 group-hover:scale-105"
-                                    onError={(e) => {
-                                      e.target.src = "https://via.placeholder.com/100x133?text=Game";
-                                    }}
-                                  />
-                                </div>
-                                <div className="w-full pt-1">
-                                  <span className="text-xs text-gray-400 truncate block text-center">
-                                    {game.name || game.gameName || "Game"}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {providers.map((provider, providerIndex) => (
-                              <div
-                                key={providerIndex}
-                                className="flex items-center p-2 rounded cursor-pointer hover:bg-[#333] transition-colors duration-200"
-                                onClick={() => handleProviderClick(provider)}
-                              >
-                                <img
-                                  src={`${API_BASE_URL}/${provider.image}`}
-                                  alt={provider.name}
-                                  className="w-6 h-6 mr-2"
-                                />
-                                <span className="text-xs text-gray-400">
-                                  {provider.name}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
-                )}
+                </div>
+                <div
+                  className={`overflow-y-auto transition-all duration-300 ease-in-out ${
+                    activeMenu === category.name ? "max-h-screen" : "max-h-0"
+                  }`}
+                >
+                  {activeMenu === category.name && (
+                    <div className="ml-2 mt-1 mb-2">
+                      {sidebarLoading ? (
+                        <div className="p-4 text-center text-[12px] text-gray-400">
+                          {t.loading}
+                        </div>
+                      ) : category.name.toLowerCase() === "exclusive" ? (
+                        <div className="grid grid-cols-2 md:grid-cols-2 gap-2 p-2">
+                          {exclusiveGames.map((game, gameIndex) => (
+                            <div
+                              key={gameIndex}
+                              className="flex flex-col items-center rounded-[3px] transition-all cursor-pointer group"
+                              onClick={() => handleGameClick(game)}
+                            >
+                              <div className="game-image-container w-full mb-2">
+                                <img
+                                  src={getGameImageUrl(game)}
+                                  alt={game.name || game.gameName}
+                                  className="game-image rounded-[6px] transition-transform duration-300 group-hover:scale-105"
+                                  onError={(e) => {
+                                    e.target.src = "https://via.placeholder.com/100x133?text=Game";
+                                  }}
+                                />
+                              </div>
+                              <div className="w-full pt-1">
+                                <span className="text-xs text-gray-400 truncate block text-center">
+                                  {game.name || game.gameName || "Game"}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {providers.map((provider, providerIndex) => (
+                            <div
+                              key={providerIndex}
+                              className="flex items-center p-2 rounded cursor-pointer hover:bg-[#333] transition-colors duration-200"
+                              onClick={() => handleProviderClick(provider)}
+                            >
+                              <img
+                                src={`${API_BASE_URL}/${provider.image}`}
+                                alt={provider.name}
+                                className="w-6 h-6 mr-2"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                              <span className="text-xs text-gray-400">
+                                {provider.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
