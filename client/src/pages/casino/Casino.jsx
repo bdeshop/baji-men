@@ -915,9 +915,6 @@ const CasinoContent = () => {
                         src={getImageUrl({ portraitImage: categories.find(c => c.value === selectedCategory).image })}
                         alt="" 
                         className="w-6 h-6 object-cover rounded mr-2" 
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
                       />
                     )}
                     <i className={`${categories.find(c => c.value === selectedCategory)?.icon || "fas fa-list"} mr-2 text-yellow-500`}></i>
@@ -939,9 +936,6 @@ const CasinoContent = () => {
                             src={getImageUrl({ portraitImage: category.image })} 
                             alt="" 
                             className="mr-2 w-4 h-4 object-cover rounded" 
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
                           />
                         )}
                         <i className={`${category.icon} mr-2 ${selectedCategory === category.value ? 'text-theme_color' : 'text-gray-400'}`}></i>
@@ -1408,9 +1402,6 @@ const CasinoContent = () => {
                 src={dynamicLogo}
                 alt="BJ Member Logo" 
                 className="h-12"
-                onError={(e) => {
-                  e.target.src = logo;
-                }}
               />
             </div>
             <p className="text-gray-300 text-xs sm:text-[15px] text-center mb-6">
