@@ -18,6 +18,7 @@ import {
   FaInstagram,
   FaTwitter,
   FaCoins,
+  FaHome,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { MdSupportAgent } from "react-icons/md";
@@ -327,6 +328,17 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     }
 
     return true;
+  };
+
+  // Handle home click - reload and navigate to home page
+  const handleHomeClick = () => {
+    setSidebarOpen(false);
+    // Navigate to home page
+    navigate("/");
+    // Small delay to ensure navigation completes before reload
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   useEffect(() => {
@@ -884,6 +896,36 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     );
   };
 
+  // Render Mobile Sidebar with Home and Live Chat
+  const renderMobileSidebarHeader = () => {
+    if (!sidebarOpen) return null;
+    
+    return (
+      <div className="w-full flex justify-between items-center px-4 pt-4 pb-3 md:sticky top-0 left-0 bg-[#1A1A1A]">
+        {/* Home Icon - Left side */}
+        <button
+          onClick={handleHomeClick}
+          className="bg-[#222424] p-2.5 rounded-[3px] flex items-center justify-center cursor-pointer hover:bg-[#2a2a2a] transition"
+        >
+          <FaHome className="text-white text-[18px]" />
+        </button>
+        
+        {/* Live Chat Link */}
+        <a
+          href="https://wa.me/+447311133922"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 ml-3"
+        >
+          <span className="bg-[#222424] text-[16px] px-2 py-2.5 rounded-[3px] text-center flex justify-center items-center gap-3 cursor-pointer hover:bg-[#2a2a2a] transition">
+            <MdSupportAgent className="text-white text-[20px]" />
+            <span className="text-[13px]">{t.liveChat}</span>
+          </span>
+        </a>
+      </div>
+    );
+  };
+
   return (
     <>
       <Toaster />
@@ -1110,16 +1152,22 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       >
         <button
           onClick={() => setSidebarOpen(false)}
-          className="md:hidden absolute top-3 right-3 cursor-pointer p-2 rounded-[3px] bg-[#303232] hover:bg-[#333] z-50"
+          className="md:hidden absolute top-3 right-3 cursor-pointer p-2 rounded-[3px]  z-50"
         >
           <IoClose size={18} />
         </button>
         <div
-          className={`w-full md:w-80 transition-opacity duration-300 ${
+          className={`w-full pt-[30px] md:pt-[10px] md:w-80 transition-opacity duration-300 ${
             sidebarOpen ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div className="w-full flex justify-start items-center px-4 pt-4 pb-3 md:sticky top-0 left-0 bg-[#1A1A1A]">
+          {/* Mobile Sidebar Header with Home Icon (Left) and Live Chat (Right area) */}
+          <div className="md:hidden">
+            {renderMobileSidebarHeader()}
+          </div>
+          
+          {/* Desktop Live Chat - same as before */}
+          <div className="w-full hidden md:flex justify-start items-center px-4 pt-4 pb-3 md:sticky top-0 left-0 bg-[#1A1A1A]">
             <a
               href="https://wa.me/+447311133922"
               target="_blank"
@@ -1434,7 +1482,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
-
+{/* 
       {showMobileAppBanner && isMobileDevice() && (
         <div className="fixed bottom-0 left-0 h-full right-0 flex justify-center items-end bg-[rgba(0,0,0,0.4)] border-t border-[#333] z-[10001] shadow-lg">
           <div className="w-full flex items-center justify-between bg-gradient-to-r from-[#1a1a1a] to-[#2a2a2a] p-3">
@@ -1464,7 +1512,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-[#333] z-50"
            style={showMobileAppBanner ? { bottom: '80px' } : {}}>
@@ -1492,7 +1540,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <img src={slot_img} alt="Slots" className="h-6 w-6 mb-1" />
             <span>{t.slots}</span>
           </NavLink>
-
           {isLoggedIn ? (
             <NavLink
               to="/my-profile"
