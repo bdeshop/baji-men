@@ -18,7 +18,6 @@ import {
   FaInstagram,
   FaTwitter,
   FaCoins,
-  FaStar,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { MdSupportAgent } from "react-icons/md";
@@ -66,7 +65,6 @@ const LanguageToggle = ({ isBangla, onToggle, compact = false }) => {
         userSelect: "none",
       }}
     >
-      {/* EN label (only shown when not compact) */}
       {!compact && (
         <span
           style={{
@@ -83,7 +81,6 @@ const LanguageToggle = ({ isBangla, onToggle, compact = false }) => {
         </span>
       )}
 
-      {/* Toggle pill */}
       <button
         onClick={onToggle}
         aria-label={isBangla ? "Switch to English" : "Switch to Bangla"}
@@ -102,7 +99,6 @@ const LanguageToggle = ({ isBangla, onToggle, compact = false }) => {
           transition: "background 0.25s",
         }}
       >
-        {/* Sliding flag circle */}
         <span
           style={{
             position: "absolute",
@@ -133,7 +129,6 @@ const LanguageToggle = ({ isBangla, onToggle, compact = false }) => {
         </span>
       </button>
 
-      {/* BN label (only shown when not compact) */}
       {!compact && (
         <span
           style={{
@@ -157,9 +152,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
-  // ── Translation hook ────────────────────────────────────────────────────────
   const { t, language, changeLanguage } = useContext(LanguageContext);
-  // ────────────────────────────────────────────────────────────────────────────
 
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeSubMenu, setActiveSubMenu] = useState(null);
@@ -184,12 +177,9 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [isRefreshingCoinBalance, setIsRefreshingCoinBalance] = useState(false);
 
-  // Social links states
   const [socialLinks, setSocialLinks] = useState([]);
   const [loadingSocialLinks, setLoadingSocialLinks] = useState(false);
 
-  // ── Language state — now derived from LanguageContext ────────────────────────
-  // isBangla is true when the context language code is "bn"
   const isBangla = language.code === "bn";
 
   const handleLanguageToggle = () => {
@@ -207,11 +197,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         };
 
     changeLanguage(nextLang);
-
-    // Keep localStorage string key "language" = "bn"/"en" for backward-compat
     localStorage.setItem("language", next ? "bn" : "en");
-
-    // Notify other components
     window.dispatchEvent(
       new StorageEvent("storage", {
         key: "language",
@@ -219,13 +205,11 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       })
     );
   };
-  // ────────────────────────────────────────────────────────────────────────────
 
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const popupRef = useRef(null);
 
-  // Default categories with provided images - Exclusive always first
   const defaultCategories = [
     {
       name: "Exclusive",
@@ -274,7 +258,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     }
   ];
 
-  // Function to sort categories with Exclusive always first
   const sortCategoriesWithExclusiveFirst = (categories) => {
     if (!categories || categories.length === 0) return defaultCategories;
 
@@ -291,7 +274,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     return [exclusiveCategory, ...otherCategories];
   };
 
-  // Default social links fallback
   const getDefaultSocialLinks = () => [
     {
       platform: "whatsapp",
@@ -313,12 +295,10 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     }
   ];
 
-  // Check if device is mobile
   const isMobileDevice = () => {
     return window.innerWidth < 768;
   };
 
-  // Check banner visibility based on localStorage
   const checkBannerVisibility = () => {
     if (!isMobileDevice()) return false;
 
@@ -469,18 +449,14 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       setIsLoadingCategories(true);
       const response = await axios.get(`${API_BASE_URL}/api/categories`);
       if (response.data && response.data.data) {
-        // Map categories to ensure each has a proper image URL
         const categoriesWithImages = response.data.data.map(cat => {
-          // If category already has an image that is a full URL, use it
           if (cat.image && cat.image.startsWith('http')) {
             return cat;
           }
-          // If image is a relative path, prepend base URL
           if (cat.image && !cat.image.startsWith('http')) {
             const cleanPath = cat.image.startsWith('/') ? cat.image.substring(1) : cat.image;
             return { ...cat, image: `${API_BASE_URL}/${cleanPath}` };
           }
-          // If no image, try to find matching default category image by name
           const defaultCat = defaultCategories.find(dc => dc.name.toLowerCase() === cat.name.toLowerCase());
           if (defaultCat) {
             return { ...cat, image: defaultCat.image };
@@ -742,35 +718,11 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       icon: <FiUsers />,
       path: "/referral-program/details",
     },
-    // NEW: Bonuses menu item
     {
       id: "bonuses",
       label: t.bonuses || "Bonuses",
       icon: <FaGift />,
       path: "/member/bonuses",
-    },
-  ];
-
-  const secondaryMenuItems = [
-    {
-      title: t.promotions,
-      icon: <FaGift className="w-5 h-5 min-w-[20px]" />,
-      subItems: ["Welcome Bonus", "Reload Bonus", "Cashback"],
-    },
-    {
-      title: t.vipClub,
-      icon: <FaCrown className="w-5 h-5 min-w-[20px]" />,
-      subItems: ["VIP Levels", "Exclusive Rewards", "Personal Manager"],
-    },
-    {
-      title: t.referralProgram,
-      icon: <FaUserFriends className="w-5 h-5 min-w-[20px]" />,
-      subItems: ["Invite Friends", "Earn Commission", "Bonus Terms"],
-    },
-    {
-      title: t.affiliate,
-      icon: <FaHandshake className="w-5 h-5 min-w-[20px]" />,
-      subItems: ["Join Program", "Marketing Tools", "Commission Rates"],
     },
   ];
 
@@ -872,36 +824,28 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     return `${API_BASE_URL}/${cleanPath}`;
   };
 
-  // Helper function to get category icon/image
   const getCategoryImage = (category) => {
     if (!category) return '';
     
-    // If category has an image URL, use it
     if (category.image) {
-      // If it's a full URL, return as is
       if (category.image.startsWith('http')) {
         return category.image;
       }
-      // If it's a relative path, prepend base URL
       const cleanPath = category.image.startsWith('/') ? category.image.substring(1) : category.image;
       return `${API_BASE_URL}/${cleanPath}`;
     }
     
-    // Fallback to default category image by name
     const defaultCat = defaultCategories.find(dc => dc.name.toLowerCase() === category.name.toLowerCase());
     if (defaultCat) {
       return defaultCat.image;
     }
     
-    // Ultimate fallback
     return "https://img.b112j.com/bj/h5/assets/v3/images/icon-set/menu-type/inactive/icon-exclusive.png?v=1767857219215&source=drccdnsrc";
   };
 
-  // Create categories list with Favorite category if logged in
   const getFilteredCategories = () => {
     let filteredCategories = [...categories];
     
-    // Add Favorite category at the top if user is logged in
     if (isLoggedIn) {
       const favoriteCategory = {
         name: "Favorites",
@@ -916,9 +860,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
     return filteredCategories;
   };
 
-  // Handle category click including favorite navigation
   const handleSidebarCategoryClick = (category) => {
-    // If it's the favorites category, navigate directly
     if (category.isFavorite) {
       navigate(category.path);
       setSidebarOpen(false);
@@ -926,7 +868,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       return;
     }
     
-    // Regular category handling
     handleCategoryClick(category);
   };
 
@@ -988,7 +929,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                       <div className="text-xs text-gray-500 mt-1">
                         {t.playerId}: {userData?.player_id || "N/A"}
                       </div>
-                      {/* Coin Balance in Profile Dropdown */}
                       <div className="flex items-center gap-1 mt-2 text-xs text-yellow-400">
                         <FaCoins className="w-3 h-3" />
                         <span>Coins: {userData?.coinBalance || 0}</span>
@@ -1029,18 +969,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
           )}
         </div>
         <div className="flex items-center space-x-3">
-
-          {/* ── Language Toggle — desktop only ────────────────────────────── */}
           <div className="hidden md:flex items-center">
             <LanguageToggle isBangla={isBangla} onToggle={handleLanguageToggle} />
           </div>
-          {/* ──────────────────────────────────────────────────────────────── */}
 
           {isLoggedIn ? (
             <>
-              {/* Desktop View */}
               <div className="hidden md:flex items-center rounded overflow-hidden gap-2">
-                {/* Main Balance Box */}
                 <div className="bg-box_bg rounded-[5px] h-10 border-[1px] border-gray-800 flex items-center">
                   <div className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#1f1f1f] text-white">
                     <FaCoins className="w-4 h-4" />
@@ -1082,7 +1017,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   </button>
                 </div>
 
-                {/* Coin Balance Box - Same style as BDT but with different icon and color */}
                 <div className="flex justify-center items-center gap-2">
                   <NavLink
                     to="/member/withdraw"
@@ -1099,7 +1033,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                 </div>
               </div>
 
-              {/* Mobile View - Only show balance, no coin balance */}
               <div className="md:hidden flex px-[10px] items-center gap-2">
                 <div className="bg-box_bg rounded-[5px] border-[1px] border-gray-800 flex items-center">
                   <div className="flex items-center space-x-2 px-3 py-2 text-sm">
@@ -1187,7 +1120,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             </a>
           </div>
 
-          {/* ── Language Toggle in Sidebar ────────────────────────────────── */}
           <div className="px-4 py-3 border-b border-[#2a2a2a]">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-400">{t.language}</span>
@@ -1202,10 +1134,22 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
               </div>
             </div>
           </div>
-          {/* ──────────────────────────────────────────────────────────────── */}
 
           <div className="p-[10px]">
             <img className="w-full" src={banner} alt="" />
+          </div>
+
+          <div className="px-2 mt-4">
+            <button
+              className="flex items-center p-3 rounded w-full bg-gradient-to-r from-theme_color/20 to-theme_color/10 text-theme_color cursor-pointer hover:bg-theme_color/30 transition-all duration-200 border border-theme_color/30"
+              onClick={() => { downloadFileAtURL(APK_FILE) }}
+            >
+              <FaMobileAlt className="w-6 h-6 min-w-[24px]" />
+              <div className="flex items-center ml-3 w-full">
+                <span className="text-sm font-semibold flex-grow">{t.downloadAppNow}</span>
+                <FaChevronRight className="text-xs" />
+              </div>
+            </button>
           </div>
 
           <div className="space-y-1 px-2 mt-[15px]">
@@ -1215,7 +1159,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
               </div>
             )}
 
-            {/* Categories List - with Favorites at top when logged in */}
             {getFilteredCategories().map((category, index) => (
               <div key={index}>
                 <div
@@ -1244,7 +1187,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     ))}
                   </div>
                 </div>
-                {/* Only show submenu for non-favorite categories */}
                 {!category.isFavorite && (
                   <div
                     className={`overflow-y-auto transition-all duration-300 ease-in-out ${
@@ -1360,7 +1302,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   </div>
                 </div>
 
-                {/* Contact Us Submenu */}
                 {item.isContact && activeMenu === item.title && (
                   <div className="pl-3 mb-2 space-y-2 animate-fadeIn">
                     {loadingSocialLinks ? (
@@ -1431,7 +1372,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
                         })}
                       </div>
                     ) : (
-                      // Fallback grid
                       <div className="grid grid-cols-2 gap-3 p-2">
                         <div
                           className="flex flex-col items-center p-3 rounded-lg cursor-pointer bg-gradient-to-r from-green-900/20 to-green-700/10 border border-green-700/30 hover:scale-105 transition-all duration-200 hover:shadow-lg"
@@ -1490,7 +1430,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         ></div>
       )}
 
-      {/* Mobile App Download Banner */}
       {showMobileAppBanner && isMobileDevice() && (
         <div className="fixed bottom-0 left-0 h-full right-0 flex justify-center items-end bg-[rgba(0,0,0,0.4)] border-t border-[#333] z-[10001] shadow-lg">
           <div className="w-full flex items-center justify-between bg-gradient-to-r from-[#1a1a1a] to-[#2a2a2a] p-3">
@@ -1522,7 +1461,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-[#333] z-50"
            style={showMobileAppBanner ? { bottom: '80px' } : {}}>
         <div className="flex justify-around items-center py-2">
@@ -1550,7 +1488,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <span>{t.slots}</span>
           </NavLink>
 
-          {/* Download App Button in Mobile Bottom Bar */}
           <button
             onClick={() => downloadFileAtURL(APK_FILE)}
             className="flex flex-col items-center justify-center p-2 text-xs text-theme_color hover:text-yellow-400 transition-colors"
@@ -1585,9 +1522,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       </div>
 
-      {/* WhatsApp & Telegram Floating Buttons - Vertical Stack */}
       <div className="fixed bottom-25 md:bottom-20 right-4 z-[1000] flex flex-col gap-2">
-        {/* Telegram Button - Top */}
         <a
           href="https://t.me/bajiman"
           target="_blank"
@@ -1599,7 +1534,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
          <img src={telegram_icon} className="w-[80px]" alt="" />
         </a>
 
-        {/* WhatsApp Button - Bottom */}
         <a
           href="https://wa.me/+447311133922"
           target="_blank"
@@ -1612,7 +1546,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         </a>
       </div>
 
-      {/* Signup Success Popup */}
       {showSignupPopup && (
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-70 backdrop-blur-md flex items-center justify-center z-[10000] p-4">
           <div ref={popupRef} className="bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] border border-[#333] rounded-lg p-6 max-w-md w-full relative">
@@ -1646,7 +1579,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       )}
 
-      {/* Game Loading Spinner */}
       {gameLoading && (
         <div className="fixed inset-0 bg-[rgba(0,0,0,0.7)] flex items-center justify-center z-[1000]">
           <div className="flex flex-col items-center">
@@ -1658,15 +1590,13 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
       )}
 
-      {/* Add CSS for game images in sidebar */}
       <style>
         {`
-          /* Force consistent image size and aspect ratio - Portrait 3:4 for exclusive games */
           .game-image-container {
             position: relative;
             width: 100%;
             height: 0;
-            padding-bottom: 133.33%; /* 3:4 aspect ratio (portrait) */
+            padding-bottom: 133.33%;
             overflow: hidden;
             border-radius: 6px;
           }
@@ -1680,7 +1610,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             object-fit: cover;
           }
 
-          /* Smooth skeleton animation */
           @keyframes pulse {
             0%, 100% {
               opacity: 1;
@@ -1694,7 +1623,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
           }
 
-          /* Custom scrollbar hide for mobile */
           .no-scrollbar::-webkit-scrollbar {
             display: none;
           }

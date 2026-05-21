@@ -245,17 +245,18 @@ const HomeContent = () => {
 
             <main className="mx-auto w-full max-w-screen-xl px-2 md:px-4 md:py-4">
               {/* Notice */}
-              <div className="p-2 md:p-4 text-black border-[1px] border-gray-800 rounded-[5px] md:rounded-[10px] flex items-center justify-between">
-                <AiOutlineSound className="text-xl text-theme_color mr-2" />
-                <marquee
-                  behavior="scroll"
-                  scrollamount="10"
-                  direction="left"
-                  className="text-[12px] md:text-[14px] text-white flex-1 font-[400]"
-                >
-                  {notice || "Welcome to Our Platform - Deposit Now and Get Exciting Bonuses!"}
-                </marquee>
-              </div>
+       {/* Notice */}
+<div className="p-2 md:p-4 text-black border-[1px] border-gray-800 rounded-[5px] md:rounded-[10px] flex items-center justify-between">
+  <AiOutlineSound className="text-xl text-theme_color mr-2" />
+  <marquee
+    behavior="scroll"
+    scrollamount="5" 
+    direction="left"
+    className="text-[12px] md:text-[14px] text-white flex-1 font-[400]"
+  >
+    {notice || "Welcome to Our Platform - Deposit Now and Get Exciting Bonuses!"}
+  </marquee>
+</div>
 
               <Category />
               <ProviderSlider />

@@ -359,7 +359,7 @@ const App = () => {
               }
             />
               <Route
-              path="/favorites"
+              path="/favourites"
               element={
                 <ProtectedRoute>
                   <Favourite />
