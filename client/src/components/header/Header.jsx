@@ -1515,7 +1515,7 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
       )} */}
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-[#333] z-50"
-           style={showMobileAppBanner ? { bottom: '80px' } : {}}>
+          >
         <div className="flex justify-around items-center py-2">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
