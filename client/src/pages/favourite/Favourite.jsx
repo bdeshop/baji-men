@@ -616,25 +616,7 @@ const FavoritesContent = () => {
                     <span className="hidden sm:inline">Filter</span>
                   </button>
                 </div>
-                <div className="relative" ref={sortRef}>
-                  <button 
-                    className="flex items-center justify-center cursor-pointer text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors bg-[#1a1a1a] hover:bg-[#222]"
-                    onClick={() => setShowSortDropdown(!showSortDropdown)}
-                  >
-                    <MdSort className="text-lg mr-1" />
-                    <span className="hidden sm:inline">{getSortOptionText()}</span>
-                  </button>
-                  {showSortDropdown && (
-                    <div className="absolute top-full right-0 bg-[#222] border border-[#333] rounded-lg shadow-lg z-[1000] mt-1 overflow-hidden w-48">
-                      <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'createdAt-desc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('createdAt-desc')}>Newest First</div>
-                      <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'createdAt-asc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('createdAt-asc')}>Oldest First</div>
-                      <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'name-asc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('name-asc')}>Name (A-Z)</div>
-                      <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'name-desc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('name-desc')}>Name (Z-A)</div>
-                      <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'playCount-desc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('playCount-desc')}>Most Played</div>
-                      <div className={`px-4 py-3 cursor-pointer text-sm transition-colors ${sortOption === 'lastPlayed-desc' ? 'bg-opacity-10 text-theme_color' : 'hover:bg-[#2a2a2a]'}`} onClick={() => handleSortChange('lastPlayed-desc')}>Recently Played</div>
-                    </div>
-                  )}
-                </div>
+          
               </div>
               
               <div className="relative w-full max-w-xs" ref={searchRef}>

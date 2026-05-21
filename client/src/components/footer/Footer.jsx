@@ -24,7 +24,7 @@ import axios from "axios";
 import logo from "../../assets/logo.png";
 import OBP from "../../assets/OBP.png";
 import { NavLink } from "react-router-dom";
-import { LanguageContext } from "../../context/LanguageContext"; // adjust path as needed
+import { LanguageContext } from "../../context/LanguageContext";
 
 const Footer = () => {
   const { t } = useContext(LanguageContext);
@@ -48,9 +48,9 @@ const Footer = () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/branding`);
       if (response.data.success && response.data.data && response.data.data.logo) {
-        const logoUrl = response.data.data.logo.startsWith('http')
+        const logoUrl = response.data.data.logo.startsWith("http")
           ? response.data.data.logo
-          : `${API_BASE_URL}${response.data.data.logo.startsWith('/') ? '' : '/'}${response.data.data.logo}`;
+          : `${API_BASE_URL}${response.data.data.logo.startsWith("/") ? "" : "/"}${response.data.data.logo}`;
         setDynamicLogo(logoUrl);
       }
     } catch (error) {
@@ -77,14 +77,14 @@ const Footer = () => {
   };
 
   const getDefaultSocialLinks = () => [
-    { platform: 'facebook',  url: '#', displayName: 'Facebook',  backgroundColor: '#1877F2', opensInNewTab: true, isGradient: false },
-    { platform: 'instagram', url: '#', displayName: 'Instagram', backgroundColor: 'linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D)', opensInNewTab: true, isGradient: true },
-    { platform: 'twitter',   url: '#', displayName: 'Twitter',   backgroundColor: '#1DA1F2', opensInNewTab: true, isGradient: false },
-    { platform: 'youtube',   url: '#', displayName: 'YouTube',   backgroundColor: '#FF0000', opensInNewTab: true, isGradient: false },
-    { platform: 'pinterest', url: '#', displayName: 'Pinterest', backgroundColor: '#E60023', opensInNewTab: true, isGradient: false },
-    { platform: 'tiktok',    url: '#', displayName: 'TikTok',    backgroundColor: '#000000', opensInNewTab: true, isGradient: false },
-    { platform: 'telegram',  url: '#', displayName: 'Telegram',  backgroundColor: '#0088CC', opensInNewTab: true, isGradient: false },
-    { platform: 'whatsapp',  url: '#', displayName: 'WhatsApp',  backgroundColor: '#25D366', opensInNewTab: true, isGradient: false },
+    { platform: "facebook",  url: "#", displayName: "Facebook",  backgroundColor: "#1877F2", opensInNewTab: true, isGradient: false },
+    { platform: "instagram", url: "#", displayName: "Instagram", backgroundColor: "linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D)", opensInNewTab: true, isGradient: true },
+    { platform: "twitter",   url: "#", displayName: "Twitter",   backgroundColor: "#1DA1F2", opensInNewTab: true, isGradient: false },
+    { platform: "youtube",   url: "#", displayName: "YouTube",   backgroundColor: "#FF0000", opensInNewTab: true, isGradient: false },
+    { platform: "pinterest", url: "#", displayName: "Pinterest", backgroundColor: "#E60023", opensInNewTab: true, isGradient: false },
+    { platform: "tiktok",    url: "#", displayName: "TikTok",    backgroundColor: "#000000", opensInNewTab: true, isGradient: false },
+    { platform: "telegram",  url: "#", displayName: "Telegram",  backgroundColor: "#0088CC", opensInNewTab: true, isGradient: false },
+    { platform: "whatsapp",  url: "#", displayName: "WhatsApp",  backgroundColor: "#25D366", opensInNewTab: true, isGradient: false },
   ];
 
   const toggleSection = (section) => {
@@ -198,7 +198,16 @@ const Footer = () => {
                 <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerVipClub}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerReferral}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors duration-200 text-[10px]">{t.footerBrandAmbassadors}</a></li>
-                <li><a href={APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors duration-200 text-[10px] flex items-center gap-1">{t.footerAppDownload} <FaDownload size={10} /></a></li>
+                <li>
+                  <a
+                    href={APP_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors duration-200 text-[10px] flex items-center gap-1"
+                  >
+                    {t.footerAppDownload} <FaDownload size={10} />
+                  </a>
+                </li>
               </ul>
             )}
           </div>
@@ -436,6 +445,84 @@ const Footer = () => {
           </button>
         </div>
 
+        {/* ── Mobile App Download Banner (mobile only) ── */}
+        <a
+          href={APP_DOWNLOAD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="md:hidden flex items-center justify-between mb-4 rounded-2xl px-4 py-3 relative overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, #1a2a1a 0%, #0d1f0d 100%)",
+            border: "1.5px solid #2ecc40",
+          }}
+        >
+          {/* Decorative blobs */}
+          <span
+            className="absolute pointer-events-none"
+            style={{
+              top: "-30px", right: "-30px",
+              width: "90px", height: "90px",
+              borderRadius: "50%",
+              background: "rgba(46,204,64,0.08)",
+            }}
+          />
+          <span
+            className="absolute pointer-events-none"
+            style={{
+              bottom: "-20px", left: "35%",
+              width: "65px", height: "65px",
+              borderRadius: "50%",
+              background: "rgba(46,204,64,0.05)",
+            }}
+          />
+
+          {/* Left: icon + text */}
+          <div className="flex items-center gap-3 flex-1 relative z-10">
+            <div
+              className="rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{
+                background: "rgba(46,204,64,0.15)",
+                padding: "10px",
+              }}
+            >
+              <FaDownload size={22} style={{ color: "#2ecc40" }} />
+            </div>
+            <div>
+              <p
+                className="text-[10px] font-medium tracking-widest uppercase mb-0.5"
+                style={{ color: "#2ecc40" }}
+              >
+                BajiMan App
+              </p>
+              <p className="text-white font-semibold text-[15px] leading-tight">
+                Download Now
+              </p>
+              <div className="flex gap-1.5 mt-1">
+                <span
+                  className="text-[9px] text-gray-400 rounded px-1.5 py-0.5"
+                  style={{ background: "rgba(255,255,255,0.07)" }}
+                >
+                  Android
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: GET IT pill */}
+          <div
+            className="flex flex-col items-center justify-center rounded-xl flex-shrink-0 ml-3 relative z-10"
+            style={{
+              background: "#2ecc40",
+              padding: "10px 14px",
+            }}
+          >
+            <FaDownload size={16} style={{ color: "#0a1a0a" }} />
+            <span className="text-[9px] font-bold mt-1" style={{ color: "#0a1a0a" }}>
+              GET IT
+            </span>
+          </div>
+        </a>
+
         {/* ── Copyright Section ── */}
         <div className="pt-3 border-t border-gray-700">
           <div className="flex flex-col md:flex-row justify-between items-center text-center md:text-left">
@@ -466,7 +553,7 @@ const Footer = () => {
                       className="p-2 rounded-full hover:opacity-90 transition-opacity duration-200 flex items-center justify-center"
                       style={{
                         background: link.backgroundColor,
-                        backgroundImage: link.isGradient ? link.backgroundColor : 'none',
+                        backgroundImage: link.isGradient ? link.backgroundColor : "none",
                       }}
                       aria-label={link.displayName}
                       target={link.opensInNewTab ? "_blank" : "_self"}
