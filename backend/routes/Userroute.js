@@ -6725,5 +6725,525 @@ Userrouter.get("/level/progress", authenticateToken, async (req, res) => {
 });
 
 // ==================== END OF LEVEL COMPLETION COIN REWARD SYSTEM ====================
+// ==================== FAVORITES ROUTES ====================
 
+const Favorite = require("../models/Favorite");
+
+// GET user's favorite games
+Userrouter.get("/favorites", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { 
+      limit = 50, 
+      page = 1, 
+      sortBy = "customOrder",
+      sortOrder = "asc"
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Build sort object
+    let sortField = {};
+    switch (sortBy) {
+      case "customOrder":
+        sortField = { customOrder: sortOrder === "asc" ? 1 : -1 };
+        break;
+      case "createdAt":
+        sortField = { createdAt: sortOrder === "asc" ? 1 : -1 };
+        break;
+      case "playCount":
+        sortField = { playCount: sortOrder === "asc" ? 1 : -1 };
+        break;
+      case "lastPlayedAt":
+        sortField = { lastPlayedAt: sortOrder === "asc" ? 1 : -1 };
+        break;
+      default:
+        sortField = { customOrder: 1 };
+    }
+
+    // Get favorites with populated game data
+    const favorites = await Favorite.find({ userId })
+      .sort(sortField)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate("gameId");
+
+    const total = await Favorite.countDocuments({ userId });
+
+    // Format response with current game data (prioritize live game data over snapshot)
+    const formattedFavorites = favorites.map(fav => {
+      const game = fav.gameId;
+      return {
+        id: fav._id,
+        gameId: fav.gameId._id,
+        name: game?.name || fav.gameSnapshot.name,
+        gameApiID: game?.gameApiID || fav.gameSnapshot.gameApiID,
+        provider: game?.provider || fav.gameSnapshot.provider,
+        portraitImage: game?.portraitImage || fav.gameSnapshot.portraitImage,
+        landscapeImage: game?.landscapeImage || fav.gameSnapshot.landscapeImage,
+        defaultImage: game?.defaultImage || fav.gameSnapshot.defaultImage,
+        category: game?.category || fav.gameSnapshot.category,
+        status: game?.status !== undefined ? game.status : true,
+        featured: game?.featured || false,
+        fullScreen: game?.fullScreen || false,
+        notes: fav.notes,
+        createdAt: fav.createdAt,
+        lastPlayedAt: fav.lastPlayedAt,
+        playCount: fav.playCount,
+        customOrder: fav.customOrder
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        favorites: formattedFavorites,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching favorites:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch favorites",
+      error: error.message
+    });
+  }
+});
+
+// GET check if a specific game is favorited
+Userrouter.get("/favorites/check/:gameId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { gameId } = req.params;
+
+    const isFavorited = await Favorite.isFavorited(userId, gameId);
+    const favoriteCount = await Favorite.getFavoriteCount(gameId);
+
+    res.json({
+      success: true,
+      data: {
+        isFavorited,
+        favoriteCount
+      }
+    });
+  } catch (error) {
+    console.error("Error checking favorite status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check favorite status",
+      error: error.message
+    });
+  }
+});
+
+// POST add game to favorites
+Userrouter.post("/favorites/:gameId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { gameId } = req.params;
+    const { notes } = req.body;
+
+    // Check if game exists
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({
+        success: false,
+        message: "Game not found"
+      });
+    }
+
+    // Check if already favorited
+    const existingFavorite = await Favorite.findOne({ userId, gameId });
+    if (existingFavorite) {
+      return res.status(400).json({
+        success: false,
+        message: "Game already in favorites"
+      });
+    }
+
+    // Get the highest custom order for this user
+    const lastFavorite = await Favorite.findOne({ userId }).sort({ customOrder: -1 });
+    const nextOrder = (lastFavorite?.customOrder || 0) + 1;
+
+    // Create favorite with game snapshot
+    const favorite = new Favorite({
+      userId,
+      gameId,
+      gameSnapshot: {
+        name: game.name,
+        gameApiID: game.gameApiID,
+        provider: game.provider,
+        portraitImage: game.portraitImage,
+        landscapeImage: game.landscapeImage,
+        defaultImage: game.defaultImage,
+        category: game.category,
+      },
+      notes: notes || "",
+      customOrder: nextOrder
+    });
+
+    await favorite.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Game added to favorites",
+      data: {
+        id: favorite._id,
+        gameId: favorite.gameId,
+        customOrder: favorite.customOrder,
+        createdAt: favorite.createdAt
+      }
+    });
+  } catch (error) {
+    console.error("Error adding to favorites:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to add game to favorites",
+      error: error.message
+    });
+  }
+});
+
+// DELETE remove game from favorites
+Userrouter.delete("/favorites/:gameId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { gameId } = req.params;
+
+    const result = await Favorite.findOneAndDelete({ userId, gameId });
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Favorite not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Game removed from favorites"
+    });
+  } catch (error) {
+    console.error("Error removing from favorites:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to remove game from favorites",
+      error: error.message
+    });
+  }
+});
+
+// PUT update favorite notes
+Userrouter.put("/favorites/:favoriteId/notes", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { favoriteId } = req.params;
+    const { notes } = req.body;
+
+    const favorite = await Favorite.findOne({ _id: favoriteId, userId });
+    if (!favorite) {
+      return res.status(404).json({
+        success: false,
+        message: "Favorite not found"
+      });
+    }
+
+    favorite.notes = notes || "";
+    await favorite.save();
+
+    res.json({
+      success: true,
+      message: "Favorite notes updated",
+      data: { notes: favorite.notes }
+    });
+  } catch (error) {
+    console.error("Error updating favorite notes:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update favorite notes",
+      error: error.message
+    });
+  }
+});
+
+// PUT reorder favorites (update customOrder)
+Userrouter.put("/favorites/reorder", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { order } = req.body; // order should be array of { id: favoriteId, order: number }
+
+    if (!order || !Array.isArray(order)) {
+      return res.status(400).json({
+        success: false,
+        message: "Order array is required"
+      });
+    }
+
+    // Update each favorite's customOrder
+    const updates = order.map(async (item) => {
+      return Favorite.findOneAndUpdate(
+        { _id: item.id, userId },
+        { customOrder: item.order },
+        { new: true }
+      );
+    });
+
+    await Promise.all(updates);
+
+    res.json({
+      success: true,
+      message: "Favorites reordered successfully"
+    });
+  } catch (error) {
+    console.error("Error reordering favorites:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reorder favorites",
+      error: error.message
+    });
+  }
+});
+
+// POST record that user played a favorite game
+Userrouter.post("/favorites/:gameId/play", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { gameId } = req.params;
+
+    const favorite = await Favorite.findOne({ userId, gameId });
+    if (!favorite) {
+      return res.status(404).json({
+        success: false,
+        message: "Favorite not found"
+      });
+    }
+
+    await favorite.recordPlay();
+
+    res.json({
+      success: true,
+      message: "Play recorded",
+      data: {
+        playCount: favorite.playCount,
+        lastPlayedAt: favorite.lastPlayedAt
+      }
+    });
+  } catch (error) {
+    console.error("Error recording play:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to record play",
+      error: error.message
+    });
+  }
+});
+
+// GET favorite statistics for user
+Userrouter.get("/favorites/stats", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const totalFavorites = await Favorite.countDocuments({ userId });
+    const mostPlayed = await Favorite.findOne({ userId })
+      .sort({ playCount: -1 })
+      .populate("gameId");
+
+    const recentlyAdded = await Favorite.findOne({ userId })
+      .sort({ createdAt: -1 })
+      .populate("gameId");
+
+    const recentlyPlayed = await Favorite.findOne({ userId })
+      .sort({ lastPlayedAt: -1 })
+      .populate("gameId");
+
+    // Get favorite count by provider
+    const favoritesByProvider = await Favorite.aggregate([
+      { $match: { userId: userId } },
+      {
+        $lookup: {
+          from: "games",
+          localField: "gameId",
+          foreignField: "_id",
+          as: "gameInfo"
+        }
+      },
+      { $unwind: "$gameInfo" },
+      {
+        $group: {
+          _id: "$gameInfo.provider",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalFavorites,
+        mostPlayedGame: mostPlayed ? {
+          name: mostPlayed.gameId?.name || mostPlayed.gameSnapshot.name,
+          playCount: mostPlayed.playCount
+        } : null,
+        recentlyAddedGame: recentlyAdded ? {
+          name: recentlyAdded.gameId?.name || recentlyAdded.gameSnapshot.name,
+          addedAt: recentlyAdded.createdAt
+        } : null,
+        recentlyPlayedGame: recentlyPlayed && recentlyPlayed.lastPlayedAt ? {
+          name: recentlyPlayed.gameId?.name || recentlyPlayed.gameSnapshot.name,
+          lastPlayedAt: recentlyPlayed.lastPlayedAt
+        } : null,
+        favoritesByProvider: favoritesByProvider.map(item => ({
+          provider: item._id,
+          count: item.count
+        }))
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching favorite stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch favorite statistics",
+      error: error.message
+    });
+  }
+});
+
+// DELETE remove multiple favorites at once
+Userrouter.delete("/favorites/bulk/remove", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { gameIds } = req.body;
+
+    if (!gameIds || !Array.isArray(gameIds) || gameIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Array of game IDs is required"
+      });
+    }
+
+    const result = await Favorite.deleteMany({
+      userId,
+      gameId: { $in: gameIds }
+    });
+
+    res.json({
+      success: true,
+      message: `${result.deletedCount} favorites removed successfully`,
+      data: { deletedCount: result.deletedCount }
+    });
+  } catch (error) {
+    console.error("Error removing multiple favorites:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to remove favorites",
+      error: error.message
+    });
+  }
+});
+
+// GET favorite games with pagination and filtering
+Userrouter.get("/favorites/search", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { 
+      search, 
+      provider, 
+      category,
+      limit = 20, 
+      page = 1,
+      sortBy = "customOrder"
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // First get user's favorites
+    let favoritesQuery = Favorite.find({ userId });
+
+    // Build sort
+    let sortField = {};
+    switch (sortBy) {
+      case "customOrder": sortField = { customOrder: 1 }; break;
+      case "playCount": sortField = { playCount: -1 }; break;
+      case "lastPlayedAt": sortField = { lastPlayedAt: -1 }; break;
+      case "createdAt": sortField = { createdAt: -1 }; break;
+      default: sortField = { customOrder: 1 };
+    }
+    favoritesQuery = favoritesQuery.sort(sortField);
+
+    const favorites = await favoritesQuery.populate("gameId");
+
+    // Filter favorites based on game data
+    let filteredFavorites = favorites;
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredFavorites = filteredFavorites.filter(fav => 
+        (fav.gameId?.name || fav.gameSnapshot.name).toLowerCase().includes(searchLower) ||
+        (fav.gameId?.provider || fav.gameSnapshot.provider).toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (provider) {
+      filteredFavorites = filteredFavorites.filter(fav => 
+        (fav.gameId?.provider || fav.gameSnapshot.provider) === provider
+      );
+    }
+
+    if (category) {
+      filteredFavorites = filteredFavorites.filter(fav => {
+        const categories = fav.gameId?.category || fav.gameSnapshot.category;
+        return categories && categories.includes(category);
+      });
+    }
+
+    const total = filteredFavorites.length;
+    const paginatedFavorites = filteredFavorites.slice(skip, skip + parseInt(limit));
+
+    const formattedFavorites = paginatedFavorites.map(fav => {
+      const game = fav.gameId;
+      return {
+        id: fav._id,
+        gameId: fav.gameId?._id,
+        name: game?.name || fav.gameSnapshot.name,
+        gameApiID: game?.gameApiID || fav.gameSnapshot.gameApiID,
+        provider: game?.provider || fav.gameSnapshot.provider,
+        portraitImage: game?.portraitImage || fav.gameSnapshot.portraitImage,
+        landscapeImage: game?.landscapeImage || fav.gameSnapshot.landscapeImage,
+        defaultImage: game?.defaultImage || fav.gameSnapshot.defaultImage,
+        category: game?.category || fav.gameSnapshot.category,
+        playCount: fav.playCount,
+        lastPlayedAt: fav.lastPlayedAt,
+        customOrder: fav.customOrder,
+        createdAt: fav.createdAt
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        favorites: formattedFavorites,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error searching favorites:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to search favorites",
+      error: error.message
+    });
+  }
+});
 module.exports = Userrouter;

@@ -6,7 +6,7 @@ import Footer from '../../components/footer/Footer';
 import { NavLink, useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import logo from "../../assets/logo.png";
-import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose, IoHeart, IoHeartOutline } from "react-icons/io5";
+import { IoSearchSharp, IoChevronDown, IoChevronUp, IoClose } from "react-icons/io5";
 import { MdFilterList, MdSort } from 'react-icons/md';
 import { RiArrowLeftRightLine } from "react-icons/ri";
 
@@ -124,11 +124,6 @@ const CasinoContent = () => {
   const [showSpecialFeatureDropdown, setShowSpecialFeatureDropdown] = useState(true);
   const [dynamicLogo, setDynamicLogo] = useState(logo);
   
-  // Favorite System States
-  const [favorites, setFavorites] = useState(new Set());
-  const [favoriteCounts, setFavoriteCounts] = useState({});
-  const [isAddingFavorite, setIsAddingFavorite] = useState(false);
-  
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -144,18 +139,22 @@ const CasinoContent = () => {
   const getImageUrl = (game) => {
     if (!game) return logo;
     
+    // Check for different possible image fields
     const imageField = game.portraitImage || game.image || game.coverImage || game.defaultImage;
     
     if (!imageField) return logo;
     
+    // If it's already a full URL (from CDN)
     if (imageField.startsWith('http://') || imageField.startsWith('https://')) {
       return imageField;
     }
     
+    // If it's a local path
     if (imageField.startsWith('/')) {
       return `${base_url}${imageField}`;
     }
     
+    // Otherwise, assume it's a relative path
     return `${base_url}/${imageField}`;
   };
 
@@ -172,166 +171,6 @@ const CasinoContent = () => {
     } catch (error) {
       console.error("Error fetching branding data:", error);
       setDynamicLogo(logo);
-    }
-  };
-
-  // ==================== FAVORITE SYSTEM FUNCTIONS ====================
-  
-  // Fetch user's favorites
-  const fetchUserFavorites = async () => {
-    if (!user) return;
-    
-    try {
-      const token = localStorage.getItem('usertoken');
-      const response = await axios.get(`${base_url}/api/user/favorites`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        const favoriteIds = new Set(response.data.data.favorites.map(fav => fav.gameId));
-        setFavorites(favoriteIds);
-        
-        // Also fetch favorite counts for games
-        const counts = {};
-        for (const game of games) {
-          const checkResponse = await axios.get(`${base_url}/api/user/favorites/check/${game._id}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (checkResponse.data.success) {
-            counts[game._id] = checkResponse.data.data.favoriteCount;
-          }
-        }
-        setFavoriteCounts(counts);
-      }
-    } catch (error) {
-      console.error("Error fetching favorites:", error);
-    }
-  };
-  
-  // Check if a specific game is favorited
-  const checkFavoriteStatus = async (gameId) => {
-    if (!user) return false;
-    
-    try {
-      const token = localStorage.getItem('usertoken');
-      const response = await axios.get(`${base_url}/api/user/favorites/check/${gameId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        setFavoriteCounts(prev => ({
-          ...prev,
-          [gameId]: response.data.data.favoriteCount
-        }));
-        return response.data.data.isFavorited;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error checking favorite status:", error);
-      return false;
-    }
-  };
-  
-  // Add game to favorites
-  const addToFavorites = async (gameId, event) => {
-    event.stopPropagation();
-    
-    if (!user) {
-      toast.error("Please login to add favorites");
-      setShowLoginPopup(true);
-      return;
-    }
-    
-    setIsAddingFavorite(true);
-    
-    try {
-      const token = localStorage.getItem('usertoken');
-      const response = await axios.post(`${base_url}/api/user/favorites/${gameId}`, {}, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        setFavorites(prev => new Set([...prev, gameId]));
-        toast.success("Added to favorites!");
-        
-        // Update favorite count
-        setFavoriteCounts(prev => ({
-          ...prev,
-          [gameId]: (prev[gameId] || 0) + 1
-        }));
-      }
-    } catch (error) {
-      console.error("Error adding to favorites:", error);
-      if (error.response?.data?.message === "Game already in favorites") {
-        toast.error("Game already in favorites");
-      } else {
-        toast.error("Failed to add to favorites");
-      }
-    } finally {
-      setIsAddingFavorite(false);
-    }
-  };
-  
-  // Remove game from favorites
-  const removeFromFavorites = async (gameId, event) => {
-    event.stopPropagation();
-    
-    if (!user) {
-      toast.error("Please login to manage favorites");
-      setShowLoginPopup(true);
-      return;
-    }
-    
-    setIsAddingFavorite(true);
-    
-    try {
-      const token = localStorage.getItem('usertoken');
-      const response = await axios.delete(`${base_url}/api/user/favorites/${gameId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.data.success) {
-        setFavorites(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(gameId);
-          return newSet;
-        });
-        toast.success("Removed from favorites!");
-        
-        // Update favorite count
-        setFavoriteCounts(prev => ({
-          ...prev,
-          [gameId]: Math.max(0, (prev[gameId] || 1) - 1)
-        }));
-      }
-    } catch (error) {
-      console.error("Error removing from favorites:", error);
-      toast.error("Failed to remove from favorites");
-    } finally {
-      setIsAddingFavorite(false);
-    }
-  };
-  
-  // Toggle favorite
-  const toggleFavorite = (gameId, event, isFavorited) => {
-    if (isFavorited) {
-      removeFromFavorites(gameId, event);
-    } else {
-      addToFavorites(gameId, event);
-    }
-  };
-  
-  // Record that user played a favorite game
-  const recordFavoritePlay = async (gameId) => {
-    if (!user) return;
-    
-    try {
-      const token = localStorage.getItem('usertoken');
-      await axios.post(`${base_url}/api/user/favorites/${gameId}/play`, {}, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-    } catch (error) {
-      console.error("Error recording favorite play:", error);
     }
   };
 
@@ -355,13 +194,6 @@ const CasinoContent = () => {
       handleCategoryFilter();
     }
   }, [selectedCategory, allGames, categories]);
-
-  // Fetch favorites when user changes
-  useEffect(() => {
-    if (user && games.length > 0) {
-      fetchUserFavorites();
-    }
-  }, [user, games.length]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -430,9 +262,11 @@ const CasinoContent = () => {
     let filtered = allGames;
     if (selectedCategory !== 'all') {
       filtered = allGames.filter(game => {
+        // Check if game.category is an array
         if (Array.isArray(game.category)) {
           return game.category.some(cat => cat.toLowerCase() === selectedCategory);
         }
+        // If it's a string, compare directly
         return game.category?.toLowerCase() === selectedCategory;
       });
     }
@@ -619,17 +453,22 @@ const CasinoContent = () => {
 
   const handleGameClick = (game) => {
     setSelectedGame(game);
+    console.log("Game clicked:", game);
     
+    // Check if user is logged in
     if (!user) {
       setShowLoginPopup(true);
       return;
     }
+    // If user is logged in, navigate directly to game
     handleOpenGame(game);
   };
 
+  // Handle opening the game
   const handleOpenGame = async (game) => {
     console.log("Attempting to open game:", game);
 
+    // Check if user is logged in
     if (!user) {
       toast.error("Please login to play games");
       setShowLoginPopup(true);
@@ -653,11 +492,9 @@ const CasinoContent = () => {
         throw new Error(`Failed to fetch game with ID ${gameId}`);
       }
 
-      // Record play in favorites if the game is favorited
-      if (favorites.has(game._id)) {
-        await recordFavoritePlay(game._id);
-      }
+      console.log("Game data:", gameData?.data?.gameApiID);
 
+      // Get category - handle both array and string
       let categoryValue = 'casino';
       if (game.category) {
         if (Array.isArray(game.category)) {
@@ -667,6 +504,7 @@ const CasinoContent = () => {
         }
       }
 
+      // Navigate with provider and category as query parameters
       navigate(`/game/${gameData?.data?.gameApiID}?provider=${encodeURIComponent(game.provider || '')}&category=${encodeURIComponent(categoryValue)}`);
     } catch (err) {
       console.error("Error:", err);
@@ -845,8 +683,6 @@ const CasinoContent = () => {
                   <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 md:gap-4">
                     {visibleGames.map(game => {
                       const imageUrl = getImageUrl(game);
-                      const isFavorited = favorites.has(game._id);
-                      const favoriteCount = favoriteCounts[game._id] || 0;
                       
                       return (
                         <div 
@@ -873,33 +709,6 @@ const CasinoContent = () => {
                             {game.featured && (
                               <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md z-10">
                                 NEW
-                              </div>
-                            )}
-                            
-                            {/* Favorite Button */}
-                            <button
-                              onClick={(e) => toggleFavorite(game._id, e, isFavorited)}
-                              disabled={isAddingFavorite}
-                              className={`absolute top-2 left-2 z-20 p-2 rounded-full transition-all duration-200 ${
-                                isFavorited 
-                                  ? 'bg-red-500 text-white hover:bg-red-600' 
-                                  : 'bg-black/50 text-gray-300 hover:text-red-500 hover:bg-black/70'
-                              } ${isAddingFavorite ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                              {isFavorited ? (
-                                <IoHeart className="w-4 h-4 sm:w-5 sm:h-5" />
-                              ) : (
-                                <IoHeartOutline className="w-4 h-4 sm:w-5 sm:h-5" />
-                              )}
-                            </button>
-                            
-                            {/* Favorite Count Badge */}
-                            {favoriteCount > 0 && (
-                              <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 z-10">
-                                <span className="text-white text-[10px] sm:text-xs flex items-center gap-1">
-                                  <IoHeart className="w-2.5 h-2.5 text-red-400" />
-                                  {favoriteCount}
-                                </span>
                               </div>
                             )}
                             
@@ -1313,7 +1122,7 @@ const CasinoContent = () => {
   );
 };
 
-const Casino = () => {
+const Favourite = () => {
   return (
     <AuthProvider>
       <CasinoContent />
@@ -1321,4 +1130,4 @@ const Casino = () => {
   );
 };
 
-export default Casino;
+export default Favourite;
