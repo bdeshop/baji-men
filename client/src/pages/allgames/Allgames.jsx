@@ -172,7 +172,7 @@ const FavoritesDropdown = ({ user, favoritesList, onGameClick, onRemoveFavorite,
             <button
               onClick={() => {
                 setIsOpen(false);
-                window.location.href = '/favourite';
+                window.location.href = '/favourites';
               }}
               className="text-xs text-theme_color hover:underline"
             >
@@ -241,7 +241,7 @@ const FavoritesDropdown = ({ user, favoritesList, onGameClick, onRemoveFavorite,
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  window.location.href = '/favourite';
+                  window.location.href = '/favourites';
                 }}
                 className="w-full text-center text-theme_color text-sm py-2 hover:underline"
               >
