@@ -1139,18 +1139,6 @@ export const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <img className="w-full" src={banner} alt="" />
           </div>
 
-          <div className="px-2 mt-4">
-            <button
-              className="flex items-center p-3 rounded w-full bg-gradient-to-r from-theme_color/20 to-theme_color/10 text-theme_color cursor-pointer hover:bg-theme_color/30 transition-all duration-200 border border-theme_color/30"
-              onClick={() => { downloadFileAtURL(APK_FILE) }}
-            >
-              <FaMobileAlt className="w-6 h-6 min-w-[24px]" />
-              <div className="flex items-center ml-3 w-full">
-                <span className="text-sm font-semibold flex-grow">{t.downloadAppNow}</span>
-                <FaChevronRight className="text-xs" />
-              </div>
-            </button>
-          </div>
 
           <div className="space-y-1 px-2 mt-[15px]">
             {isLoadingCategories && (
