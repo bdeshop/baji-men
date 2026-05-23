@@ -157,22 +157,8 @@ const GamePage = () => {
     return (
       <div className="w-full h-full relative">
         {/* Game Iframe */}
-        <iframe
-          ref={videoRef}
-          className="w-full h-full"
-          src={gameLink}
-          frameBorder="0"
-          title={gameuuid}
-          allowFullScreen
-          onLoad={() => {
-            setIframeLoaded(true);
-            console.log("Game loaded successfully");
-          }}
-          style={{
-            opacity: showIframeLoader ? 0 : 1,
-            transition: 'opacity 0.5s ease-in-out'
-          }}
-        />
+       <a target="_blank" href={gameLink} className="absolute top-4 right-4 z-20 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Open in New Tab</a>
+      
       </div>
     );
   };
