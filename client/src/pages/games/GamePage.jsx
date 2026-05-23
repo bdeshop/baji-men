@@ -152,14 +152,6 @@ const GamePage = () => {
 
   // Determine what to show in the iframe box
   const renderIframeContent = () => {
-    // Show loader if still loading or minimum time hasn't passed
-    if (isLoading || !minLoaderTimePassed) {
-      return <ProfessionalLoader 
-        message="গেম লোড হচ্ছে" 
-        subMessage="অনুগ্রহ করে একটু অপেক্ষা করুন..." 
-      />;
-    }
-
     // Show error state
     if (error) {
       return (
@@ -213,14 +205,6 @@ const GamePage = () => {
     // Show iframe when everything is ready
     return (
       <div className="w-full h-full relative">
-        {/* Iframe Loader - shows for 4 seconds after iframe starts loading */}
-        {showIframeLoader && (
-          <ProfessionalLoader 
-            message="গেম শুরু হচ্ছে" 
-            subMessage="গেম প্রস্তুত করা হচ্ছে, কিছুক্ষণ অপেক্ষা করুন..." 
-          />
-        )}
-        
         {/* Game Iframe */}
         <iframe
           ref={videoRef}
