@@ -152,13 +152,92 @@ const GamePage = () => {
 
   // Determine what to show in the iframe box
   const renderIframeContent = () => {
+    // Show loader if still loading or minimum time hasn't passed
+    if (isLoading || !minLoaderTimePassed) {
+      return <ProfessionalLoader 
+        message="গেম লোড হচ্ছে" 
+        subMessage="অনুগ্রহ করে একটু অপেক্ষা করুন..." 
+      />;
+    }
+
+    // Show error state
+    if (error) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 z-10">
+          <div className="bg-red-900/50 border border-red-500 text-red-200 px-8 py-6 rounded-2xl shadow-2xl max-w-md mx-4 backdrop-blur-sm">
+            <div className="flex flex-col items-center mb-4">
+              <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <p className="font-bold text-xl text-center text-white">একটি সমস্যা হয়েছে</p>
+              <p className="text-red-200 text-center mt-2 text-sm">{error}</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg text-base font-medium transition-all duration-300 transform hover:scale-105 active:scale-95"
+            >
+              আবার চেষ্টা করুন
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Show "Game link not found" warning
+    if (!gameLink) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 z-10">
+          <div className="bg-yellow-900/50 border border-yellow-500 text-yellow-200 px-8 py-6 rounded-2xl shadow-2xl max-w-md mx-4 backdrop-blur-sm">
+            <div className="flex flex-col items-center mb-4">
+              <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <p className="font-bold text-xl text-center text-white">গেম লিঙ্ক পাওয়া যায়নি!</p>
+              <p className="text-yellow-200 text-center mt-2 text-sm">দয়া করে পরে আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন।</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg text-base font-medium transition-all duration-300 transform hover:scale-105 active:scale-95"
+            >
+              রিফ্রেশ করুন
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     // Show iframe when everything is ready
     return (
       <div className="w-full h-full relative">
+        {/* Iframe Loader - shows for 4 seconds after iframe starts loading */}
+        {showIframeLoader && (
+          <ProfessionalLoader 
+            message="গেম শুরু হচ্ছে" 
+            subMessage="গেম প্রস্তুত করা হচ্ছে, কিছুক্ষণ অপেক্ষা করুন..." 
+          />
+        )}
+        
         {/* Game Iframe */}
-       <a target="_blank" href={gameLink} className="absolute top-4 right-4 z-20 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Open in New Tab</a>
-      
+        <iframe
+          ref={videoRef}
+          className="w-full h-full"
+          src={gameLink}
+          frameBorder="0"
+          title={gameuuid}
+          allowFullScreen
+          onLoad={() => {
+            setIframeLoaded(true);
+            console.log("Game loaded successfully");
+          }}
+          style={{
+            opacity: showIframeLoader ? 0 : 1,
+            transition: 'opacity 0.5s ease-in-out'
+          }}
+        />
       </div>
     );
   };
