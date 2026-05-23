@@ -113,7 +113,7 @@ const GamePage = () => {
           }
         );
         console.log(response)
-        const link = response.data?.joyhobeResponse;
+        const link = response.data?.launch_url;
         if (link) {
           setGameLink(link);
         } else {

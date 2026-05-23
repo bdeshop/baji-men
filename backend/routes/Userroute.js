@@ -2667,90 +2667,90 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
 // ?  get the game  old code
 
 
-// Userrouter.post("/getGameLink", async (req, res) => {
-//   try {
-//     const { username, money, gameID, provider, category } = req.body;
-
-//     console.log("this is body ", req.body);
-
-//     // POST রিকোয়েস্ট
-//     const response = await axios.post('https://oraclegames.net/api/getgameurl',
-//       {
-//         username:"rakibhossa",
-//         amount: money == 0 ? '0' : money,
-//         game_uid: "4eef5090166a6889956a630321713366",
-//         language: "en", // Optional
-//         currency_code: "BDT" // Optional
-//       },
-//       {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           'x-oracle-key': '665ec86d74fcb110d5a60421002b82df'
-//         }
-//       }
-//     );
-//     console.log(
-//       "Response from dstplay.com:",
-//       response.data,
-//       "Status:",
-//       response.status
-//     );
-
-//     res.status(200).json({
-//       message: "POST request successful",
-//       joyhobeResponse: response.data,
-//     });
-//   } catch (error) {
-//     console.error("Error in POST /api/test/game:", error);
-//     res.status(500).json({
-//       error: "Failed to forward POST request",
-//       details: error.message,
-//     });
-//   }
-// });
-
 Userrouter.post("/getGameLink", async (req, res) => {
-    try {
-      const { username, money, gameID, provider, category } = req.body;
+  try {
+    const { username, money, gameID, provider, category } = req.body;
 
-      console.log("this is body ", req.body);
+    console.log("this is body ", req.body);
 
-      // POST রিকোয়েস্ট
-      const response = await axios.post('https://crazybet99.com/getgameurl/v2', 
-        {
-          username: username+"45",
-          money: money==0 ? '0':money,
-          game_code: gameID,
-          provider_code: provider,  // Add provider from request body
-          game_type: category,      // Add category from request body
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
-          }
+    // POST রিকোয়েস্ট
+    const response = await axios.post('https://oraclegames.net/api/getgameurl',
+      {
+        username:"rakibhossa",
+        amount: money == 0 ? '0' : money,
+        game_uid: "4eef5090166a6889956a630321713366",
+        language: "en", // Optional
+        currency_code: "BDT" // Optional
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-oracle-key': '665ec86d74fcb110d5a60421002b82df'
         }
-      );
+      }
+    );
+    console.log(
+      "Response from dstplay.com:",
+      response.data,
+      "Status:",
+      response.status
+    );
 
-      console.log(
-        "Response from dstplay.com:",
-        response.data,
-        "Status:",
-        response.status
-      );
-      
-      res.status(200).json({
-        message: "POST request successful",
-        joyhobeResponse: response.data,
-      });
-    } catch (error) {
-      console.error("Error in POST /api/test/game:", error);
-      res.status(500).json({
-        error: "Failed to forward POST request",
-        details: error.message,
-      });
-    }
+    res.status(200).json({
+      message: "POST request successful",
+      joyhobeResponse: response.data,
+    });
+  } catch (error) {
+    console.error("Error in POST /api/test/game:", error);
+    res.status(500).json({
+      error: "Failed to forward POST request",
+      details: error.message,
+    });
+  }
 });
+
+// Userrouter.post("/getGameLink", async (req, res) => {
+//     try {
+//       const { username, money, gameID, provider, category } = req.body;
+
+//       console.log("this is body ", req.body);
+
+//       // POST রিকোয়েস্ট
+//       const response = await axios.post('https://crazybet99.com/getgameurl/v2', 
+//         {
+//           username: username+"45",
+//           money: money==0 ? '0':money,
+//           game_code: gameID,
+//           provider_code: provider,  // Add provider from request body
+//           game_type: category,      // Add category from request body
+//         },
+//         {
+//           headers: {
+//             'Content-Type': 'application/json',
+//             'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
+//           }
+//         }
+//       );
+
+//       console.log(
+//         "Response from dstplay.com:",
+//         response.data,
+//         "Status:",
+//         response.status
+//       );
+      
+//       res.status(200).json({
+//         message: "POST request successful",
+//         joyhobeResponse: response.data,
+//       });
+//     } catch (error) {
+//       console.error("Error in POST /api/test/game:", error);
+//       res.status(500).json({
+//         error: "Failed to forward POST request",
+//         details: error.message,
+//       });
+//     }
+// });
 
 
 // Userrouter.post("/callback-data-game", async (req, res) => {
@@ -3578,6 +3578,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
   }
 });
 
+
 // Refund/CancelBet route
 Userrouter.post("/refund", async (req, res) => {
   try {
@@ -3791,6 +3792,8 @@ Userrouter.post("/refund", async (req, res) => {
     });
   }
 });
+
+
 // ----------------betting-records------------------------
 Userrouter.get("/betting-records/:userId", authenticateToken,async(req,res)=>{
       const bettingrecords=await BettingHistory.find({user_id:req.params.userId}).sort({createdAt:-1});
