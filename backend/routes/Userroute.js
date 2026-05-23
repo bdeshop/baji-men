@@ -2719,7 +2719,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
     // POST রিকোয়েস্ট
     const response = await axios.post('https://oraclegames.net/api/getgameurl',
       {
-        username: username + "45",
+        username:"rakib",
         amount: money == 0 ? '0' : money,
         game_uid: gameID,
         language: "en", // Optional
