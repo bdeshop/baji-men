@@ -2771,7 +2771,8 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       }else{
         console.log("no matched user");
       }
-      matcheduser.save();
+      await matcheduser.save();
+      
        res.status(200).json({
         success:true,
         balance:matcheduser.balance,
