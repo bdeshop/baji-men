@@ -1775,14 +1775,6 @@ const Withdraw = () => {
                           </h4>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs md:text-sm">
                             <div>
-                              <p className="text-[#8a9ba8]">{language.code === 'bn' ? "নির্ধারিত চার্জ" : "Fixed Charge"}</p>
-                              <p className="text-white font-medium">৳{activeMethod.fixedCharge}</p>
-                            </div>
-                            <div>
-                              <p className="text-[#8a9ba8]">{language.code === 'bn' ? "শতকরা চার্জ" : "Percent Charge"}</p>
-                              <p className="text-white font-medium">{activeMethod.percentCharge}%</p>
-                            </div>
-                            <div>
                               <p className="text-[#8a9ba8]">{language.code === 'bn' ? "ন্যূনতম পরিমাণ" : "Min Amount"}</p>
                               <p className="text-white font-medium">৳{MIN_WITHDRAW_AMOUNT}</p>
                             </div>
@@ -1825,27 +1817,6 @@ const Withdraw = () => {
                                   {formErrors.amount}
                                 </p>
                               )}
-
-                              {/* Amount Breakdown */}
-                              {amount && (
-                                <div className="mt-3 p-3 bg-[#1f2525] rounded-lg border border-[#2a2f2f]">
-                                  <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                      <p className="text-[#8a9ba8]">{language.code === 'bn' ? "উত্তোলনের পরিমাণ:" : "Withdrawal Amount:"}</p>
-                                      <p className="text-white font-medium">৳{parseFloat(amount).toLocaleString()}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-[#8a9ba8]">{language.code === 'bn' ? "মোট চার্জ:" : "Total Charge:"}</p>
-                                      <p className="text-red-400 font-medium">-৳{charges.charge.toFixed(2)}</p>
-                                    </div>
-                                    <div className="col-span-2 border-t border-[#2a2f2f] mt-2 pt-2">
-                                      <p className="text-[#8a9ba8]">{language.code === 'bn' ? "আপনি পাবেন:" : "You Will Get:"}</p>
-                                      <p className="text-[#3a8a6f] font-bold">৳{charges.youWillGet.toFixed(2)}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
                               <div className="flex flex-wrap gap-2 mt-3 md:mt-4">
                                 {quickAmounts.map((quickAmount) => (
                                   <button
@@ -1992,14 +1963,6 @@ const Withdraw = () => {
                         <li className="flex items-start">
                           <span className="text-[#3a8a6f] mr-2">•</span>
                           <span>{language.code === 'bn' ? "সর্বোচ্চ উত্তোলনের পরিমাণ:" : "Maximum withdrawal amount:"} ৳{activeMethod?.maxAmount || 30000}</span>
-                        </li>
-                        <li className="flex items-start">
-                          <span className="text-[#3a8a6f] mr-2">•</span>
-                          <span>{language.code === 'bn' ? "নির্ধারিত চার্জ:" : "Fixed charge:"} ৳{activeMethod?.fixedCharge || 0}</span>
-                        </li>
-                        <li className="flex items-start">
-                          <span className="text-[#3a8a6f] mr-2">•</span>
-                          <span>{language.code === 'bn' ? "শতকরা চার্জ:" : "Percent charge:"} {activeMethod?.percentCharge || 0}%</span>
                         </li>
                         {userData?.depositamount && userData?.depositamount > 0 && (
                           <>
