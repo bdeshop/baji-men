@@ -1538,7 +1538,7 @@ Userrouter.post("/play-game", async (req, res) => {
     console.log(req.body);
     const postData = {
       home_url: "https://bajibet24.live",
-      token: "f9d21d76de9f32f16d7e189bf0b729a7",
+      token: "3d97f2073a05873b428be0ff20df724c",
       username: username + "45",
       money: money,
       gameid: req.body.gameID,
