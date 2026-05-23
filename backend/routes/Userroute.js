@@ -1538,7 +1538,7 @@ Userrouter.post("/play-game", async (req, res) => {
     console.log(req.body);
     const postData = {
       home_url: "https://bajibet24.live",
-      token: "9341a18d096ad901ef77338998f29098",
+      token: "f9d21d76de9f32f16d7e189bf0b729a7",
       username: username + "45",
       money: money,
       gameid: req.body.gameID,
@@ -2678,7 +2678,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
       {
         username:"rakibhossa",
         amount: money == 0 ? '0' : money,
-        game_uid: "4eef5090166a6889956a630321713366",
+        game_uid: "3d97f2073a05873b428be0ff20df724c",
         language: "en", // Optional
         currency_code: "BDT" // Optional
       },
