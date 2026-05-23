@@ -2729,7 +2729,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
+          'x-oracle-key': '665ec86d74fcb110d5a60421002b82df'
         }
       }
     );
