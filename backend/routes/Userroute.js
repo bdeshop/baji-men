@@ -1998,11 +1998,6 @@ const validateWithdrawalDetails = (method, body) => {
       } else if (!/^(01[3-9]\d{8})$/.test(body.phoneNumber)) {
         errors.push("Invalid Bangladeshi phone number format");
       }
-      if (!body.accountType) {
-        errors.push("Account type (personal/agent) is required for bKash");
-      } else if (!["personal", "agent"].includes(body.accountType)) {
-        errors.push("Account type must be either 'personal' or 'agent'");
-      }
       break;
       
     case "rocket":
