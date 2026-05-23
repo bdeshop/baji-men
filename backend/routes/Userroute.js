@@ -2759,12 +2759,13 @@ Userrouter.post("/callback-data-game", async (req, res) => {
        console.log("response", req.body);
      
       //  match user
-
+      const winamount=parseFloat(win_amount);
+       const betamount=parseFloat(bet_amount);
       const matcheduser=await User.findOne({username:member_account});
        if(win_amount <=0){
-         matcheduser.balance=matcheduser.balance - bet_amount;
+         matcheduser.balance=matcheduser.balance - betamount;
        }else{
-        matcheduser.balance=matcheduser.balance + win_amount;
+        matcheduser.balance=matcheduser.balance + winamount;
        }
       if(matcheduser){
         console.log("matched user",matcheduser.username);
