@@ -238,7 +238,8 @@ const Withdraw = () => {
     accountNumber: "",
     branchName: "",
     district: "",
-    routingNumber: ""
+    routingNumber: "",
+    accountType:"personal"
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
