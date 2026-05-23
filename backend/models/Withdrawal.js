@@ -38,10 +38,7 @@ const mobileBankingDetailsSchema = new mongoose.Schema({
   },
   accountType: {
     type: String,
-    enum: ["personal", "agent"],
-    required: function() { 
-      return this.method === "bkash"; 
-    }
+    default:"personal"
   }
 });
 
