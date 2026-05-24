@@ -33,7 +33,7 @@ const Pendingwithdraw = () => {
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
   const itemsPerPage = 10;
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-  const statuses = ['pending', 'processing', 'completed', 'failed', 'cancelled'];
+  const statuses = ['pending', 'processing', 'completed','cancelled'];
   const methods = ['all', 'bkash', 'rocket', 'nagad', 'bank'];
 
   const getAccountDetails = (withdrawal) => {
@@ -105,9 +105,33 @@ const Pendingwithdraw = () => {
   const updateWithdrawalStatus = async (id, status, transactionId = null, adminNote = null) => {
     try {
       setUpdatingStatus(true);
+      
+      // Find the current withdrawal before updating
+      const currentWithdrawal = withdrawals.find(w => w._id === id);
+      
+      // Prevent updating if status is 'cancelled' or 'completed' or 'failed' to 'cancelled'
+      if (currentWithdrawal && ['cancelled', 'completed', 'failed'].includes(currentWithdrawal.status)) {
+        toast.error(`Cannot update status: Withdrawal is already ${currentWithdrawal.status}`);
+        return false;
+      }
+      
+      // Prevent setting status to 'cancelled' if withdrawal is already in a terminal state
+      if (status === 'cancelled' && currentWithdrawal && ['completed', 'failed'].includes(currentWithdrawal.status)) {
+        toast.error(`Cannot cancel a withdrawal that is already ${currentWithdrawal.status}`);
+        return false;
+      }
+      
       const token = localStorage.getItem('usertoken') || localStorage.getItem('token');
-      const response = await axios.put(`${API_BASE_URL}/api/admin/withdrawals/${id}/status`, { status, transactionId, adminNote }, { headers: { Authorization: `Bearer ${token}` } });
-      if (response.data) { toast.success('Withdrawal status updated successfully!'); fetchWithdrawals(); return true; }
+      const response = await axios.put(`${API_BASE_URL}/api/admin/withdrawals/${id}/status`, 
+        { status, transactionId, adminNote }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data) { 
+        toast.success('Withdrawal status updated successfully!'); 
+        fetchWithdrawals(); 
+        return true; 
+      }
       return false;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update withdrawal status');
@@ -180,12 +204,35 @@ const Pendingwithdraw = () => {
 
   const openUpdateModal = (w) => {
     if (showWithdrawalDetails) closeWithdrawalDetails();
-    setSelectedWithdrawal(w); setUpdateStatus(w.status); setUpdateTransactionId(w.transactionId || ''); setUpdateAdminNote(w.adminNote || ''); setShowUpdateModal(true);
+    setSelectedWithdrawal(w); 
+    setUpdateStatus(w.status); 
+    setUpdateTransactionId(w.transactionId || ''); 
+    setUpdateAdminNote(w.adminNote || ''); 
+    setShowUpdateModal(true);
   };
   const closeUpdateModal = () => { setShowUpdateModal(false); setSelectedWithdrawal(null); setUpdateStatus(''); setUpdateTransactionId(''); setUpdateAdminNote(''); };
 
   const handleUpdateSubmit = async () => {
     if (!selectedWithdrawal) return;
+    
+    // Check if trying to update to cancelled when already cancelled
+    if (updateStatus === 'cancelled' && selectedWithdrawal.status === 'cancelled') {
+      toast.error('Withdrawal is already cancelled. Cannot cancel again.');
+      return;
+    }
+    
+    // Check if trying to update to cancelled when already completed or failed
+    if (updateStatus === 'cancelled' && ['completed', 'failed'].includes(selectedWithdrawal.status)) {
+      toast.error(`Cannot cancel a withdrawal that is already ${selectedWithdrawal.status}`);
+      return;
+    }
+    
+    // Check if no status change
+    if (updateStatus === selectedWithdrawal.status) {
+      toast.error('No changes made to status');
+      return;
+    }
+    
     const success = await updateWithdrawalStatus(selectedWithdrawal._id, updateStatus, updateTransactionId || undefined, updateAdminNote || undefined);
     if (success) closeUpdateModal();
   };
@@ -219,6 +266,24 @@ const Pendingwithdraw = () => {
   };
   const getMethodName = (m) => ({ bkash: 'bKash', nagad: 'Nagad', rocket: 'Rocket', bank: 'Bank Transfer' }[m] || (m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Unknown'));
   const getMethodColor = (m) => ({ bkash: 'text-pink-400', nagad: 'text-orange-400', rocket: 'text-purple-400', bank: 'text-teal-400' }[m] || 'text-gray-400');
+
+  // Check if a status option should be disabled
+  const isStatusDisabled = (statusValue) => {
+    if (!selectedWithdrawal) return false;
+    const currentStatus = selectedWithdrawal.status;
+    
+    // If current status is cancelled, disable all options except cancelled (to prevent changes)
+    if (currentStatus === 'cancelled') {
+      return statusValue !== 'cancelled';
+    }
+    
+    // If current status is completed or failed, disable cancelled option
+    if (currentStatus === 'completed' || currentStatus === 'failed') {
+      return statusValue === 'cancelled';
+    }
+    
+    return false;
+  };
 
   const totalPages = Math.ceil(stats.total / itemsPerPage);
   const getPaginationPages = () => {
@@ -255,7 +320,7 @@ const Pendingwithdraw = () => {
   return (
     <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
-      <Toaster position="top-right" toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
+      <Toaster toastOptions={{ style: { background: '#161B22', color: '#e5e7eb', border: '1px solid #374151' } }} />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
         <main className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
@@ -504,27 +569,73 @@ const Pendingwithdraw = () => {
                   <p className="text-xs text-gray-300">Amount: <span className="text-amber-400 font-black">৳{formatCurrency(selectedWithdrawal.amount)}</span></p>
                   <p className="text-xs text-gray-300">Method: <span className={`font-bold ${getMethodColor(selectedWithdrawal.method)}`}>{getMethodName(selectedWithdrawal.method)}</span></p>
                   <p className="text-xs text-gray-300">Account: <span className="text-gray-200 font-mono">{getAccountDetails(selectedWithdrawal).fullDetails}</span></p>
+                  <p className="text-xs text-gray-300">Current Status: <span className={`font-bold ${getStatusInfo(selectedWithdrawal.status).badge} inline-block px-2 py-0.5 text-[8px]`}>{selectedWithdrawal.status}</span></p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div>
                   <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Status</label>
-                  <select value={updateStatus} onChange={(e) => setUpdateStatus(e.target.value)} className={selectClass}>
-                    {statuses.map((s, i) => <option key={i} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                  <select 
+                    value={updateStatus} 
+                    onChange={(e) => setUpdateStatus(e.target.value)} 
+                    className={selectClass}
+                    disabled={selectedWithdrawal.status === 'cancelled' || selectedWithdrawal.status === 'completed' || selectedWithdrawal.status === 'failed'}
+                  >
+                    {statuses.map((s, i) => (
+                      <option 
+                        key={i} 
+                        value={s} 
+                        disabled={isStatusDisabled(s)}
+                      >
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                        {isStatusDisabled(s) && selectedWithdrawal.status === 'cancelled' && ' (Already Cancelled)'}
+                        {isStatusDisabled(s) && selectedWithdrawal.status === 'completed' && ' (Cannot Cancel Completed)'}
+                        {isStatusDisabled(s) && selectedWithdrawal.status === 'failed' && ' (Cannot Cancel Failed)'}
+                      </option>
+                    ))}
                   </select>
+                  {(selectedWithdrawal.status === 'cancelled' || selectedWithdrawal.status === 'completed' || selectedWithdrawal.status === 'failed') && (
+                    <p className="text-[8px] text-rose-400 mt-1 font-bold uppercase tracking-wider">
+                      ⚠️ Status cannot be changed - Withdrawal is already {selectedWithdrawal.status}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Transaction ID (Optional)</label>
-                  <input type="text" value={updateTransactionId} onChange={(e) => setUpdateTransactionId(e.target.value)} className={inputClass} placeholder="Enter transaction ID if applicable" />
+                  <input 
+                    type="text" 
+                    value={updateTransactionId} 
+                    onChange={(e) => setUpdateTransactionId(e.target.value)} 
+                    className={inputClass} 
+                    placeholder="Enter transaction ID if applicable"
+                    disabled={selectedWithdrawal.status === 'cancelled' || selectedWithdrawal.status === 'completed' || selectedWithdrawal.status === 'failed'}
+                  />
                 </div>
                 <div>
                   <label className="block text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">Admin Note (Optional)</label>
-                  <textarea value={updateAdminNote} onChange={(e) => setUpdateAdminNote(e.target.value)} rows={3} className={inputClass} placeholder="Add any notes about this withdrawal..." />
+                  <textarea 
+                    value={updateAdminNote} 
+                    onChange={(e) => setUpdateAdminNote(e.target.value)} 
+                    rows={3} 
+                    className={inputClass} 
+                    placeholder="Add any notes about this withdrawal..."
+                    disabled={selectedWithdrawal.status === 'cancelled' || selectedWithdrawal.status === 'completed' || selectedWithdrawal.status === 'failed'}
+                  />
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
-                <button onClick={closeUpdateModal} disabled={updatingStatus} className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all disabled:opacity-50">Cancel</button>
-                <button onClick={handleUpdateSubmit} disabled={updatingStatus} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2">
+                <button 
+                  onClick={closeUpdateModal} 
+                  disabled={updatingStatus} 
+                  className="px-4 py-2 bg-[#0F111A] border border-gray-700 text-gray-300 rounded text-xs font-bold hover:border-gray-500 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleUpdateSubmit} 
+                  disabled={updatingStatus || selectedWithdrawal.status === 'cancelled' || selectedWithdrawal.status === 'completed' || selectedWithdrawal.status === 'failed' || updateStatus === selectedWithdrawal.status} 
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
                   {updatingStatus ? <><FaSpinner className="animate-spin" /> Updating...</> : 'Update Status'}
                 </button>
               </div>

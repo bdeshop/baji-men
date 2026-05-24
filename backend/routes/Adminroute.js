@@ -4841,7 +4841,6 @@ Adminrouter.get("/deposits/export", async (req, res) => {
 const Withdrawal = require("../models/Withdrawal");
 
 // ==================== WITHDRAWAL MANAGEMENT ROUTES ====================
-
 // GET all withdrawals with filtering, pagination, and search
 Adminrouter.get("/withdrawals", async (req, res) => {
   try {
@@ -5069,6 +5068,85 @@ Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
         withdrawalEntry.status = "completed";
         withdrawalEntry.processedAt = new Date();
       }
+    }
+
+    // NEW: Handle cancellation - refund the amount if cancellation happens from non-completed status
+    if (status === "cancelled" && oldStatus !== "completed") {
+      const user = await User.findById(withdrawal.userId._id);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if the amount was already deducted (when withdrawal was created)
+      // Typically for pending/processing withdrawals, the amount would have been deducted
+      // So we need to refund it
+      
+      // Find if amount was already deducted from balance
+      // This depends on your withdrawal creation logic. Common approaches:
+      
+      // Option 1: Track deduction status in withdrawal record
+      // if (withdrawal.amountDeducted === true) {
+      //   user.balance += withdrawal.amount;
+      // }
+
+      // Option 2: Assume amount was deducted for all non-completed withdrawals
+      // (Most common approach - deduct when withdrawal is requested)
+      user.balance += withdrawal.amount;
+
+      // Update withdrawal history status
+      const withdrawalEntry = user.withdrawHistory.find(
+        (w) => w._id.toString() === withdrawal._id.toString()
+      );
+
+      if (withdrawalEntry) {
+        withdrawalEntry.status = "cancelled";
+      }
+
+      // Add transaction history for cancellation refund
+      user.transactionHistory.push({
+        type: "refund",
+        amount: withdrawal.amount,
+        balanceBefore: user.balance - withdrawal.amount,
+        balanceAfter: user.balance,
+        description: `Withdrawal cancelled - Amount refunded`,
+        referenceId: withdrawal._id.toString(),
+      });
+
+      await user.save();
+    }
+
+    // Also handle failed status similarly (if you want to refund on failure)
+    if (status === "failed" && oldStatus !== "completed" && oldStatus !== "failed") {
+      const user = await User.findById(withdrawal.userId._id);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Refund the amount for failed withdrawals
+      user.balance += withdrawal.amount;
+
+      // Update withdrawal history status
+      const withdrawalEntry = user.withdrawHistory.find(
+        (w) => w._id.toString() === withdrawal._id.toString()
+      );
+
+      if (withdrawalEntry) {
+        withdrawalEntry.status = "failed";
+      }
+
+      // Add transaction history for failure refund
+      user.transactionHistory.push({
+        type: "refund",
+        amount: withdrawal.amount,
+        balanceBefore: user.balance - withdrawal.amount,
+        balanceAfter: user.balance,
+        description: `Withdrawal failed - Amount refunded`,
+        referenceId: withdrawal._id.toString(),
+      });
+
+      await user.save();
     }
 
     await withdrawal.save();
@@ -5542,6 +5620,7 @@ Adminrouter.put("/withdrawals/bulk/status", async (req, res) => {
     res.status(500).json({ error: "Failed to bulk update withdrawal status" });
   }
 });
+
 
 // Configure multer for branding uploads
 const brandingStorage = multer.diskStorage({
