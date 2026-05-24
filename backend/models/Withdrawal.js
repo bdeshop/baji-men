@@ -38,7 +38,10 @@ const mobileBankingDetailsSchema = new mongoose.Schema({
   },
   accountType: {
     type: String,
-    default:"personal"
+    enum: ["personal", "agent"],
+    required: function() { 
+      return this.method === "bkash"; 
+    }
   }
 });
 
@@ -70,7 +73,6 @@ const withdrawalSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "processing", "completed", "failed"],
     default: "pending"
   },
   transactionId: {
