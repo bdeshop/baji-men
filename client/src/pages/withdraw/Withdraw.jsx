@@ -246,6 +246,68 @@ const Withdraw = () => {
   const quickAmounts = [300, 500, 1000, 2000, 5000];
   const MIN_WITHDRAW_AMOUNT = 300;
 
+  // Calculate wagering requirements - FIXED VERSION
+  const calculateWageringRequirements = (userData) => {
+    if (!userData) return { required: 0, completed: 0, remaining: 0, isCompleted: true };
+    
+    const depositAmount = parseFloat(userData.depositamount) || 0;
+    const wageringNeed = parseFloat(userData.waigeringneed) || 0;
+    const totalBet = parseFloat(userData.total_bet) || 0;
+    
+    // If no deposit or no wagering need, no requirement
+    if (depositAmount === 0 || wageringNeed === 0) {
+      return {
+        required: 0,
+        completed: 0,
+        remaining: 0,
+        isCompleted: true,
+        isSpecialCase: false
+      };
+    }
+    
+    const requiredWager = depositAmount * wageringNeed;
+    const remainingWager = Math.max(0, requiredWager - totalBet);
+    const isCompleted = remainingWager <= 0;
+    
+    return {
+      required: requiredWager,
+      completed: totalBet,
+      remaining: remainingWager,
+      isCompleted: isCompleted,
+      isSpecialCase: false
+    };
+  };
+
+  // Check if user has active bonus wagering requirements
+  const checkBonusWagering = (userData) => {
+    if (!userData?.bonusInfo?.activeBonuses || userData.bonusInfo.activeBonuses.length === 0) {
+      return { hasActiveBonus: false, totalWagerRequired: 0, totalWagered: 0, remaining: 0, isCompleted: true };
+    }
+    
+    let totalWagerRequired = 0;
+    let totalWagered = 0;
+    
+    userData.bonusInfo.activeBonuses.forEach(bonus => {
+      const bonusAmount = parseFloat(bonus.originalAmount || bonus.amount) || 0;
+      const wageringRequirement = parseFloat(bonus.wageringRequirement) || 0;
+      const amountWagered = parseFloat(bonus.amountWagered) || 0;
+      
+      totalWagerRequired += bonusAmount * wageringRequirement;
+      totalWagered += amountWagered;
+    });
+    
+    const remaining = Math.max(0, totalWagerRequired - totalWagered);
+    const isCompleted = remaining <= 0;
+    
+    return {
+      hasActiveBonus: true,
+      totalWagerRequired: totalWagerRequired,
+      totalWagered: totalWagered,
+      remaining: remaining,
+      isCompleted: isCompleted
+    };
+  };
+
   // Check if KYC is required (assignkyc is "assigned" and kycStatus is "pending" or "rejected" or "processing")
   const isKycRequired = () => {
     if (!userData) return false;
@@ -501,67 +563,6 @@ const Withdraw = () => {
     fetchWithdrawMethods();
   }, [API_BASE_URL, t]);
 
-  // Calculate wagering requirements
-  const calculateWageringRequirements = (userData) => {
-    if (!userData) return { required: 0, completed: 0, remaining: 0, isCompleted: true };
-    
-    const depositAmount = parseFloat(userData.depositamount) || 0;
-    const wageringNeed = parseFloat(userData.waigeringneed) || 0;
-    const totalBet = parseFloat(userData.total_bet) || 0;
-    
-    if (depositAmount > 0 && wageringNeed === 0) {
-      const requiredWager = depositAmount * 1.1;
-      const remainingWager = Math.max(0, requiredWager - totalBet);
-      const isCompleted = remainingWager <= 0;
-      
-      return {
-        required: requiredWager,
-        completed: totalBet,
-        remaining: remainingWager,
-        isCompleted: isCompleted,
-        isSpecialCase: true
-      };
-    }
-    
-    const requiredWager = depositAmount * wageringNeed;
-    const remainingWager = Math.max(0, requiredWager - totalBet);
-    const isCompleted = remainingWager <= 0;
-    
-    return {
-      required: requiredWager,
-      completed: totalBet,
-      remaining: remainingWager,
-      isCompleted: isCompleted,
-      isSpecialCase: false
-    };
-  };
-
-  // Check if user has active bonus wagering requirements
-  const checkBonusWagering = (userData) => {
-    if (!userData?.bonusInfo?.activeBonuses || userData.bonusInfo.activeBonuses.length === 0) {
-      return { hasActiveBonus: false, totalWagerRequired: 0, totalWagered: 0, remaining: 0 };
-    }
-    
-    let totalWagerRequired = 0;
-    let totalWagered = 0;
-    
-    userData.bonusInfo.activeBonuses.forEach(bonus => {
-      const bonusAmount = parseFloat(bonus.originalAmount || bonus.amount) || 0;
-      const wageringRequirement = parseFloat(bonus.wageringRequirement) || 0;
-      const amountWagered = parseFloat(bonus.amountWagered) || 0;
-      
-      totalWagerRequired += bonusAmount * wageringRequirement;
-      totalWagered += amountWagered;
-    });
-    
-    return {
-      hasActiveBonus: true,
-      totalWagerRequired: totalWagerRequired,
-      totalWagered: totalWagered,
-      remaining: Math.max(0, totalWagerRequired - totalWagered)
-    };
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -724,25 +725,19 @@ const Withdraw = () => {
       errors.method = language.code === 'bn' ? "পেমেন্ট মেথড নির্বাচন করুন" : "Please select a payment method";
     }
 
-    // Check wagering requirements
-    if (userData?.depositamount && userData?.depositamount > 0) {
+    // Check deposit wagering requirements
+    if (userData?.depositamount && userData?.depositamount > 0 && userData?.waigeringneed && userData?.waigeringneed > 0) {
       const wageringReq = calculateWageringRequirements(userData);
       if (!wageringReq.isCompleted) {
-        if (wageringReq.isSpecialCase) {
-          errors.wagering = language.code === 'bn'
-            ? `উত্তোলনের আগে আরও ৳${wageringReq.remaining.toLocaleString()} বাজি রাখতে হবে। প্রয়োজন: ১.১x ডিপোজিট (৳${wageringReq.required.toLocaleString()}), বাজি রাখা হয়েছে: ৳${wageringReq.completed.toLocaleString()}`
-            : `You need to wager ৳${wageringReq.remaining.toLocaleString()} more before withdrawing. Required: 1.1x deposit (৳${wageringReq.required.toLocaleString()}), Wagered: ৳${wageringReq.completed.toLocaleString()}`;
-        } else {
-          errors.wagering = language.code === 'bn'
-            ? `উত্তোলনের আগে আরও ৳${wageringReq.remaining.toLocaleString()} বাজি রাখতে হবে। প্রয়োজন: ৳${wageringReq.required.toLocaleString()}, বাজি রাখা হয়েছে: ৳${wageringReq.completed.toLocaleString()}`
-            : `You need to wager ৳${wageringReq.remaining.toLocaleString()} more before withdrawing. Required: ৳${wageringReq.required.toLocaleString()}, Wagered: ৳${wageringReq.completed.toLocaleString()}`;
-        }
+        errors.wagering = language.code === 'bn'
+          ? `উত্তোলনের আগে আরও ৳${wageringReq.remaining.toLocaleString()} বাজি রাখতে হবে। প্রয়োজন: ${userData.waigeringneed}x ডিপোজিট (৳${wageringReq.required.toLocaleString()}), বাজি রাখা হয়েছে: ৳${wageringReq.completed.toLocaleString()}`
+          : `You need to wager ৳${wageringReq.remaining.toLocaleString()} more before withdrawing. Required: ${userData.waigeringneed}x deposit (৳${wageringReq.required.toLocaleString()}), Wagered: ৳${wageringReq.completed.toLocaleString()}`;
       }
     }
 
     // Check bonus wagering requirements
     const bonusWagering = checkBonusWagering(userData);
-    if (bonusWagering.hasActiveBonus && bonusWagering.remaining > 0) {
+    if (bonusWagering.hasActiveBonus && !bonusWagering.isCompleted) {
       errors.bonusWagering = language.code === 'bn'
         ? `আপনার সক্রিয় বোনাস ওয়েজারিং প্রয়োজনীয়তা রয়েছে। আরও ৳${bonusWagering.remaining.toLocaleString()} বাজি রাখতে হবে (৳${bonusWagering.totalWagered.toLocaleString()}/${bonusWagering.totalWagerRequired.toLocaleString()})`
         : `You have active bonus wagering requirements. Need to wager ৳${bonusWagering.remaining.toLocaleString()} more (৳${bonusWagering.totalWagered.toLocaleString()}/${bonusWagering.totalWagerRequired.toLocaleString()})`;
@@ -1493,7 +1488,7 @@ const Withdraw = () => {
             {!isKycRequired() && (
               <>
                 {/* Wagering Requirement Alert */}
-                {(userData?.depositamount && userData?.depositamount > 0 && !wageringInfo.isCompleted) && (
+                {(userData?.depositamount && userData?.depositamount > 0 && userData?.waigeringneed > 0 && !wageringInfo.isCompleted) && (
                   <div className="bg-gradient-to-r from-[#2a1f1f] to-[#3a2f2f] rounded-[2px] p-4 md:p-6 mb-6 md:mb-8 border border-[#3a2f2f] shadow-lg">
                     <div className="flex items-center mb-3">
                       <svg
@@ -1511,30 +1506,25 @@ const Withdraw = () => {
                         />
                       </svg>
                       <h3 className="text-base md:text-lg font-semibold text-[#e6db74]">
-                        {wageringInfo.isSpecialCase 
-                          ? (language.code === 'bn' ? "১.১x ওয়েজারিং প্রয়োজনীয়তা" : "1.1x Wagering Requirement Pending")
-                          : (language.code === 'bn' ? "ওয়েজারিং প্রয়োজনীয়তা" : "Wagering Requirement Pending")}
+                        {language.code === 'bn' ? "ওয়েজারিং প্রয়োজনীয়তা" : "Wagering Requirement Pending"}
                       </h3>
                     </div>
                     <div className="space-y-2">
                       <p className="text-sm md:text-base text-[#a8b9c6]">
-                        {wageringInfo.isSpecialCase 
-                          ? (language.code === 'bn' 
-                            ? "উত্তোলনের আগে আপনাকে ১.১x ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করতে হবে।"
-                            : "You need to complete 1.1x wagering requirement before you can withdraw.")
-                          : (language.code === 'bn'
-                            ? "উত্তোলনের আগে আপনাকে ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করতে হবে।"
-                            : "You need to complete wagering requirements before you can withdraw.")}
+                        {language.code === 'bn'
+                          ? `উত্তোলনের আগে আপনাকে ${userData.waigeringneed}x ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করতে হবে।`
+                          : `You need to complete ${userData.waigeringneed}x wagering requirement before you can withdraw.`}
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3">
                         <div className="bg-[#1a1f1f] p-3 rounded-lg">
                           <p className="text-xs md:text-sm text-[#8a9ba8]">
-                            {wageringInfo.isSpecialCase 
-                              ? (language.code === 'bn' ? "প্রয়োজনীয় (১.১x)" : "Required (1.1x)")
-                              : (language.code === 'bn' ? "প্রয়োজনীয় ওয়েজারিং" : "Required Wagering")}
+                            {language.code === 'bn' ? "প্রয়োজনীয় ওয়েজারিং" : "Required Wagering"}
                           </p>
                           <p className="text-base md:text-lg font-bold text-white">
                             ৳{wageringInfo.required.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-[#5a6b78] mt-1">
+                            ({userData.waigeringneed}x × ৳{parseFloat(userData.depositamount).toLocaleString()})
                           </p>
                         </div>
                         <div className="bg-[#1a1f1f] p-3 rounded-lg">
@@ -1576,6 +1566,70 @@ const Withdraw = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Bonus Wagering Requirement Alert */}
+                {(() => {
+                  const bonusWagering = checkBonusWagering(userData);
+                  if (bonusWagering.hasActiveBonus && !bonusWagering.isCompleted) {
+                    return (
+                      <div className="bg-gradient-to-r from-[#2a1f2a] to-[#3a2f3a] rounded-[2px] p-4 md:p-6 mb-6 md:mb-8 border border-[#3a2f3a] shadow-lg">
+                        <div className="flex items-center mb-3">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6 md:h-8 md:w-8 text-[#e6db74] mr-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <h3 className="text-base md:text-lg font-semibold text-[#e6db74]">
+                            {language.code === 'bn' ? "বোনাস ওয়েজারিং প্রয়োজনীয়তা" : "Bonus Wagering Requirement Pending"}
+                          </h3>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm md:text-base text-[#a8b9c6]">
+                            {language.code === 'bn'
+                              ? "আপনার সক্রিয় বোনাসের ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করতে হবে।"
+                              : "You need to complete bonus wagering requirements before you can withdraw."}
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mt-3">
+                            <div className="bg-[#1a1f1f] p-3 rounded-lg">
+                              <p className="text-xs md:text-sm text-[#8a9ba8]">
+                                {language.code === 'bn' ? "প্রয়োজনীয় ওয়েজারিং" : "Required Wagering"}
+                              </p>
+                              <p className="text-base md:text-lg font-bold text-white">
+                                ৳{bonusWagering.totalWagerRequired.toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="bg-[#1a1f1f] p-3 rounded-lg">
+                              <p className="text-xs md:text-sm text-[#8a9ba8]">
+                                {language.code === 'bn' ? "ওয়েজার সম্পন্ন" : "Wagered"}
+                              </p>
+                              <p className="text-base md:text-lg font-bold text-[#4ecdc4]">
+                                ৳{bonusWagering.totalWagered.toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="bg-[#1a1f1f] p-3 rounded-lg">
+                              <p className="text-xs md:text-sm text-[#8a9ba8]">
+                                {language.code === 'bn' ? "বাকি" : "Remaining"}
+                              </p>
+                              <p className="text-base md:text-lg font-bold text-[#ff6b6b]">
+                                ৳{bonusWagering.remaining.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* User Info Card */}
                 {userData && (
@@ -1726,13 +1780,9 @@ const Withdraw = () => {
                             )}
                             {!formErrors.wagering && !formErrors.bonusWagering && !wageringInfo.isCompleted && (
                               <p className="text-xs md:text-sm text-[#ff6b6b]">
-                                {wageringInfo.isSpecialCase 
-                                  ? (language.code === 'bn'
-                                    ? "উত্তোলনের আগে ১.১x ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করুন।"
-                                    : "You need to complete 1.1x wagering requirement before withdrawing.")
-                                  : (language.code === 'bn'
-                                    ? "উত্তোলনের আগে ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করুন।"
-                                    : "You need to complete wagering requirements before withdrawing.")}
+                                {language.code === 'bn'
+                                  ? "উত্তোলনের আগে ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করুন।"
+                                  : "You need to complete wagering requirements before withdrawing."}
                               </p>
                             )}
                           </div>
@@ -1855,9 +1905,7 @@ const Withdraw = () => {
                               }
                             >
                               {!wageringInfo.isCompleted ? (
-                                wageringInfo.isSpecialCase 
-                                  ? (language.code === 'bn' ? "প্রথমে ১.১x ওয়েজারিং সম্পন্ন করুন" : "Complete 1.1x Wagering Requirements First")
-                                  : (language.code === 'bn' ? "প্রথমে ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করুন" : "Complete Wagering Requirements First")
+                                language.code === 'bn' ? "প্রথমে ওয়েজারিং প্রয়োজনীয়তা সম্পন্ন করুন" : "Complete Wagering Requirements First"
                               ) : isProcessing ? (
                                 <>
                                   <svg
@@ -1965,22 +2013,18 @@ const Withdraw = () => {
                           <span className="text-[#3a8a6f] mr-2">•</span>
                           <span>{language.code === 'bn' ? "সর্বোচ্চ উত্তোলনের পরিমাণ:" : "Maximum withdrawal amount:"} ৳{activeMethod?.maxAmount || 30000}</span>
                         </li>
-                        {userData?.depositamount && userData?.depositamount > 0 && (
+                        {userData?.depositamount && userData?.depositamount > 0 && userData?.waigeringneed > 0 && (
                           <>
                             <li className="flex items-start">
                               <span className="text-[#3a8a6f] mr-2">•</span>
                               <span>
-                                {userData.waigeringneed === 0 
-                                  ? (language.code === 'bn' ? "ওয়েজারিং প্রয়োজনীয়তা: ডিপোজিটের ১.১x গুণ" : "Wagering requirement: 1.1x deposit amount")
-                                  : (language.code === 'bn' ? `ওয়েজারিং প্রয়োজনীয়তা: ডিপোজিটের ${userData.waigeringneed}x গুণ` : `Wagering requirement: ${userData.waigeringneed}x deposit amount`)}
+                                {language.code === 'bn' ? `ওয়েজারিং প্রয়োজনীয়তা: ডিপোজিটের ${userData.waigeringneed}x গুণ` : `Wagering requirement: ${userData.waigeringneed}x deposit amount`}
                               </span>
                             </li>
                             <li className="flex items-start">
                               <span className="text-[#3a8a6f] mr-2">•</span>
                               <span>
-                                {language.code === 'bn' ? "প্রয়োজনীয় ওয়েজারিং:" : "Required wagering:"} ৳{(userData.waigeringneed === 0 
-                                  ? userData.depositamount * 1.1 
-                                  : userData.depositamount * userData.waigeringneed).toLocaleString()}
+                                {language.code === 'bn' ? "প্রয়োজনীয় ওয়েজারিং:" : "Required wagering:"} ৳{(userData.depositamount * userData.waigeringneed).toLocaleString()}
                               </span>
                             </li>
                             <li className="flex items-start">
