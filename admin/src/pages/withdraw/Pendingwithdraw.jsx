@@ -458,7 +458,7 @@ const Pendingwithdraw = () => {
                           <div className="flex gap-1.5">
                             <button onClick={() => viewWithdrawalDetails(w)} className="p-1.5 bg-indigo-500/10 hover:bg-indigo-500/30 border border-indigo-500/20 text-indigo-400 rounded text-xs transition-all" title="View"><FaEye /></button>
                             <button onClick={() => openUpdateModal(w)} className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 rounded text-xs transition-all" title="Update"><FaEdit /></button>
-                            <button onClick={() => openDeleteModal(w)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all" title="Delete"><FaTrash /></button>
+                            {/* <button onClick={() => openDeleteModal(w)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all" title="Delete"><FaTrash /></button> */}
                           </div>
                         </td>
                       </tr>

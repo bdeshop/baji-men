@@ -771,9 +771,9 @@ const Allwithdraw = () => {
                               <button onClick={() => openUpdateModal(withdrawal)} disabled={isEditDisabled} className={`p-1.5 rounded text-xs transition-all ${isEditDisabled ? 'bg-gray-500/10 border border-gray-500/20 text-gray-500 cursor-not-allowed opacity-50' : 'bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400'}`} title={disabledReason}>
                                 <FaEdit />
                               </button>
-                              <button onClick={() => openDeleteModal(withdrawal)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all" title="Delete Withdrawal">
+                              {/* <button onClick={() => openDeleteModal(withdrawal)} className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all" title="Delete Withdrawal">
                                 <FaTrash />
-                              </button>
+                              </button> */}
                             </div>
                           </td>
                         </tr>
