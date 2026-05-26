@@ -20,6 +20,7 @@ const Alldeposit = () => {
   const [deposits, setDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
@@ -29,11 +30,10 @@ const Alldeposit = () => {
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
-  const itemsPerPage = 10;
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  const statuses = ['all', 'pending', 'approved', 'rejected', 'cancelled'];
+  const statuses = ['all', 'pending', 'completed', 'cancelled'];
   const methods = ['all', 'bkash', 'nagad', 'rocket', 'upay', 'bank', 'card'];
 
   const fetchDeposits = async () => {
@@ -56,14 +56,15 @@ const Alldeposit = () => {
       setDeposits(response.data.deposits);
       setStats({
         total: response.data.total,
-        completed: response.data.statusCounts.find((s) => s._id === 'approved')?.count || 0,
-        pending: response.data.statusCounts.find((s) => s._id === 'pending')?.count || 0,
+        completed: response.data.statusCounts?.find((s) => s._id === 'approved')?.count || 0,
+        pending: response.data.statusCounts?.find((s) => s._id === 'pending')?.count || 0,
         totalAmount: response.data.totalAmount,
-        completedAmount: response.data.statusCounts.find((s) => s._id === 'approved')?.amount || 0,
+        completedAmount: response.data.statusCounts?.find((s) => s._id === 'approved')?.amount || 0,
       });
     } catch (err) {
       console.error('Error fetching deposits:', err);
       setError('Failed to load deposits. Please try again.');
+      // Mock data for demo
       setDeposits([
         {
           _id: '68ae24b8c2b1c27dfe6572c1',
@@ -90,6 +91,13 @@ const Alldeposit = () => {
           adminNotes: 'Waiting for confirmation',
         },
       ]);
+      setStats({
+        total: 2,
+        completed: 1,
+        pending: 1,
+        totalAmount: 15000,
+        completedAmount: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -104,10 +112,10 @@ const Alldeposit = () => {
       setStats((prev) => ({
         ...prev,
         total: response.data.total.totalCount,
-        completed: response.data.byStatus.find((s) => s._id === 'approved')?.count || 0,
-        pending: response.data.byStatus.find((s) => s._id === 'pending')?.count || 0,
+        completed: response.data.byStatus?.find((s) => s._id === 'approved')?.count || 0,
+        pending: response.data.byStatus?.find((s) => s._id === 'pending')?.count || 0,
         totalAmount: response.data.total.totalAmount,
-        completedAmount: response.data.byStatus.find((s) => s._id === 'approved')?.amount || 0,
+        completedAmount: response.data.byStatus?.find((s) => s._id === 'approved')?.amount || 0,
       }));
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -117,11 +125,11 @@ const Alldeposit = () => {
   useEffect(() => {
     fetchDeposits();
     fetchStats();
-  }, [currentPage, statusFilter, methodFilter, dateRange]);
+  }, [currentPage, statusFilter, methodFilter, dateRange, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, methodFilter, dateRange]);
+  }, [searchTerm, statusFilter, methodFilter, dateRange, itemsPerPage]);
 
   const updateDepositStatus = async (depositId, newStatus, notes = '') => {
     try {
@@ -164,6 +172,271 @@ const Alldeposit = () => {
       setShowDepositDetails(false);
     } catch (err) {
       setError('Failed to delete deposit.');
+    }
+  };
+
+  // Helper function to format date for export
+  const formatDateForExport = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-BD', {
+      timeZone: 'Asia/Dhaka',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  // Helper function to get filtered data for export
+  const getFilteredDataForExport = () => {
+    let filtered = [...deposits];
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(deposit => 
+        deposit.userId?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        deposit.userId?.player_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        deposit.transactionId?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(deposit => deposit.status === statusFilter);
+    }
+    
+    // Apply method filter
+    if (methodFilter !== 'all') {
+      filtered = filtered.filter(deposit => deposit.method === methodFilter);
+    }
+    
+    // Apply date range filter
+    if (dateRange.start) {
+      filtered = filtered.filter(deposit => new Date(deposit.createdAt) >= new Date(dateRange.start));
+    }
+    if (dateRange.end) {
+      const endDate = new Date(dateRange.end);
+      endDate.setHours(23, 59, 59);
+      filtered = filtered.filter(deposit => new Date(deposit.createdAt) <= endDate);
+    }
+    
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = sortConfig.key.includes('.')
+          ? sortConfig.key.split('.').reduce((o, i) => o?.[i], a)
+          : a[sortConfig.key];
+        let bValue = sortConfig.key.includes('.')
+          ? sortConfig.key.split('.').reduce((o, i) => o?.[i], b)
+          : b[sortConfig.key];
+        
+        if (sortConfig.key === 'createdAt' || sortConfig.key === 'processedAt') {
+          aValue = aValue ? new Date(aValue) : new Date(0);
+          bValue = bValue ? new Date(bValue) : new Date(0);
+        }
+        
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return filtered;
+  };
+
+  // Custom CSV Export - No external libraries
+  const exportToCSV = () => {
+    try {
+      const dataToExport = getFilteredDataForExport();
+      
+      if (dataToExport.length === 0) {
+        setError('No data to export. Please adjust your filters.');
+        return;
+      }
+      
+      // Define CSV headers
+      const headers = [
+        'Date & Time',
+        'Player ID',
+        'Username',
+        'Method',
+        'Amount (BDT)',
+        'Phone Number',
+        'Transaction ID',
+        'Status',
+        'Processed At',
+        'Admin Notes'
+      ];
+      
+      // Convert data to CSV rows
+      const rows = dataToExport.map(deposit => [
+        formatDateForExport(deposit.createdAt),
+        deposit.userId?.player_id || 'N/A',
+        deposit.userId?.username || 'Unknown',
+        getMethodName(deposit.method),
+        deposit.amount,
+        deposit.phoneNumber || 'N/A',
+        deposit.transactionId || 'N/A',
+        deposit.status.toUpperCase(),
+        deposit.processedAt ? formatDateForExport(deposit.processedAt) : 'N/A',
+        (deposit.adminNotes || '').replace(/,/g, ';') // Replace commas to avoid CSV issues
+      ]);
+      
+      // Build CSV content
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      // Add BOM for UTF-8 with Bengali support
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      // Create download link
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      // Build filename with filter context
+      let filterContext = '';
+      if (statusFilter !== 'all') filterContext += `_${statusFilter}`;
+      if (methodFilter !== 'all') filterContext += `_${methodFilter}`;
+      if (searchTerm) filterContext += `_search`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `deposits${filterContext}_${timestamp}.csv`);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setError(null);
+    } catch (err) {
+      console.error('CSV Export error:', err);
+      setError('Failed to export CSV. Please try again.');
+    }
+  };
+  
+  // Custom Excel (XLS) Export - No external libraries, pure HTML table method
+  const exportToExcel = () => {
+    try {
+      const dataToExport = getFilteredDataForExport();
+      
+      if (dataToExport.length === 0) {
+        setError('No data to export. Please adjust your filters.');
+        return;
+      }
+      
+      // Build HTML table for Excel
+      let htmlContent = `
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Deposit Report</title>
+          <style>
+            th { background-color: #4F46E5; color: white; padding: 8px; border: 1px solid #ddd; }
+            td { padding: 6px; border: 1px solid #ddd; }
+            table { border-collapse: collapse; width: 100%; }
+          </style>
+        </head>
+        <body>
+          <h2>Deposit Transactions Report</h2>
+          <p>Generated: ${new Date().toLocaleString()}</p>
+          <p>Filters Applied: ${statusFilter !== 'all' ? `Status: ${statusFilter} | ` : ''}${methodFilter !== 'all' ? `Method: ${methodFilter} | ` : ''}${searchTerm ? `Search: ${searchTerm}` : 'No search filter'}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Player ID</th>
+                <th>Username</th>
+                <th>Method</th>
+                <th>Amount (BDT)</th>
+                <th>Phone Number</th>
+                <th>Transaction ID</th>
+                <th>Status</th>
+                <th>Processed At</th>
+                <th>Admin Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
+      // Add data rows
+      dataToExport.forEach(deposit => {
+        htmlContent += `
+          <tr>
+            <td>${formatDateForExport(deposit.createdAt)}</td>
+            <td>${deposit.userId?.player_id || 'N/A'}</td>
+            <td>${deposit.userId?.username || 'Unknown'}</td>
+            <td>${getMethodName(deposit.method)}</td>
+            <td>${deposit.amount}</td>
+            <td>${deposit.phoneNumber || 'N/A'}</td>
+            <td>${deposit.transactionId || 'N/A'}</td>
+            <td>${deposit.status.toUpperCase()}</td>
+            <td>${deposit.processedAt ? formatDateForExport(deposit.processedAt) : 'N/A'}</td>
+            <td>${(deposit.adminNotes || '').replace(/[&<>]/g, function(m) {
+              if (m === '&') return '&amp;';
+              if (m === '<') return '&lt;';
+              if (m === '>') return '&gt;';
+              return m;
+            })}</td>
+          </tr>
+        `;
+      });
+      
+      // Add summary row
+      const totalAmount = dataToExport.reduce((sum, d) => sum + (d.amount || 0), 0);
+      const completedAmount = dataToExport.filter(d => d.status === 'approved').reduce((sum, d) => sum + (d.amount || 0), 0);
+      
+      htmlContent += `
+            </tbody>
+            <tfoot>
+              <tr style="background-color: #f3f4f6; font-weight: bold;">
+                <td colspan="4" style="text-align: right;">Total:</td>
+                <td>${totalAmount} BDT</td>
+                <td colspan="5"></td>
+              </tr>
+              <tr style="background-color: #f3f4f6; font-weight: bold;">
+                <td colspan="4" style="text-align: right;">Completed Amount:</td>
+                <td>${completedAmount} BDT</td>
+                <td colspan="5"></td>
+              </tr>
+            </tfoot>
+          </table>
+          <p style="margin-top: 20px; font-size: 12px; color: #666;">Total Records: ${dataToExport.length}</p>
+        </body>
+        </html>
+      `;
+      
+      // Create blob with proper MIME type for Excel
+      const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel' });
+      
+      // Create download link
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      // Build filename with filter context
+      let filterContext = '';
+      if (statusFilter !== 'all') filterContext += `_${statusFilter}`;
+      if (methodFilter !== 'all') filterContext += `_${methodFilter}`;
+      if (searchTerm) filterContext += `_search`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `deposits${filterContext}_${timestamp}.xls`);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setError(null);
+    } catch (err) {
+      console.error('Excel Export error:', err);
+      setError('Failed to export Excel file. Please try again.');
     }
   };
 
@@ -232,7 +505,7 @@ const Alldeposit = () => {
 
   const getStatusInfo = (status) => {
     switch (status) {
-      case 'completed':
+      case 'approved':
         return {
           icon: <FaCheckCircle className="text-emerald-400" />,
           badge: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
@@ -271,36 +544,6 @@ const Alldeposit = () => {
       card: 'text-indigo-400',
     };
     return map[method] || 'text-gray-400';
-  };
-
-  const exportToCSV = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      let url = `${API_BASE_URL}/api/admin/deposits/export`;
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (methodFilter !== 'all') params.append('method', methodFilter);
-      if (dateRange.start) params.append('startDate', dateRange.start);
-      if (dateRange.end) params.append('endDate', dateRange.end);
-      if (params.toString()) url += `?${params.toString()}`;
-      const response = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
-      });
-      const blob = new Blob([response.data], { type: 'text/csv' });
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = `deposit_history_${new Date().toISOString().split('T')[0]}.csv`;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      setError('Failed to export CSV.');
-    }
   };
 
   // Smart pagination: always show first, last, current ± 1, with ellipsis
@@ -368,6 +611,18 @@ const Alldeposit = () => {
               </p>
             </div>
             <div className="flex gap-3 mt-4 md:mt-0">
+              <button
+                onClick={exportToCSV}
+                className="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2"
+              >
+                <FiDownload /> EXPORT CSV
+              </button>
+              <button
+                onClick={exportToExcel}
+                className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2"
+              >
+                <FiDownload /> EXPORT EXCEL
+              </button>
               <button
                 onClick={() => { fetchDeposits(); fetchStats(); }}
                 className="bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-6 py-2 rounded font-bold text-xs transition-all flex items-center gap-2"
@@ -465,11 +720,24 @@ const Alldeposit = () => {
             </div>
           </div>
 
-          {/* Results Info */}
-          <div className="mb-3 flex justify-between items-center">
+          {/* Results Info & Items Per Page Selector */}
+          <div className="mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
               Showing {deposits.length} of {stats.total} deposits
             </p>
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Show:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded px-2 py-1 focus:outline-none focus:border-indigo-500"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
 
           {/* Table */}
@@ -506,7 +774,7 @@ const Alldeposit = () => {
                           <td className="px-5 py-4 text-xs text-gray-400 whitespace-nowrap">{formatDate(deposit.createdAt)}</td>
                           <td className="px-5 py-4 whitespace-nowrap">
                             <div className="text-sm font-bold text-white font-mono">{deposit.userId?.player_id || 'N/A'}</div>
-                            <div className="text-[10px] text-gray-500">{deposit.userId?.username || 'Unknown'}</div>
+                            <div className="text-[10px] text-yellow-500">{deposit.userId?.username || 'Unknown'}</div>
                           </td>
                           <td className="px-5 py-4 whitespace-nowrap">
                             <span className={`text-xs font-bold ${getMethodColor(deposit.method)}`}>{getMethodName(deposit.method)}</span>
@@ -541,13 +809,6 @@ const Alldeposit = () => {
                                 title="Edit"
                               >
                                 <FaEdit />
-                              </button>
-                              <button
-                                onClick={() => deleteDeposit(deposit._id)}
-                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
-                                title="Delete"
-                              >
-                                <FaTrash />
                               </button>
                             </div>
                           </td>

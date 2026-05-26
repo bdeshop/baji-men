@@ -4954,201 +4954,250 @@ Adminrouter.get("/withdrawals/:id", async (req, res) => {
 });
 
 // PUT update withdrawal status
+// Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
+//   try {
+//     const { status, transactionId, adminNotes } = req.body;
+
+//     if (
+//       !status ||
+//       !["pending", "processing", "completed", "failed", "cancelled"].includes(
+//         status
+//       )
+//     ) {
+//       return res.status(400).json({ error: "Valid status is required" });
+//     }
+
+//     const withdrawal = await Withdrawal.findById(req.params.id).populate(
+//       "userId",
+//       "username player_id balance"
+//     );
+
+//     if (!withdrawal) {
+//       return res.status(404).json({ error: "Withdrawal not found" });
+//     }
+
+//     // Store old status for potential rollback
+//     const oldStatus = withdrawal.status;
+
+//     // Update withdrawal status
+//     withdrawal.status = status;
+
+//     if (status === "processing" || status === "completed") {
+//       withdrawal.processedAt = new Date();
+//     }
+
+//     if (transactionId) {
+//       withdrawal.transactionId = transactionId;
+//     }
+
+//     if (adminNotes) {
+//       withdrawal.adminNotes = adminNotes;
+//     }
+
+//     // If status is being completed, update transaction ID if provided
+//     if (status === "completed" && transactionId) {
+//       withdrawal.transactionId = transactionId;
+//     }
+
+//     // If status is being changed from completed to something else, refund the amount
+//     if (oldStatus === "completed" && status !== "completed") {
+//       const user = await User.findById(withdrawal.userId._id);
+
+//       if (!user) {
+//         return res.status(404).json({ error: "User not found" });
+//       }
+
+//       // Refund the amount to user balance
+//       user.balance += withdrawal.amount;
+
+//       // Update withdrawal history status
+//       const withdrawalEntry = user.withdrawHistory.find(
+//         (w) => w._id.toString() === withdrawal._id.toString()
+//       );
+
+//       if (withdrawalEntry) {
+//         withdrawalEntry.status = status;
+//       }
+
+//       // Add transaction history for refund
+//       user.transactionHistory.push({
+//         type: "refund",
+//         amount: withdrawal.amount,
+//         balanceBefore: user.balance - withdrawal.amount,
+//         balanceAfter: user.balance,
+//         description: `Withdrawal refund - Status changed from completed to ${status}`,
+//         referenceId: withdrawal._id.toString(),
+//       });
+
+//       await user.save();
+//     }
+
+//     // If status is being changed to completed, ensure the amount was already deducted
+//     if (status === "completed" && oldStatus !== "completed") {
+//       const user = await User.findById(withdrawal.userId._id);
+
+//       if (!user) {
+//         return res.status(404).json({ error: "User not found" });
+//       }
+
+//       // Verify that the amount was already deducted from user balance
+//       // (This should have happened when the withdrawal was created)
+//       if (user.balance + withdrawal.amount > user.originalBalance) {
+//         // If not deducted properly, deduct it now
+//         user.balance -= withdrawal.amount;
+
+//         // Add transaction history for correction
+//         user.transactionHistory.push({
+//           type: "correction",
+//           amount: -withdrawal.amount,
+//           balanceBefore: user.balance + withdrawal.amount,
+//           balanceAfter: user.balance,
+//           description: `Withdrawal amount correction - Status changed to completed`,
+//           referenceId: withdrawal._id.toString(),
+//         });
+
+//         await user.save();
+//       }
+
+//       // Update withdrawal history status
+//       const withdrawalEntry = user.withdrawHistory.find(
+//         (w) => w._id.toString() === withdrawal._id.toString()
+//       );
+
+//       if (withdrawalEntry) {
+//         withdrawalEntry.status = "completed";
+//         withdrawalEntry.processedAt = new Date();
+//       }
+//     }
+
+//     // NEW: Handle cancellation - refund the amount if cancellation happens from non-completed status
+//     if (status === "cancelled" && oldStatus !== "completed") {
+//       const user = await User.findById(withdrawal.userId._id);
+
+//       if (!user) {
+//         return res.status(404).json({ error: "User not found" });
+//       }
+//       user.balance += withdrawal.amount;
+
+//       const withdrawalEntry = user.withdrawHistory.find(
+//         (w) => w._id.toString() === withdrawal._id.toString()
+//       );
+
+//       if (withdrawalEntry) {
+//         withdrawalEntry.status = "cancelled";
+//       }
+
+//       // Add transaction history for cancellation refund
+//       user.transactionHistory.push({
+//         type: "refund",
+//         amount: withdrawal.amount,
+//         balanceBefore: user.balance - withdrawal.amount,
+//         balanceAfter: user.balance,
+//         description: `Withdrawal cancelled - Amount refunded`,
+//         referenceId: withdrawal._id.toString(),
+//       });
+
+//       await user.save();
+//     }
+
+//     // Also handle failed status similarly (if you want to refund on failure)
+//     if (status === "failed" && oldStatus !== "completed" && oldStatus !== "failed") {
+//       const user = await User.findById(withdrawal.userId._id);
+
+//       if (!user) {
+//         return res.status(404).json({ error: "User not found" });
+//       }
+
+//       // Refund the amount for failed withdrawals
+//       user.balance += withdrawal.amount;
+
+//       // Update withdrawal history status
+//       const withdrawalEntry = user.withdrawHistory.find(
+//         (w) => w._id.toString() === withdrawal._id.toString()
+//       );
+
+//       if (withdrawalEntry) {
+//         withdrawalEntry.status = "failed";
+//       }
+
+//       // Add transaction history for failure refund
+//       user.transactionHistory.push({
+//         type: "refund",
+//         amount: withdrawal.amount,
+//         balanceBefore: user.balance - withdrawal.amount,
+//         balanceAfter: user.balance,
+//         description: `Withdrawal failed - Amount refunded`,
+//         referenceId: withdrawal._id.toString(),
+//       });
+
+//       await user.save();
+//     }
+
+//     await withdrawal.save();
+
+//     res.json({
+//       message: "Withdrawal status updated successfully",
+//       withdrawal,
+//     });
+//   } catch (error) {
+//     console.error("Error updating withdrawal status:", error);
+//     res.status(500).json({ error: "Failed to update withdrawal status" });
+//   }
+// });
+
+// PUT update withdrawal status
 Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
   try {
     const { status, transactionId, adminNotes } = req.body;
 
-    if (
-      !status ||
-      !["pending", "processing", "completed", "failed", "cancelled"].includes(
-        status
-      )
-    ) {
+    // Validate status
+    if (!status || !["pending", "processing", "completed", "failed", "cancelled"].includes(status)) {
       return res.status(400).json({ error: "Valid status is required" });
     }
 
-    const withdrawal = await Withdrawal.findById(req.params.id).populate(
-      "userId",
-      "username player_id balance"
-    );
-
+    // Find withdrawal
+    const withdrawal = await Withdrawal.findById(req.params.id).populate("userId", "username balance");
+    
     if (!withdrawal) {
       return res.status(404).json({ error: "Withdrawal not found" });
     }
 
-    // Store old status for potential rollback
     const oldStatus = withdrawal.status;
+
+    // Handle cancellation - refund balance
+    if (status === "cancelled" && oldStatus !== "cancelled") {
+      const user = await User.findById(withdrawal.userId._id);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Refund the amount
+      user.balance += withdrawal.amount;
+      
+      // Add transaction record
+      user.transactionHistory.push({
+        type: "refund",
+        amount: withdrawal.amount,
+        balanceBefore: user.balance - withdrawal.amount,
+        balanceAfter: user.balance,
+        description: `Withdrawal cancelled - Refunded ${withdrawal.amount}`,
+        referenceId: withdrawal._id.toString(),
+      });
+
+      await user.save();
+    }
 
     // Update withdrawal status
     withdrawal.status = status;
-
+    
     if (status === "processing" || status === "completed") {
       withdrawal.processedAt = new Date();
     }
-
-    if (transactionId) {
-      withdrawal.transactionId = transactionId;
-    }
-
-    if (adminNotes) {
-      withdrawal.adminNotes = adminNotes;
-    }
-
-    // If status is being completed, update transaction ID if provided
-    if (status === "completed" && transactionId) {
-      withdrawal.transactionId = transactionId;
-    }
-
-    // If status is being changed from completed to something else, refund the amount
-    if (oldStatus === "completed" && status !== "completed") {
-      const user = await User.findById(withdrawal.userId._id);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Refund the amount to user balance
-      user.balance += withdrawal.amount;
-
-      // Update withdrawal history status
-      const withdrawalEntry = user.withdrawHistory.find(
-        (w) => w._id.toString() === withdrawal._id.toString()
-      );
-
-      if (withdrawalEntry) {
-        withdrawalEntry.status = status;
-      }
-
-      // Add transaction history for refund
-      user.transactionHistory.push({
-        type: "refund",
-        amount: withdrawal.amount,
-        balanceBefore: user.balance - withdrawal.amount,
-        balanceAfter: user.balance,
-        description: `Withdrawal refund - Status changed from completed to ${status}`,
-        referenceId: withdrawal._id.toString(),
-      });
-
-      await user.save();
-    }
-
-    // If status is being changed to completed, ensure the amount was already deducted
-    if (status === "completed" && oldStatus !== "completed") {
-      const user = await User.findById(withdrawal.userId._id);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Verify that the amount was already deducted from user balance
-      // (This should have happened when the withdrawal was created)
-      if (user.balance + withdrawal.amount > user.originalBalance) {
-        // If not deducted properly, deduct it now
-        user.balance -= withdrawal.amount;
-
-        // Add transaction history for correction
-        user.transactionHistory.push({
-          type: "correction",
-          amount: -withdrawal.amount,
-          balanceBefore: user.balance + withdrawal.amount,
-          balanceAfter: user.balance,
-          description: `Withdrawal amount correction - Status changed to completed`,
-          referenceId: withdrawal._id.toString(),
-        });
-
-        await user.save();
-      }
-
-      // Update withdrawal history status
-      const withdrawalEntry = user.withdrawHistory.find(
-        (w) => w._id.toString() === withdrawal._id.toString()
-      );
-
-      if (withdrawalEntry) {
-        withdrawalEntry.status = "completed";
-        withdrawalEntry.processedAt = new Date();
-      }
-    }
-
-    // NEW: Handle cancellation - refund the amount if cancellation happens from non-completed status
-    if (status === "cancelled" && oldStatus !== "completed") {
-      const user = await User.findById(withdrawal.userId._id);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Check if the amount was already deducted (when withdrawal was created)
-      // Typically for pending/processing withdrawals, the amount would have been deducted
-      // So we need to refund it
-      
-      // Find if amount was already deducted from balance
-      // This depends on your withdrawal creation logic. Common approaches:
-      
-      // Option 1: Track deduction status in withdrawal record
-      // if (withdrawal.amountDeducted === true) {
-      //   user.balance += withdrawal.amount;
-      // }
-
-      // Option 2: Assume amount was deducted for all non-completed withdrawals
-      // (Most common approach - deduct when withdrawal is requested)
-      user.balance += withdrawal.amount;
-
-      // Update withdrawal history status
-      const withdrawalEntry = user.withdrawHistory.find(
-        (w) => w._id.toString() === withdrawal._id.toString()
-      );
-
-      if (withdrawalEntry) {
-        withdrawalEntry.status = "cancelled";
-      }
-
-      // Add transaction history for cancellation refund
-      user.transactionHistory.push({
-        type: "refund",
-        amount: withdrawal.amount,
-        balanceBefore: user.balance - withdrawal.amount,
-        balanceAfter: user.balance,
-        description: `Withdrawal cancelled - Amount refunded`,
-        referenceId: withdrawal._id.toString(),
-      });
-
-      await user.save();
-    }
-
-    // Also handle failed status similarly (if you want to refund on failure)
-    if (status === "failed" && oldStatus !== "completed" && oldStatus !== "failed") {
-      const user = await User.findById(withdrawal.userId._id);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Refund the amount for failed withdrawals
-      user.balance += withdrawal.amount;
-
-      // Update withdrawal history status
-      const withdrawalEntry = user.withdrawHistory.find(
-        (w) => w._id.toString() === withdrawal._id.toString()
-      );
-
-      if (withdrawalEntry) {
-        withdrawalEntry.status = "failed";
-      }
-
-      // Add transaction history for failure refund
-      user.transactionHistory.push({
-        type: "refund",
-        amount: withdrawal.amount,
-        balanceBefore: user.balance - withdrawal.amount,
-        balanceAfter: user.balance,
-        description: `Withdrawal failed - Amount refunded`,
-        referenceId: withdrawal._id.toString(),
-      });
-
-      await user.save();
-    }
-
+    
+    if (transactionId) withdrawal.transactionId = transactionId;
+    if (adminNotes) withdrawal.adminNotes = adminNotes;
+    
     await withdrawal.save();
 
     res.json({

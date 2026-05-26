@@ -431,13 +431,13 @@ const Approveddeposit = () => {
                             >
                               <FaEdit />
                             </button>
-                            <button
+                            {/* <button
                               onClick={() => deleteDeposit(deposit._id)}
                               className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
                               title="Delete"
                             >
                               <FaTrash />
-                            </button>
+                            </button> */}
                           </div>
                         </td>
                       </tr>

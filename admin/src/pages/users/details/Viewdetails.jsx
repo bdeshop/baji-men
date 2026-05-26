@@ -32,6 +32,10 @@ import {
   FaTimes,
   FaCheckCircle,
   FaClock,
+  FaRunning,
+  FaInfoCircle,
+  FaCoins,
+  FaTrophy,
 } from 'react-icons/fa';
 import { FiRefreshCw } from 'react-icons/fi';
 import Sidebar from '../../../components/Sidebar';
@@ -39,6 +43,9 @@ import Header from '../../../components/Header';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
+
+import { GiCash } from "react-icons/gi";
+import { FaExclamationCircle } from "react-icons/fa";
 
 const Viewdetails = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -63,9 +70,32 @@ const Viewdetails = () => {
   const [selectedBet, setSelectedBet] = useState(null);
   const [selectedDeposit, setSelectedDeposit] = useState(null);
   const [selectedWithdraw, setSelectedWithdraw] = useState(null);
+  
+  // Filter states
   const [betSearch, setBetSearch] = useState('');
+  const [betStatusFilter, setBetStatusFilter] = useState('all');
+  const [betResultFilter, setBetResultFilter] = useState('all');
+  // Bet History Time Filter States
+  const [betStartDate, setBetStartDate] = useState('');
+  const [betEndDate, setBetEndDate] = useState('');
+  const [betTimeFilterType, setBetTimeFilterType] = useState('all'); // 'all', 'today', 'custom'
+  
   const [depositSearch, setDepositSearch] = useState('');
+  const [depositStatusFilter, setDepositStatusFilter] = useState('all');
   const [withdrawSearch, setWithdrawSearch] = useState('');
+  const [withdrawStatusFilter, setWithdrawStatusFilter] = useState('all');
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState('all');
+
+  // Wagering info state
+  const [wageringInfo, setWageringInfo] = useState({
+    required: 0,
+    completed: 0,
+    remaining: 0,
+    isCompleted: true,
+    progress: 0,
+    wageringNeed: 0,
+    depositAmount: 0
+  });
 
   const navigate = useNavigate();
   const { id } = useParams();
@@ -89,10 +119,68 @@ const Viewdetails = () => {
       email: true,
       sms: false,
       push: true
-    }
+    },
+    depositamount: 0,
+    waigeringneed: 0,
+    total_deposit: 0,
+    total_withdraw: 0,
+    total_bet: 0,
+    total_wins: 0,
+    total_loss: 0,
+    net_profit: 0,
+    lifetime_deposit: 0,
+    lifetime_withdraw: 0,
+    lifetime_bet: 0,
+    totalWagered: 0,
+    referralEarnings: 0,
+    referralCount: 0,
+    login_count: 0,
+    last_login: null,
+    createdAt: null,
+    referralCode: ''
   });
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  // Calculate wagering requirements
+  const calculateWageringRequirements = (userData) => {
+    if (!userData) return { 
+      required: 0, 
+      completed: 0, 
+      remaining: 0, 
+      isCompleted: true,
+      progress: 0,
+      wageringNeed: 0,
+      depositAmount: 0
+    };
+    
+    const depositAmount = parseFloat(userData.depositamount) || 0;
+    const wageringNeed = parseFloat(userData.waigeringneed) || 0;
+    const totalBet = parseFloat(userData.total_bet) || 0;
+    
+    const requiredWager = depositAmount * wageringNeed;
+    const remainingWager = Math.max(0, requiredWager - totalBet);
+    const isCompleted = remainingWager <= 0;
+    const progress = requiredWager > 0 ? (totalBet / requiredWager) * 100 : 100;
+    
+    return {
+      required: requiredWager,
+      completed: totalBet,
+      remaining: remainingWager,
+      isCompleted: isCompleted,
+      progress: Math.min(progress, 100),
+      wageringNeed: wageringNeed,
+      depositAmount: depositAmount
+    };
+  };
+
+  // Helper function to check if a bet date is today
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const betDate = new Date(dateString);
+    const today = new Date();
+    return betDate.toDateString() === today.toDateString();
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -103,13 +191,20 @@ const Viewdetails = () => {
         const response = await axios.get(`${base_url}/api/admin/users/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-
+       console.log(response)
         const userData = response.data;
         setUser(userData);
+        
+        // Set history arrays from the user data
         setBetHistory(userData.betHistory || []);
         setDepositHistory(userData.depositHistory || []);
         setWithdrawHistory(userData.withdrawHistory || []);
         setTransactionHistory(userData.transactionHistory || []);
+        
+        // Calculate wagering requirements
+        const wageringReq = calculateWageringRequirements(userData);
+        setWageringInfo(wageringReq);
+        
         setError(null);
       } catch (err) {
         setError(err.response?.data?.error || err.message || 'Failed to fetch user data');
@@ -212,29 +307,78 @@ const Viewdetails = () => {
     setShowPasswordModal(true);
   };
 
+  // Reset time filter to today
+  const setTodayFilter = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    setBetStartDate(todayStr);
+    setBetEndDate(todayStr);
+    setBetTimeFilterType('today');
+  };
+
+  // Reset all time filters
+  const resetTimeFilter = () => {
+    setBetStartDate('');
+    setBetEndDate('');
+    setBetTimeFilterType('all');
+  };
+
+  // Enhanced filter functions with time filter for bets
   const filteredBetHistory = betHistory.filter(bet => {
+    // Search filter
     const searchTerm = betSearch.toLowerCase();
-    return (
+    const matchesSearch = 
       bet.transaction_id?.toLowerCase().includes(searchTerm) ||
-      bet.game_id?.toLowerCase().includes(searchTerm) ||
-      bet.betResult?.toLowerCase().includes(searchTerm)
-    );
+      bet.game_id?.toLowerCase().includes(searchTerm);
+    
+    // Status and Result filters
+    const matchesStatus = betStatusFilter === 'all' || bet.status === betStatusFilter;
+    const matchesResult = betResultFilter === 'all' || bet.betResult === betResultFilter;
+    
+    // Time filter
+    let matchesTime = true;
+    if (betTimeFilterType === 'today') {
+      matchesTime = isToday(bet.bet_time);
+    } else if (betTimeFilterType === 'custom' && betStartDate && betEndDate) {
+      const betDate = new Date(bet.bet_time);
+      const startDate = new Date(betStartDate);
+      const endDate = new Date(betEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      matchesTime = betDate >= startDate && betDate <= endDate;
+    }
+    
+    return matchesSearch && matchesStatus && matchesResult && matchesTime;
   });
 
   const filteredDepositHistory = depositHistory.filter(deposit => {
     const searchTerm = depositSearch.toLowerCase();
-    return (
+    const matchesSearch = 
       deposit.method?.toLowerCase().includes(searchTerm) ||
-      deposit.status?.toLowerCase().includes(searchTerm)
-    );
+      deposit.orderId?.toLowerCase().includes(searchTerm);
+    
+    const matchesStatus = depositStatusFilter === 'all' || deposit.status === depositStatusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
 
   const filteredWithdrawHistory = withdrawHistory.filter(withdraw => {
     const searchTerm = withdrawSearch.toLowerCase();
-    return (
+    const matchesSearch = 
       withdraw.method?.toLowerCase().includes(searchTerm) ||
-      withdraw.status?.toLowerCase().includes(searchTerm)
-    );
+      withdraw.accountNumber?.toLowerCase().includes(searchTerm) ||
+      withdraw.transactionId?.toLowerCase().includes(searchTerm);
+    
+    const matchesStatus = withdrawStatusFilter === 'all' || withdraw.status === withdrawStatusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const filteredTransactionHistory = transactionHistory.filter(transaction => {
+    const matchesType = transactionTypeFilter === 'all' || transaction.type === transactionTypeFilter;
+    return matchesType;
   });
 
   const getUserInitials = (username) => {
@@ -311,10 +455,25 @@ const Viewdetails = () => {
     const statusConfig = {
       completed: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
       pending: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+      processing: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
       failed: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+      rejected: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
       cancelled: 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
     };
     return statusConfig[status] || 'bg-gray-500/10 text-gray-400 border border-gray-500/20';
+  };
+
+  const getTransactionTypeBadge = (type) => {
+    const typeConfig = {
+      win: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+      loss: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
+      bet: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
+      deposit: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+      withdraw: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
+      penalty: 'bg-red-500/10 text-red-400 border border-red-500/20',
+      affiliate_commission: 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+    };
+    return typeConfig[type] || 'bg-gray-500/10 text-gray-400 border border-gray-500/20';
   };
 
   const inputClass = 'w-full bg-[#0F111A] border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder-gray-600';
@@ -326,6 +485,8 @@ const Viewdetails = () => {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
+
+  const hasWageringRequirement = user.depositamount > 0 && user.waigeringneed > 0;
 
   if (error && !loading) {
     return (
@@ -401,6 +562,7 @@ const Viewdetails = () => {
                   <nav className="flex flex-wrap gap-2 md:gap-6">
                     {[
                       { id: 'profile', label: 'Profile', icon: <FaUser className="mr-2" />, count: null },
+                      { id: 'wagering', label: 'Wagering', icon: <FaRunning className="mr-2" />, count: null },
                       { id: 'betHistory', label: 'Bet History', icon: <FaGamepad className="mr-2" />, count: betHistory.length },
                       { id: 'depositHistory', label: 'Deposit History', icon: <FaWallet className="mr-2" />, count: depositHistory.length },
                       { id: 'withdrawHistory', label: 'Withdraw History', icon: <FaFileInvoiceDollar className="mr-2" />, count: withdrawHistory.length },
@@ -697,7 +859,213 @@ const Viewdetails = () => {
                   </div>
                 )}
 
-                {/* Bet History Tab */}
+                {/* Wagering Tab */}
+                {activeTab === 'wagering' && (
+                  <div className="space-y-6">
+                    {!hasWageringRequirement ? (
+                      <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-8 text-center">
+                        <FaCheckCircle className="text-5xl text-green-500 mb-4 mx-auto" />
+                        <h3 className="text-xl font-semibold text-white mb-2">No Turnover Requirement</h3>
+                        <p className="text-gray-400">You don't have any wagering requirements at the moment.</p>
+                        <p className="text-gray-500 text-sm mt-2">The user can withdraw freely as there are no turnover restrictions.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Main Turnover Card */}
+                        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 shadow-lg">
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-3 rounded-lg ${wageringInfo.isCompleted ? 'bg-green-600' : 'bg-blue-600'}`}>
+                                <GiCash className="text-white text-2xl" />
+                              </div>
+                              <div>
+                                <h3 className="text-xl font-semibold">Wagering Requirement</h3>
+                                <p className="text-gray-400 text-sm">
+                                  Bet {wageringInfo.wageringNeed}x the deposit amount
+                                </p>
+                              </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                              wageringInfo.isCompleted 
+                                ? 'bg-green-900/30 text-green-400 border border-green-700' 
+                                : 'bg-blue-900/30 text-blue-400 border border-blue-700'
+                            }`}>
+                              {wageringInfo.isCompleted ? 'Completed' : 'In Progress'}
+                            </div>
+                          </div>
+
+                          {/* Progress Section */}
+                          <div className="mb-6">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-gray-400 text-sm">Progress</span>
+                              <span className="text-white font-medium text-lg">
+                                {wageringInfo.progress.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-4 mb-1">
+                              <div
+                                className={`h-4 rounded-full transition-all duration-500 ${
+                                  wageringInfo.isCompleted
+                                    ? 'bg-gradient-to-r from-green-500 to-green-400'
+                                    : 'bg-gradient-to-r from-blue-500 to-cyan-400'
+                                }`}
+                                style={{ width: `${wageringInfo.progress}%` }}
+                              ></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-400 mt-1">
+                              <span>0</span>
+                              <span>{formatCurrency(wageringInfo.required)}</span>
+                            </div>
+                          </div>
+
+                          {/* Stats Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-gray-700/50 rounded-lg p-4 text-center">
+                              <div className="flex items-center justify-center space-x-2 mb-2">
+                                <FaCoins className="text-green-400" />
+                                <span className="text-gray-400 text-sm">Deposit Amount</span>
+                              </div>
+                              <p className="text-white font-semibold text-lg">
+                                {formatCurrency(user.depositamount)}
+                              </p>
+                            </div>
+
+                            <div className="bg-gray-700/50 rounded-lg p-4 text-center">
+                              <div className="flex items-center justify-center space-x-2 mb-2">
+                                <FaTrophy className="text-blue-400" />
+                                <span className="text-gray-400 text-sm">Required Turnover</span>
+                              </div>
+                              <p className="text-white font-semibold text-lg">
+                                {formatCurrency(wageringInfo.required)}
+                              </p>
+                              <p className="text-gray-400 text-xs mt-1">
+                                ({wageringInfo.wageringNeed}x deposit)
+                              </p>
+                            </div>
+
+                            <div className="bg-gray-700/50 rounded-lg p-4 text-center">
+                              <div className="flex items-center justify-center space-x-2 mb-2">
+                                <FaRunning className="text-cyan-400" />
+                                <span className="text-gray-400 text-sm">Completed Wagering</span>
+                              </div>
+                              <p className="text-white font-semibold text-lg">
+                                {formatCurrency(wageringInfo.completed)}
+                              </p>
+                            </div>
+
+                            <div className={`rounded-lg p-4 text-center ${
+                              wageringInfo.isCompleted 
+                                ? 'bg-green-900/20 border border-green-700' 
+                                : 'bg-blue-900/20 border border-blue-700'
+                            }`}>
+                              <div className="flex items-center justify-center space-x-2 mb-2">
+                                {wageringInfo.isCompleted ? (
+                                  <FaCheckCircle className="text-green-400" />
+                                ) : (
+                                  <FaExclamationCircle className="text-blue-400" />
+                                )}
+                                <span className="text-gray-400 text-sm">Remaining</span>
+                              </div>
+                              <p className={`font-semibold text-lg ${
+                                wageringInfo.isCompleted ? 'text-green-400' : 'text-blue-400'
+                              }`}>
+                                {formatCurrency(wageringInfo.remaining)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Status Message */}
+                          {wageringInfo.isCompleted ? (
+                            <div className="mt-6 p-4 bg-green-900/20 border border-green-700 rounded-lg flex items-center space-x-4">
+                              <FaCheckCircle className="text-green-400 text-2xl flex-shrink-0" />
+                              <div>
+                                <p className="text-green-400 font-medium text-lg">Wagering Requirement Completed!</p>
+                                <p className="text-green-300 text-sm">
+                                  The user has successfully completed the wagering requirement. They can now make withdrawals.
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center space-x-3">
+                                  <FaExclamationCircle className="text-blue-400 text-xl flex-shrink-0" />
+                                  <div>
+                                    <p className="text-blue-400 font-medium">Wagering Requirement Pending</p>
+                                    <p className="text-blue-300 text-sm">
+                                      The user needs to bet {formatCurrency(wageringInfo.remaining)} more to complete the requirement.
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-gray-400 text-sm">Current Progress</p>
+                                  <p className="text-white font-semibold text-xl">{wageringInfo.progress.toFixed(1)}%</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Information Section */}
+                        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+                          <h4 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                            <FaInfoCircle className="text-blue-400" />
+                            <span>How Turnover Works</span>
+                          </h4>
+                          <div className="text-gray-400 text-sm space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-start space-x-3">
+                                <div className="p-2 bg-blue-500 rounded-lg mt-1">
+                                  <GiCash className="text-white" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-white mb-1">Deposit Turnover</p>
+                                  <p>The user needs to bet {wageringInfo.wageringNeed} times their deposit amount ({formatCurrency(user.depositamount)}) before making withdrawals.</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start space-x-3">
+                                <div className="p-2 bg-green-500 rounded-lg mt-1">
+                                  <FaRunning className="text-white" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-white mb-1">Wagering Progress</p>
+                                  <p>Current betting amount is {formatCurrency(wageringInfo.completed)} out of required {formatCurrency(wageringInfo.required)}.</p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4 p-3 bg-gray-700/30 rounded-lg">
+                              <h5 className="font-medium text-white mb-2 flex items-center space-x-2">
+                                <FaExclamationCircle className="text-yellow-400" />
+                                <span>Important Notes</span>
+                              </h5>
+                              <ul className="space-y-2 text-sm">
+                                <li className="flex items-start">
+                                  <span className="text-yellow-400 mr-2">•</span>
+                                  <span>User must complete wagering requirements before making withdrawals</span>
+                                </li>
+                                <li className="flex items-start">
+                                  <span className="text-yellow-400 mr-2">•</span>
+                                  <span>Only settled bets count towards wagering requirements</span>
+                                </li>
+                                <li className="flex items-start">
+                                  <span className="text-yellow-400 mr-2">•</span>
+                                  <span>Required turnover: {wageringInfo.wageringNeed} × {formatCurrency(user.depositamount)} = {formatCurrency(wageringInfo.required)}</span>
+                                </li>
+                                <li className="flex items-start">
+                                  <span className="text-yellow-400 mr-2">•</span>
+                                  <span>Withdrawals are restricted until wagering is completed</span>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Bet History Tab with Time Filter */}
                 {activeTab === 'betHistory' && (
                   <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden">
                     <div className="p-5 border-b border-gray-800">
@@ -705,16 +1073,128 @@ const Viewdetails = () => {
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center">
                           <FaGamepad className="mr-2" /> Bet History ({filteredBetHistory.length} records)
                         </h3>
-                        <div className="relative">
-                          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
-                          <input
-                            type="text"
-                            placeholder="Search bets..."
-                            value={betSearch}
-                            onChange={(e) => setBetSearch(e.target.value)}
-                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:border-amber-500 w-64"
-                          />
+                        <div className="flex flex-wrap gap-3">
+                          <div className="relative">
+                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                            <input
+                              type="text"
+                              placeholder="Search bets..."
+                              value={betSearch}
+                              onChange={(e) => setBetSearch(e.target.value)}
+                              className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:border-amber-500 w-48"
+                            />
+                          </div>
+                          <select
+                            value={betStatusFilter}
+                            onChange={(e) => setBetStatusFilter(e.target.value)}
+                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                          <select
+                            value={betResultFilter}
+                            onChange={(e) => setBetResultFilter(e.target.value)}
+                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="all">All Results</option>
+                            <option value="win">Win</option>
+                            <option value="loss">Loss</option>
+                            <option value="pending">Pending</option>
+                          </select>
                         </div>
+                      </div>
+                      
+                      {/* Time Filter Section */}
+                      <div className="mt-4 pt-4 border-t border-gray-800">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <FaCalendar className="text-amber-400 text-xs" />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Date Filter:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => {
+                                resetTimeFilter();
+                                setBetTimeFilterType('all');
+                              }}
+                              className={`px-3 py-1.5 rounded text-[10px] font-bold transition-all ${
+                                betTimeFilterType === 'all'
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                  : 'bg-[#0F111A] text-gray-400 border border-gray-700 hover:border-gray-500'
+                              }`}
+                            >
+                              All Time
+                            </button>
+                            <button
+                              onClick={setTodayFilter}
+                              className={`px-3 py-1.5 rounded text-[10px] font-bold transition-all ${
+                                betTimeFilterType === 'today'
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                  : 'bg-[#0F111A] text-gray-400 border border-gray-700 hover:border-gray-500'
+                              }`}
+                            >
+                              Today
+                            </button>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="date"
+                                value={betStartDate}
+                                onChange={(e) => {
+                                  setBetStartDate(e.target.value);
+                                  if (e.target.value && betEndDate) {
+                                    setBetTimeFilterType('custom');
+                                  } else if (e.target.value) {
+                                    setBetTimeFilterType('custom');
+                                  } else if (!e.target.value && !betEndDate) {
+                                    setBetTimeFilterType('all');
+                                  }
+                                }}
+                                className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-amber-500"
+                                placeholder="Start Date"
+                              />
+                              <span className="text-gray-600 text-xs">to</span>
+                              <input
+                                type="date"
+                                value={betEndDate}
+                                onChange={(e) => {
+                                  setBetEndDate(e.target.value);
+                                  if (betStartDate && e.target.value) {
+                                    setBetTimeFilterType('custom');
+                                  } else if (e.target.value) {
+                                    setBetTimeFilterType('custom');
+                                  } else if (!betStartDate && !e.target.value) {
+                                    setBetTimeFilterType('all');
+                                  }
+                                }}
+                                className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-amber-500"
+                                placeholder="End Date"
+                              />
+                            </div>
+                            {(betStartDate || betEndDate || betTimeFilterType !== 'all') && (
+                              <button
+                                onClick={resetTimeFilter}
+                                className="px-3 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded text-[10px] font-bold hover:bg-rose-500/20 transition-all flex items-center gap-1"
+                              >
+                                <FaTimes className="text-[8px]" /> Clear
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {betTimeFilterType === 'custom' && betStartDate && betEndDate && (
+                          <p className="text-[9px] text-gray-500 mt-2 flex items-center gap-1">
+                            <FaInfoCircle className="text-blue-400" />
+                            Showing bets from {new Date(betStartDate).toLocaleDateString()} to {new Date(betEndDate).toLocaleDateString()}
+                          </p>
+                        )}
+                        {betTimeFilterType === 'today' && (
+                          <p className="text-[9px] text-gray-500 mt-2 flex items-center gap-1">
+                            <FaClock className="text-amber-400" />
+                            Showing only today's bets ({new Date().toLocaleDateString()})
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -733,7 +1213,7 @@ const Viewdetails = () => {
                         <tbody className="divide-y divide-gray-800">
                           {filteredBetHistory.length > 0 ? (
                             filteredBetHistory.map((bet) => (
-                              <tr key={bet._id} className="hover:bg-[#1F2937] transition-colors">
+                              <tr key={bet._id || bet.transaction_id} className="hover:bg-[#1F2937] transition-colors">
                                 <td className="py-3 px-4 text-xs font-mono text-gray-400">{bet.transaction_id?.substring(0, 12)}...</td>
                                 <td className="py-3 px-4 text-xs text-gray-300">{bet.game_id}</td>
                                 <td className="py-3 px-4 text-xs font-bold text-amber-400">{formatCurrency(bet.betAmount)} {user.currency}</td>
@@ -779,15 +1259,28 @@ const Viewdetails = () => {
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center">
                           <FaWallet className="mr-2" /> Deposit History ({filteredDepositHistory.length} records)
                         </h3>
-                        <div className="relative">
-                          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
-                          <input
-                            type="text"
-                            placeholder="Search deposits..."
-                            value={depositSearch}
-                            onChange={(e) => setDepositSearch(e.target.value)}
-                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:border-amber-500 w-64"
-                          />
+                        <div className="flex flex-wrap gap-3">
+                          <div className="relative">
+                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                            <input
+                              type="text"
+                              placeholder="Search deposits..."
+                              value={depositSearch}
+                              onChange={(e) => setDepositSearch(e.target.value)}
+                              className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:border-amber-500 w-48"
+                            />
+                          </div>
+                          <select
+                            value={depositStatusFilter}
+                            onChange={(e) => setDepositStatusFilter(e.target.value)}
+                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
                         </div>
                       </div>
                     </div>
@@ -806,7 +1299,7 @@ const Viewdetails = () => {
                         <tbody className="divide-y divide-gray-800">
                           {filteredDepositHistory.length > 0 ? (
                             filteredDepositHistory.map((deposit) => (
-                              <tr key={deposit._id} className="hover:bg-[#1F2937] transition-colors">
+                              <tr key={deposit._id || deposit.orderId} className="hover:bg-[#1F2937] transition-colors">
                                 <td className="py-3 px-4">
                                   <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-bold uppercase">
                                     {deposit.method}
@@ -855,15 +1348,29 @@ const Viewdetails = () => {
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center">
                           <FaFileInvoiceDollar className="mr-2" /> Withdraw History ({filteredWithdrawHistory.length} records)
                         </h3>
-                        <div className="relative">
-                          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
-                          <input
-                            type="text"
-                            placeholder="Search withdrawals..."
-                            value={withdrawSearch}
-                            onChange={(e) => setWithdrawSearch(e.target.value)}
-                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:border-amber-500 w-64"
-                          />
+                        <div className="flex flex-wrap gap-3">
+                          <div className="relative">
+                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs" />
+                            <input
+                              type="text"
+                              placeholder="Search withdrawals..."
+                              value={withdrawSearch}
+                              onChange={(e) => setWithdrawSearch(e.target.value)}
+                              className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg pl-8 pr-4 py-2 focus:outline-none focus:border-amber-500 w-48"
+                            />
+                          </div>
+                          <select
+                            value={withdrawStatusFilter}
+                            onChange={(e) => setWithdrawStatusFilter(e.target.value)}
+                            className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="completed">Completed</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
                         </div>
                       </div>
                     </div>
@@ -873,8 +1380,9 @@ const Viewdetails = () => {
                           <tr>
                             <th className="py-3 px-4 text-left">Method</th>
                             <th className="py-3 px-4 text-left">Amount</th>
+                            <th className="py-3 px-4 text-left">Net Amount</th>
+                            <th className="py-3 px-4 text-left">Account Number</th>
                             <th className="py-3 px-4 text-left">Status</th>
-                            <th className="py-3 px-4 text-left">Transaction ID</th>
                             <th className="py-3 px-4 text-left">Date</th>
                             <th className="py-3 px-4 text-left">Actions</th>
                           </tr>
@@ -882,19 +1390,20 @@ const Viewdetails = () => {
                         <tbody className="divide-y divide-gray-800">
                           {filteredWithdrawHistory.length > 0 ? (
                             filteredWithdrawHistory.map((withdraw) => (
-                              <tr key={withdraw._id} className="hover:bg-[#1F2937] transition-colors">
+                              <tr key={withdraw._id || withdraw.orderId} className="hover:bg-[#1F2937] transition-colors">
                                 <td className="py-3 px-4">
                                   <span className="text-[9px] px-2 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded font-bold uppercase">
                                     {withdraw.method || 'N/A'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-xs font-bold text-rose-400">{formatCurrency(withdraw.amount)} {user.currency}</td>
+                                <td className="py-3 px-4 text-xs font-bold text-emerald-400">{formatCurrency(withdraw.netAmount || withdraw.amount)} {user.currency}</td>
+                                <td className="py-3 px-4 text-xs font-mono text-gray-400">{withdraw.accountNumber || 'N/A'}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getPaymentStatusBadge(withdraw.status)}`}>
                                     {withdraw.status}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-[10px] font-mono text-gray-500">{withdraw.transaction_id?.substring(0, 10) || 'N/A'}</td>
                                 <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(withdraw.createdAt)}</td>
                                 <td className="py-3 px-4">
                                   <button
@@ -908,7 +1417,7 @@ const Viewdetails = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="6" className="py-8 text-center text-gray-500 text-xs">
+                              <td colSpan="7" className="py-8 text-center text-gray-500 text-xs">
                                 No withdrawal history found
                               </td>
                             </tr>
@@ -923,9 +1432,25 @@ const Viewdetails = () => {
                 {activeTab === 'transactions' && (
                   <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden">
                     <div className="p-5 border-b border-gray-800">
-                      <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center">
-                        <FaExchangeAlt className="mr-2" /> All Transactions ({transactionHistory.length} records)
-                      </h3>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center">
+                          <FaExchangeAlt className="mr-2" /> All Transactions ({filteredTransactionHistory.length} records)
+                        </h3>
+                        <select
+                          value={transactionTypeFilter}
+                          onChange={(e) => setTransactionTypeFilter(e.target.value)}
+                          className="bg-[#0F111A] border border-gray-700 text-gray-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+                        >
+                          <option value="all">All Types</option>
+                          <option value="deposit">Deposit</option>
+                          <option value="withdraw">Withdraw</option>
+                          <option value="bet">Bet</option>
+                          <option value="win">Win</option>
+                          <option value="loss">Loss</option>
+                          <option value="penalty">Penalty</option>
+                          <option value="affiliate_commission">Affiliate Commission</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -940,23 +1465,17 @@ const Viewdetails = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800">
-                          {transactionHistory.length > 0 ? (
-                            transactionHistory.map((transaction) => (
+                          {filteredTransactionHistory.length > 0 ? (
+                            filteredTransactionHistory.map((transaction) => (
                               <tr key={transaction._id} className="hover:bg-[#1F2937] transition-colors">
                                 <td className="py-3 px-4">
-                                  <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${
-                                    transaction.type === 'win' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                    transaction.type === 'bet' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                                    transaction.type === 'deposit' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                    transaction.type === 'withdraw' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
-                                    'bg-gray-500/10 text-gray-400 border border-gray-500/20'
-                                  }`}>
+                                  <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getTransactionTypeBadge(transaction.type)}`}>
                                     {transaction.type}
                                   </span>
                                 </td>
                                 <td className={`py-3 px-4 text-xs font-bold ${
                                   transaction.type === 'win' || transaction.type === 'deposit' ? 'text-emerald-400' :
-                                  transaction.type === 'bet' || transaction.type === 'withdraw' ? 'text-rose-400' :
+                                  transaction.type === 'bet' || transaction.type === 'withdraw' || transaction.type === 'penalty' ? 'text-rose-400' :
                                   'text-gray-400'
                                 }`}>
                                   {formatCurrency(transaction.amount)} {user.currency}
@@ -964,8 +1483,8 @@ const Viewdetails = () => {
                                 <td className="py-3 px-4 text-xs text-gray-400">{formatCurrency(transaction.balanceBefore)} {user.currency}</td>
                                 <td className="py-3 px-4 text-xs text-gray-400">{formatCurrency(transaction.balanceAfter)} {user.currency}</td>
                                 <td className="py-3 px-4 text-[10px] text-gray-500">{transaction.description}</td>
-                                <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(transaction.createdAt)}</td>
-                              </tr>
+                                <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(transaction.createdAt)}                                  </td>
+                               </tr>
                             ))
                           ) : (
                             <tr>
@@ -1216,7 +1735,7 @@ const Viewdetails = () => {
                 <div className="space-y-4">
                   <div>
                     <label className={labelClass}>Deposit ID</label>
-                    <p className="text-xs text-gray-300 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedDeposit._id}</p>
+                    <p className="text-xs text-gray-300 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedDeposit._id || selectedDeposit.orderId}</p>
                   </div>
                   <div>
                     <label className={labelClass}>Payment Method</label>
@@ -1275,11 +1794,15 @@ const Viewdetails = () => {
                 <div className="space-y-4">
                   <div>
                     <label className={labelClass}>Withdrawal ID</label>
-                    <p className="text-xs text-gray-300 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedWithdraw._id}</p>
+                    <p className="text-xs text-gray-300 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedWithdraw._id || selectedWithdraw.orderId}</p>
                   </div>
                   <div>
                     <label className={labelClass}>Payment Method</label>
                     <p className="text-xs text-gray-300 bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedWithdraw.method || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Account Number</label>
+                    <p className="text-xs text-gray-300 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedWithdraw.accountNumber || 'N/A'}</p>
                   </div>
                   <div>
                     <label className={labelClass}>Amount</label>
@@ -1290,6 +1813,12 @@ const Viewdetails = () => {
                 </div>
                 <div className="space-y-4">
                   <div>
+                    <label className={labelClass}>Net Amount</label>
+                    <p className="text-lg font-bold text-emerald-400 bg-[#0F111A] p-3 rounded-lg border border-gray-800">
+                      {formatCurrency(selectedWithdraw.netAmount || selectedWithdraw.amount)} {user.currency}
+                    </p>
+                  </div>
+                  <div>
                     <label className={labelClass}>Status</label>
                     <span className={`inline-block text-[9px] px-3 py-2 rounded-lg font-bold uppercase ${getPaymentStatusBadge(selectedWithdraw.status)}`}>
                       {selectedWithdraw.status}
@@ -1297,7 +1826,7 @@ const Viewdetails = () => {
                   </div>
                   <div>
                     <label className={labelClass}>Transaction ID</label>
-                    <p className="text-xs text-gray-400 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedWithdraw.transaction_id || 'N/A'}</p>
+                    <p className="text-xs text-gray-400 font-mono bg-[#0F111A] p-3 rounded-lg border border-gray-800">{selectedWithdraw.transactionId || 'N/A'}</p>
                   </div>
                   <div>
                     <label className={labelClass}>Created At</label>
