@@ -216,7 +216,6 @@ const Allusers = () => {
       toast.error(err.response?.data?.message || 'Error updating user status');
     }
   };
-
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-BD', {

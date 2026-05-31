@@ -1158,13 +1158,6 @@ Adminrouter.put("/users/:id/status", async (req, res) => {
   try {
     const { status } = req.body;
 
-    if (
-      !status ||
-      !["active", "banned", "deactivated", "pending"].includes(status)
-    ) {
-      return res.status(400).json({ error: "Valid status is required" });
-    }
-
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { status },
@@ -1186,7 +1179,6 @@ Adminrouter.put("/users/:id/status", async (req, res) => {
     res.status(500).json({ error: "Failed to update user status" });
   }
 });
-
 // PUT update user role
 Adminrouter.put("/users/:id/role", async (req, res) => {
   try {
