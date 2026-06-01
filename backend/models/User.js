@@ -993,13 +993,6 @@ UserSchema.methods.awardAffiliateCommission = async function (amount, transactio
 
 // ========== WITHDRAWAL METHODS ==========
 UserSchema.methods.canWithdraw = function (amount) {
-    if (this.bonusBalance > 0) {
-        return {
-            canWithdraw: false,
-            reason: "Active bonus balance must be cleared first"
-        };
-    }
-
     if (amount > this.balance) {
         return {
             canWithdraw: false,
