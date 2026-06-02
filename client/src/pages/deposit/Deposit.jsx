@@ -11,7 +11,7 @@ const Deposit = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_KEY_Base_URL;
   const ORACLEPAY_API_URL = "https://api.oraclepay.org/api/opay-business";
-  const ORACLEPAY_TOKEN = "cfb487ae84c4d5441adb6a2737cc26db40100997cef6e377"; // Replace with your actual token
+  const ORACLEPAY_TOKEN = "ae639a2ecef927334974d23d7d9f36a46546e426b79795c5"; // Replace with your actual token
   
   const [activeMethod, setActiveMethod] = useState(null);
   const [amount, setAmount] = useState("");
