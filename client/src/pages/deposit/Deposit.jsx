@@ -24,6 +24,7 @@ const Deposit = () => {
   const [depositMethods, setDepositMethods] = useState([]);
   const [loadingMethods, setLoadingMethods] = useState(true);
   const [availableBonuses, setAvailableBonuses] = useState([]);
+  const [filteredBonuses, setFilteredBonuses] = useState([]);
   const [bonusLoading, setBonusLoading] = useState(false);
   const [selectedBonus, setSelectedBonus] = useState(null);
   const navigate = useNavigate();
@@ -33,6 +34,28 @@ const Deposit = () => {
 
   // Updated quick amounts (minimum 100)
   const quickAmounts = [100, 300, 500, 1000, 2000, 5000];
+
+  // Function to check if bonus is eligible for current deposit amount
+  const isBonusEligible = (bonus, depositAmount) => {
+    if (!depositAmount || depositAmount === "") return false;
+    const amountNum = parseFloat(depositAmount);
+    if (isNaN(amountNum)) return false;
+    
+    // Check minimum deposit requirement for the bonus
+    if (bonus.minDeposit && amountNum < bonus.minDeposit) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Filter bonuses based on current deposit amount
+  const filterBonusesByAmount = (bonuses, depositAmount) => {
+    if (!bonuses || bonuses.length === 0) return [];
+    if (!depositAmount || depositAmount === "") return bonuses;
+    
+    return bonuses.filter(bonus => isBonusEligible(bonus, depositAmount));
+  };
 
   // Fetch deposit methods
   useEffect(() => {
@@ -103,6 +126,7 @@ const Deposit = () => {
         );
 
         if (response.data.success && response.data.data) {
+          console.log(response.data.data)
           // Filter out bonuses that user has already used
           const user = JSON.parse(localStorage.getItem("user"));
           const userResponse = await axios.get(
@@ -139,7 +163,7 @@ const Deposit = () => {
             }
             
             // Filter out bonuses that user has already used
-            const filteredBonuses = response.data.data.filter(bonus => {
+            const filteredByUsed = response.data.data.filter(bonus => {
               // If bonus has no code, show it (generic bonuses)
               if (!bonus.bonusCode) return true;
               
@@ -154,7 +178,9 @@ const Deposit = () => {
               return !isUsed;
             });
             
-            setAvailableBonuses(filteredBonuses);
+            setAvailableBonuses(filteredByUsed);
+            // Initially show all bonuses (will be filtered by amount when amount changes)
+            setFilteredBonuses(filteredByUsed);
           }
         }
       } catch (err) {
@@ -166,6 +192,17 @@ const Deposit = () => {
 
     fetchAvailableBonuses();
   }, [API_BASE_URL]);
+
+  // Filter bonuses when amount changes
+  useEffect(() => {
+    const filtered = filterBonusesByAmount(availableBonuses, amount);
+    setFilteredBonuses(filtered);
+    
+    // If selected bonus is no longer eligible, clear it
+    if (selectedBonus && !isBonusEligible(selectedBonus, amount)) {
+      setSelectedBonus(null);
+    }
+  }, [amount, availableBonuses, selectedBonus]);
 
   // Map internal method names to OraclePay method names
   const getOraclePayMethodName = (methodName) => {
@@ -680,18 +717,13 @@ const Deposit = () => {
                           </div>
                         </div>
 
-                        {/* Dynamic Bonus Selection */}
-                        <div className="mb-4 md:mb-6">
-                          <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
-                            {t.selectBonusOptional || "Select Bonus (Optional)"}
-                          </label>
-                          
-                          {bonusLoading ? (
-                            <div className="text-center py-4">
-                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-[#3a8a6f] border-r-transparent"></div>
-                              <p className="text-xs text-[#8a9ba8] mt-2">{t.loadingBonuses || "Loading bonuses..."}</p>
-                            </div>
-                          ) : availableBonuses.length > 0 ? (
+                        {/* Dynamic Bonus Selection - Only show if there are eligible bonuses */}
+                        {!bonusLoading && filteredBonuses.length > 0 && (
+                          <div className="mb-4 md:mb-6">
+                            <label className="block text-[#8a9ba8] text-xs md:text-sm mb-1 md:mb-2 font-medium">
+                              {t.selectBonusOptional || "Select Bonus (Optional)"}
+                            </label>
+                            
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {/* No Bonus Option */}
                               <button
@@ -711,15 +743,17 @@ const Deposit = () => {
                                 </span>
                               </button>
 
-                              {/* Available Bonuses */}
-                              {availableBonuses.map((bonus) => {
+                              {/* Available Bonuses (filtered by amount) */}
+                              {filteredBonuses.map((bonus) => {
                                 const calculatedAmount = calculateBonusAmount(bonus);
+                                const isSelected = selectedBonus?.id === bonus.id;
+                                
                                 return (
                                   <button
                                     type="button"
                                     key={bonus.id}
                                     className={`p-3 rounded-[5px] flex flex-col cursor-pointer items-center justify-center transition-all ${
-                                      selectedBonus?.id === bonus.id
+                                      isSelected
                                         ? "bg-[#1a2a2a] border-2 border-[#3a8a6f]"
                                         : "bg-[#1f2525] hover:bg-[#252b2b] border-2 border-transparent"
                                     }`}
@@ -732,22 +766,30 @@ const Deposit = () => {
                                       <span className="text-sm md:text-base font-medium text-left">
                                         {bonus.name}
                                       </span>
-                                 
                                     </div>
                                     <span className="text-xs text-[#8a9ba8] text-left w-full mt-1">
                                       {t.bonusCode || "Code"}: {bonus.bonusCode}
                                     </span>
-                                 
+                                    {bonus.minDeposit > 0 && (
+                                      <span className="text-xs text-[#3a8a6f] text-left w-full mt-1">
+                                        {t.minDeposit || "Min Deposit"}: ৳{bonus.minDeposit.toLocaleString()}
+                                      </span>
+                                    )}
                                   </button>
                                 );
                               })}
                             </div>
-                          ) : (
-                            <div className="text-center py-4 border border-[#2a2f2f] rounded-lg">
-                              <p className="text-sm text-[#8a9ba8]">{t.noBonusesAvailable || "No bonuses available at the moment."}</p>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+
+                        {/* Show message when no bonuses are eligible */}
+                        {!bonusLoading && availableBonuses.length > 0 && filteredBonuses.length === 0 && amount && parseFloat(amount) > 0 && (
+                          <div className="mb-4 md:mb-6 p-3 bg-[#1a2525] rounded-lg border border-[#2a3535]">
+                            <p className="text-sm text-[#8a9ba8] text-center">
+                              {t.increaseAmountForBonus || "Increase your deposit amount to unlock available bonuses!"}
+                            </p>
+                          </div>
+                        )}
 
                         {/* Summary Section */}
                         <div className="mb-4 md:mb-6 p-4 bg-[#1a2a2a] rounded-lg border border-[#2a3535]">
