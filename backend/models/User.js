@@ -230,7 +230,6 @@ const UserSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['active', 'banned', 'deactivated', 'pending'],
         default: 'active',
     },
     language: {
