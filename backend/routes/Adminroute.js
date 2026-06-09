@@ -796,7 +796,68 @@ Adminrouter.get("/users", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
+adminRouter.get("/all-users", async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      role,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
 
+    let filter = {};
+
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    if (role && role !== "all") {
+      filter.role = role;
+    }
+
+    if (search) {
+      filter.$or = [
+        { username: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { player_id: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Calculate skip value for pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Sort configuration
+    const sort = {};
+    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+    // Get users with filters, pagination, and sorting
+    const users = await User.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select(
+        "-password -transactionPassword -moneyTransferPassword -twoFactorSecret"
+      );
+
+    // Get total count for pagination info
+    const total = await User.countDocuments(filter);
+
+    res.json({
+      users,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      total,
+      limit: parseInt(limit),
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
 Adminrouter.get("/all-users", async (req, res) => {
   try {
     const users = await User.find({}).sort({ createdAt: -1 });

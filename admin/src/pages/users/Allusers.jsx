@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   FaEdit,
   FaTrash,
   FaSearch,
-  FaFilter,
   FaEye,
   FaPlus,
   FaSort,
@@ -32,36 +31,63 @@ const Allusers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [kycFilter, setKycFilter] = useState('all');
-  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [users, setUsers] = useState([]);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 0,
+    currentPage: 1,
+    limit: 10
+  });
 
   const navigate = useNavigate();
-  const itemsPerPage = 10;
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Fetch users from API
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  // Fetch users from API with filters and pagination
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
       
-      const response = await axios.get(`${base_url}/api/admin/users`, {
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('page', currentPage);
+      params.append('limit', pagination.limit);
+      params.append('sortBy', sortConfig.key);
+      params.append('sortOrder', sortConfig.direction);
+      
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      
+      if (kycFilter !== 'all') {
+        params.append('kycStatus', kycFilter);
+      }
+      
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+      
+      const response = await axios.get(`${base_url}/api/admin/all-users?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+      
       setUsers(response.data.users || []);
+      setPagination({
+        total: response.data.total,
+        totalPages: response.data.totalPages,
+        currentPage: response.data.currentPage,
+        limit: response.data.limit
+      });
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to fetch users');
@@ -69,7 +95,30 @@ const Allusers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, statusFilter, kycFilter, searchTerm, sortConfig, pagination.limit, base_url]);
+
+  // Fetch users when dependencies change
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Debounce search to avoid too many requests
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage === 1) {
+        fetchUsers();
+      } else {
+        setCurrentPage(1);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, kycFilter, sortConfig]);
 
   const statuses = ['all', 'active', 'inactive', 'suspended', 'banned'];
   const kycStatuses = ['all', 'verified', 'unverified', 'pending', 'rejected'];
@@ -89,74 +138,17 @@ const Allusers = () => {
     return colors[charCode % colors.length];
   };
 
-  // Filter and sort users
-  const filteredAndSortedUsers = React.useMemo(() => {
-    let filtered = [...users];
-
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(user =>
-        user.username?.toLowerCase().includes(term) ||
-        user.email?.toLowerCase().includes(term) ||
-        user.player_id?.toLowerCase().includes(term) ||
-        user.phone?.toLowerCase().includes(term)
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => user.status === statusFilter);
-    }
-
-    // Apply KYC filter
-    if (kycFilter !== 'all') {
-      filtered = filtered.filter(user => user.kycStatus === kycFilter);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
-      
-      if (sortConfig.key === 'createdAt') {
-        aVal = new Date(aVal || 0);
-        bVal = new Date(bVal || 0);
-      }
-      if (sortConfig.key === 'balance') {
-        aVal = parseFloat(aVal || 0);
-        bVal = parseFloat(bVal || 0);
-      }
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      
-      if (aVal < bVal) return sortConfig.direction === 'ascending' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'ascending' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [users, searchTerm, statusFilter, kycFilter, sortConfig]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
-  const currentItems = filteredAndSortedUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
   const requestSort = (key) => {
-    let direction = 'descending';
-    if (sortConfig.key === key && sortConfig.direction === 'descending') {
-      direction = 'ascending';
+    let direction = 'desc';
+    if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1);
   };
 
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="text-gray-500 inline ml-1" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-amber-400 inline ml-1" />;
+    if (sortConfig.direction === 'asc') return <FaSortUp className="text-amber-400 inline ml-1" />;
     return <FaSortDown className="text-amber-400 inline ml-1" />;
   };
 
@@ -173,8 +165,8 @@ const Allusers = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      setUsers(users.filter(user => user._id !== userToDelete));
       toast.success('User deleted successfully');
+      fetchUsers(); // Refresh the list
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error deleting user');
     } finally {
@@ -190,7 +182,6 @@ const Allusers = () => {
 
   const toggleStatus = async (id, currentStatus) => {
     try {
-      const user = users.find(u => u._id === id);
       let newStatus;
       
       if (currentStatus === 'active') {
@@ -208,14 +199,13 @@ const Allusers = () => {
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
-      setUsers(users.map(user =>
-        user._id === id ? { ...user, status: newStatus } : user
-      ));
       toast.success(`User status changed to ${newStatus}`);
+      fetchUsers(); // Refresh the list
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error updating user status');
     }
   };
+  
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-BD', {
@@ -231,18 +221,16 @@ const Allusers = () => {
     });
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, kycFilter]);
-
+  // Calculate stats from current users (or you can make a separate API call for stats)
   const stats = {
-    total: users.length,
+    total: pagination.total,
     active: users.filter(u => u.status === 'active').length,
     kycVerified: users.filter(u => u.kycStatus === 'verified').length,
     vip: users.filter(u => u.role === 'vip').length,
   };
 
   const getPaginationPages = () => {
+    const totalPages = pagination.totalPages;
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const pages = [1];
     if (currentPage > 3) pages.push('...');
@@ -394,7 +382,7 @@ const Allusers = () => {
             {/* Results Count */}
             <div className="mb-3 flex justify-between items-center">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
-                Showing {currentItems.length} of {filteredAndSortedUsers.length} users
+                Showing {users.length} of {pagination.total} users
               </p>
             </div>
 
@@ -427,8 +415,8 @@ const Allusers = () => {
                           </div>
                         </td>
                       </tr>
-                    ) : currentItems.length > 0 ? (
-                      currentItems.map((user) => (
+                    ) : users.length > 0 ? (
+                      users.map((user) => (
                         <tr key={user._id} className="hover:bg-[#1F2937] transition-colors">
                           <td className="px-5 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-3">
@@ -532,10 +520,10 @@ const Allusers = () => {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && !loading && (
+            {pagination.totalPages > 1 && !loading && (
               <div className="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
-                  Page {currentPage} of {totalPages} &nbsp;·&nbsp; {filteredAndSortedUsers.length} total
+                  Page {pagination.currentPage} of {pagination.totalPages} &nbsp;·&nbsp; {pagination.total} total
                 </p>
                 <nav className="flex items-center gap-1">
                   <button
@@ -555,9 +543,9 @@ const Allusers = () => {
                     )
                   )}
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === totalPages ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, pagination.totalPages))}
+                    disabled={currentPage === pagination.totalPages}
+                    className={`px-3 py-1.5 rounded text-xs font-bold border transition-all ${currentPage === pagination.totalPages ? 'bg-[#1C2128] border-gray-800 text-gray-700 cursor-not-allowed' : 'bg-[#1C2128] border-gray-700 text-gray-300 hover:bg-amber-600/30 hover:border-amber-500/50'}`}
                   >Next →</button>
                 </nav>
               </div>
