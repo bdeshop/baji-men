@@ -5199,7 +5199,7 @@ Adminrouter.get("/withdrawals/:id", async (req, res) => {
 // });
 
 // PUT update withdrawal status
-router.put("/withdrawals/:id/status", async (req, res) => {
+Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
   try {
     const { status, transactionId, adminNotes } = req.body;
 
