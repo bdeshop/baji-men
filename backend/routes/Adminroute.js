@@ -796,7 +796,7 @@ Adminrouter.get("/users", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
-adminRouter.get("/all-users", async (req, res) => {
+Adminrouter.get("/all-users", async (req, res) => {
   try {
     const {
       page = 1,
