@@ -5199,7 +5199,7 @@ Adminrouter.get("/withdrawals/:id", async (req, res) => {
 // });
 
 // PUT update withdrawal status
-Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
+router.put("/withdrawals/:id/status", async (req, res) => {
   try {
     const { status, transactionId, adminNotes } = req.body;
 
@@ -5216,15 +5216,14 @@ Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
     }
 
     const oldStatus = withdrawal.status;
+    const user = await User.findById(withdrawal.userId._id);
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     // Handle cancellation - refund balance
-    if (status === "cancelled" && oldStatus !== "cancelled") {
-      const user = await User.findById(withdrawal.userId._id);
-      
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
+    if (status === "cancelled" && oldStatus !== "cancelled" && oldStatus !== "completed") {
       // Refund the amount
       user.balance += withdrawal.amount;
       
@@ -5234,14 +5233,21 @@ Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
         amount: withdrawal.amount,
         balanceBefore: user.balance - withdrawal.amount,
         balanceAfter: user.balance,
-        description: `Withdrawal cancelled - Refunded ${withdrawal.amount}`,
+        description: `Withdrawal cancelled - Refunded ${withdrawal.amount} Taka`,
         referenceId: withdrawal._id.toString(),
       });
-
+      
       await user.save();
     }
+    
+    // Handle failure (no refund for failed withdrawals if already processed)
+    if (status === "failed" && oldStatus === "completed") {
+      return res.status(400).json({ 
+        error: "Cannot mark a completed withdrawal as failed" 
+      });
+    }
 
-    // Update withdrawal status
+    // Update withdrawal status in Withdrawal model
     withdrawal.status = status;
     
     if (status === "processing" || status === "completed") {
@@ -5253,16 +5259,98 @@ Adminrouter.put("/withdrawals/:id/status", async (req, res) => {
     
     await withdrawal.save();
 
+    // ==================== UPDATE USER'S WITHDRAW HISTORY ====================
+    // Find the withdrawal entry in user's withdrawHistory
+    const withdrawalEntry = user.withdrawHistory.find(
+      entry => entry.orderId === withdrawal.transactionId || 
+               (entry.createdAt && withdrawal.createdAt && 
+                Math.abs(entry.createdAt - withdrawal.createdAt) < 60000) // Match within 1 minute
+    );
+
+    if (withdrawalEntry) {
+      // Update the status in user's withdrawHistory
+      withdrawalEntry.status = status;
+      
+      // Add additional fields if completed or cancelled
+      if (status === "completed") {
+        withdrawalEntry.completedAt = new Date();
+        if (transactionId) withdrawalEntry.adminTransactionId = transactionId;
+      } else if (status === "cancelled") {
+        withdrawalEntry.cancelledAt = new Date();
+        if (adminNotes) withdrawalEntry.cancellationReason = adminNotes;
+      } else if (status === "failed") {
+        withdrawalEntry.failedAt = new Date();
+        if (adminNotes) withdrawalEntry.failureReason = adminNotes;
+      }
+      
+      await user.save();
+    } else {
+      // Fallback: If entry not found in withdrawHistory, try to update it by searching in array
+      console.log("Withdrawal entry not found in user's withdrawHistory, trying to update via findOneAndUpdate");
+      
+      await User.findOneAndUpdate(
+        { 
+          _id: user._id, 
+          "withdrawHistory.orderId": withdrawal.transactionId 
+        },
+        {
+          $set: {
+            "withdrawHistory.$.status": status,
+            "withdrawHistory.$.updatedAt": new Date(),
+            ...(status === "completed" && { "withdrawHistory.$.completedAt": new Date() }),
+            ...(status === "cancelled" && { "withdrawHistory.$.cancelledAt": new Date() }),
+            ...(status === "failed" && { "withdrawHistory.$.failedAt": new Date() })
+          }
+        }
+      );
+    }
+
+    // Add transaction record for completed withdrawals
+    if (status === "completed" && oldStatus !== "completed") {
+      await User.findByIdAndUpdate(user._id, {
+        $push: {
+          transactionHistory: {
+            type: 'withdrawal_completed',
+            amount: withdrawal.amount,
+            balanceBefore: user.balance,
+            balanceAfter: user.balance,
+            description: `Withdrawal completed - ${withdrawal.amount} Taka`,
+            referenceId: withdrawal.transactionId || withdrawal._id.toString()
+          }
+        }
+      });
+    }
+
+    // Prepare response with both model updates
+    const updatedUser = await User.findById(user._id);
+    const updatedWithdrawalEntry = updatedUser.withdrawHistory.find(
+      entry => entry.orderId === withdrawal.transactionId
+    );
+
     res.json({
+      success: true,
       message: "Withdrawal status updated successfully",
-      withdrawal,
+      data: {
+        withdrawal: {
+          id: withdrawal._id,
+          status: withdrawal.status,
+          transactionId: withdrawal.transactionId,
+          processedAt: withdrawal.processedAt
+        },
+        userWithdrawEntry: updatedWithdrawalEntry || null,
+        userBalance: updatedUser.balance
+      }
     });
+    
   } catch (error) {
     console.error("Error updating withdrawal status:", error);
-    res.status(500).json({ error: "Failed to update withdrawal status" });
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to update withdrawal status",
+      details: error.message 
+    });
   }
 });
-
 // PUT update withdrawal information
 Adminrouter.put("/withdrawals/:id", async (req, res) => {
   try {
