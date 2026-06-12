@@ -130,6 +130,7 @@ const FeaturedContent = () => {
         setLoading(true);
         const response = await fetch(`${base_url}/api/games/featured/all`);
         const data = await response.json();
+        console.log("response",response)
         if (data.success) {
           setFeaturedGames(data.data);
         } else {
