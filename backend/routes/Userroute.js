@@ -2893,47 +2893,47 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
 
 // ?  get the game  old code
 Userrouter.post("/getGameLink", async (req, res) => {
-    try {
-      const { username, money, gameID, provider, category } = req.body;
+  try {
+    const { username, money, gameID, provider, category } = req.body;
 
-      console.log("this is body ", req.body);
+    console.log("this is body ", req.body);
 
-      // POST রিকোয়েস্ট
-      const response = await axios.post('https://crazybet99.com/getgameurl/v2', 
-        {
-          username: username+"45",
-          money: money==0 ? '0':money,
-          game_code: gameID,
-          provider_code: provider,  // Add provider from request body
-          game_type: category,      // Add category from request body
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-dstgame-key': '665ec86d74fcb110d5a60421002b82df'
-          }
+    // POST রিকোয়েস্ট
+    const response = await axios.post('https://oraclegames.net/api/getgameurl',
+      {
+        username:"rakibhossa",
+        amount: money == 0 ? '0' : money,
+        game_uid: "3d97f2073a05873b428be0ff20df724c",
+        language: "en", // Optional
+        currency_code: "BDT" // Optional
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-oracle-key': '665ec86d74fcb110d5a60421002b82df'
         }
-      );
+      }
+    );
+    console.log(
+      "Response from dstplay.com:",
+      response.data,
+      "Status:",
+      response.status
+    );
 
-      console.log(
-        "Response from dstplay.com:",
-        response.data,
-        "Status:",
-        response.status
-      );
-      
-      res.status(200).json({
-        message: "POST request successful",
-        joyhobeResponse: response.data,
-      });
-    } catch (error) {
-      console.error("Error in POST /api/test/game:", error);
-      res.status(500).json({
-        error: "Failed to forward POST request",
-        details: error.message,
-      });
-    }
+    res.status(200).json({
+      message: "POST request successful",
+      joyhobeResponse: response.data,
+    });
+  } catch (error) {
+    console.error("Error in POST /api/test/game:", error);
+    res.status(500).json({
+      error: "Failed to forward POST request",
+      details: error.message,
+    });
+  }
 });
+
 
 
 // Userrouter.post("/callback-data-game", async (req, res) => {
