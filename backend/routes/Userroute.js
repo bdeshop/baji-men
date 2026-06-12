@@ -2903,7 +2903,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
       {
         username:"rakibhossa",
         amount: money == 0 ? '0' : money,
-        game_uid: "3d97f2073a05873b428be0ff20df724c",
+        game_uid: gameID,
         language: "en", // Optional
         currency_code: "BDT" // Optional
       },
