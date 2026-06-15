@@ -2892,16 +2892,19 @@ Userrouter.get("/all-transactions", authenticateToken, async (req, res) => {
 }); 
 
 // ?  get the game  old code
-Userrouter.post("/getGameLink", async (req, res) => {
+router.post("/getGameLink", async (req, res) => {
   try {
     const { username, money, gameID, provider, category } = req.body;
 
     console.log("this is body ", req.body);
 
+    // নিশ্চিত করা হচ্ছে যে username একটি string হবে
+    const secureUsername = username ? String(username) : "";
+
     // POST রিকোয়েস্ট
     const response = await axios.post('https://oraclegames.net/api/getgameurl',
       {
-        username:username,
+        username: secureUsername, // এখানে স্ট্রিং হিসেবে পাস হচ্ছে
         amount: money == 0 ? '0' : money,
         game_uid: gameID,
         language: "en", // Optional
@@ -2914,8 +2917,9 @@ Userrouter.post("/getGameLink", async (req, res) => {
         }
       }
     );
+
     console.log(
-      "Response from dstplay.com:",
+      "Response from oraclegames.net:",
       response.data,
       "Status:",
       response.status
@@ -2926,7 +2930,7 @@ Userrouter.post("/getGameLink", async (req, res) => {
       joyhobeResponse: response.data,
     });
   } catch (error) {
-    console.error("Error in POST /api/test/game:", error);
+    console.error("Error in POST /getGameLink:", error);
     res.status(500).json({
       error: "Failed to forward POST request",
       details: error.message,
