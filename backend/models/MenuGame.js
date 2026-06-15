@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const menuGameSchema = new mongoose.Schema({
+     uuid: {
+        type: String,
+        unique: true,
+        required: true
+    },
     image: {
         type: String,
         required: true

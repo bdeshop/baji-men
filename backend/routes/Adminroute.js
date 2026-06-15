@@ -10652,7 +10652,7 @@ Adminrouter.get("/menu-games/:id", async (req, res) => {
 // POST create new menu game with image upload
 Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res) => {
     try {
-        const { category, categoryname, name, gameId, provider, status = true } = req.body;
+        const { uuid,category, categoryname, name, gameId, provider, status = true } = req.body;
              console.log(req.body)
         // Validation
         if (!req.file) {
@@ -10666,6 +10666,7 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
         }
 
         const gameData = {
+            uuid,
             image: `/uploads/menu-games/${req.file.filename}`,
             category,
             categoryname,
@@ -10701,7 +10702,7 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
 // PUT update menu game with optional image upload
 Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, res) => {
     try {
-        const { category, categoryname, name, gameId, provider, status } = req.body;
+        const {uuid, category, categoryname, name, gameId, provider, status } = req.body;
 
         const game = await MenuGame.findById(req.params.id);
         if (!game) {

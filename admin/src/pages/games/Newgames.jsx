@@ -79,7 +79,7 @@ const Newgames = () => {
     baseURL: "https://api.oraclegames.live/api",
     timeout: 30000,
     headers: {
-      "x-api-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
+      "	x-oraclegamedata-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
       "Content-Type": "application/json"
     }
   });
@@ -515,7 +515,7 @@ const Newgames = () => {
       
       setLoadingProviders(true);
       try {
-        const externalRes = await oracleApi.get('/providers');
+        const externalRes = await oracleApi.get('/providerlist');
         const externalProviders = externalRes.data.data || [];
         
         const localProviderMap = new Map();
@@ -638,6 +638,7 @@ const Newgames = () => {
           const gameApiID = externalGame.game_code || externalGame.code;
           const provider = externalGame.provider?.provider_code || externalGame.provider?.code;
           const gameUuid = externalGame._id || externalGame.game_uuid;
+          const gameUid = externalGame.game_uid; // Extract game_uid
           
           const compositeKey = `${gameApiID}-${provider}`;
           let existingGame = null;
@@ -688,6 +689,7 @@ const Newgames = () => {
             _id: uniqueId,
             uniqueId: uniqueId,
             game_uuid: gameUuid,
+            game_uid: gameUid, // Store game_uid
             name: externalGame.gameName || externalGame.name,
             game_code: gameApiID,
             provider: externalGame.provider,
@@ -714,7 +716,8 @@ const Newgames = () => {
           isSaved: g.isSaved, 
           isSavedInSelectedCategory: g.isSavedInSelectedCategory,
           existingCategories: g.existingCategories,
-          selectedCategoryName: selectedCategoryName
+          selectedCategoryName: selectedCategoryName,
+          game_uid: g.game_uid // Log game_uid
         })));
         
         setGames(transformedGames);
@@ -949,7 +952,7 @@ const Newgames = () => {
     setEditingGame(null);
   };
 
-  // handleSaveOrUpdateGame function
+  // handleSaveOrUpdateGame function with game_uid
   const handleSaveOrUpdateGame = async (gameId) => {
     const gameToSave = games.find((g) => g.uniqueId === gameId);
     
@@ -987,6 +990,7 @@ const Newgames = () => {
       formData.append("name", gameToSave.gameName || gameToSave.name);
       formData.append("provider", gameToSave.provider?.provider_code);
       formData.append("uniqueId", gameToSave.uniqueId);
+      formData.append("game_uid", gameToSave.game_uid || ""); // Add game_uid to form data
       
       // Send categories as comma-separated string
       formData.append("category", categoryNames.join(','));
@@ -1073,6 +1077,8 @@ const Newgames = () => {
                 localPortraitPreview: null,
                 localLandscapeImage: null,
                 localLandscapePreview: null,
+                // Preserve game_uid
+                game_uid: game.game_uid || updatedGameData.game_uid,
               };
             }
             return game;
@@ -1097,7 +1103,7 @@ const Newgames = () => {
     }
   };
 
-  // Bulk Add Functions
+  // Bulk Add Functions with game_uid
   const openBulkModal = () => {
     if (!selectedProvider) {
       toast.error("Please select a provider first");
@@ -1200,6 +1206,7 @@ const Newgames = () => {
           formData.append("name", game.gameName || game.name);
           formData.append("provider", game.provider?.provider_code);
           formData.append("uniqueId", game.uniqueId);
+          formData.append("game_uid", game.game_uid || ""); // Add game_uid to bulk add
           
           // Merge existing categories with new categories
           const existingCatNames = game.existingCategories || [];
@@ -1283,6 +1290,8 @@ const Newgames = () => {
               existingCategories: updatedCategories,
               isSavedInSelectedCategory: isSavedInSelectedCategory,
               localCategories: updatedCategories,
+              // Preserve game_uid
+              game_uid: game.game_uid || refreshedGame.game_uid,
             };
           }
           return game;
@@ -1697,31 +1706,31 @@ const Newgames = () => {
               
               <div>
                 <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <FaSearch className="h-5 w-5 text-gray-500" />
-      </div>
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setCurrentPage(1);
-        }}
-        placeholder="Search games by name..."
-        className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
-      />
-      {searchTerm && (
-        <button
-          onClick={() => {
-            setSearchTerm("");
-            setCurrentPage(1);
-          }}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-        >
-          <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
-        </button>
-      )}
-    </div>
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaSearch className="h-5 w-5 text-gray-500" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Search games by name..."
+                    className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setCurrentPage(1);
+                      }}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
+                    </button>
+                  )}
+                </div>
               </div>
               
               <div className="flex mt-[20px] justify-center w-full gap-[20px]">
@@ -2008,6 +2017,14 @@ const Newgames = () => {
                                 {game.game_code || game.code}
                               </span>
                             </p>
+                            {game.game_uid && (
+                              <p className="flex items-center">
+                                <span className="font-medium mr-2">Game UID:</span>
+                                <span className="text-xs bg-[#0F111A] px-2 py-1 rounded text-gray-400 truncate">
+                                  {game.game_uid}
+                                </span>
+                              </p>
+                            )}
                             {game.isSaved && game.existingGameData && (
                               <p className="flex items-center text-xs text-green-500 mt-1">
                                 <span className="font-medium mr-2">Categories:</span>
