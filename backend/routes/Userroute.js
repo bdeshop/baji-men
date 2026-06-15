@@ -3370,7 +3370,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
     // Match user
     const matcheduser = await User.findOne({ username: member_account });
-    
+    console.log("matcheduser",matcheduser)
     if (!matcheduser) {
       return res.status(404).json({
         success: false,
@@ -3380,7 +3380,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
     // Get balance before update
     const balanceBefore = matcheduser.balance;
-
+    console.log("balanceBefore",balanceBefore)
     // YOUR SIMPLE BALANCE UPDATE LOGIC
     if (winamount <= 0) {
       // Loss: deduct bet amount
