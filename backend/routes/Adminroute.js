@@ -15208,19 +15208,7 @@ Adminrouter.get("/oracle/games/all", async (req, res) => {
 Adminrouter.get("/oracle/providerlist", async (req, res) => {
   try {
     // Try different endpoints
-    let response;
-    try {
-      response = await oracleApi.get('/providerlist');
-    } catch (firstError) {
-      console.log("First endpoint failed, trying alternative...");
-      try {
-        response = await oracleApi.get('/providers');
-      } catch (secondError) {
-        console.log("Both endpoints failed");
-        throw new Error("Unable to fetch providers from Oracle API");
-      }
-    }
-    
+    let response= await oracleApi.get('/providerlist');
     if (!response.data) {
       return res.status(404).json({
         success: false,
@@ -15280,4 +15268,6 @@ Adminrouter.get("/oracle/health", async (req, res) => {
     });
   }
 });
+
+
 module.exports = Adminrouter;
