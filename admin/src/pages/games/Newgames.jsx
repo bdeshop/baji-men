@@ -79,7 +79,7 @@ const Newgames = () => {
     baseURL: "https://api.oraclegames.live/api",
     timeout: 30000,
     headers: {
-      "	x-oraclegamedata-key": "20afffdf-98c4-4de3-a16f-7d3f29cbd90e",
+      "x-oraclegamedata-key": "1189baca156e1bbbecc3b26651a63565",
       "Content-Type": "application/json"
     }
   });
