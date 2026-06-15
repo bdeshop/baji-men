@@ -15012,9 +15012,9 @@ Adminrouter.get("/oracle/games", async (req, res) => {
     if (providerCode) {
       url += `&provider_code=${providerCode}`;
     }
-    
+    console.log("req.query",req.query)
     const response = await oracleApi.get(url);
-    
+    console.log("response",response)
     if (!response.data) {
       return res.status(404).json({
         success: false,
