@@ -3447,7 +3447,122 @@ Adminrouter.put("/games/:id/categories", async (req, res) => {
     res.status(500).json({ error: "Failed to update game categories" });
   }
 });
+// ==================== GAME ROUTES ====================
 
+// DELETE all games - MUST COME FIRST before the :id route
+Adminrouter.delete("/games/all", async (req, res) => {
+  try {
+    const { confirm } = req.query;
+    
+    if (confirm !== "true") {
+      return res.status(400).json({ 
+        error: "Please confirm deletion by adding ?confirm=true to the URL. This action cannot be undone!" 
+      });
+    }
+
+    const games = await Game.find({});
+    
+    if (games.length === 0) {
+      return res.status(404).json({ message: "No games found to delete" });
+    }
+
+    const imageDeletionResults = {
+      deleted: [],
+      failed: []
+    };
+
+    for (const game of games) {
+      // Delete portrait image
+      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
+        try {
+          const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
+          if (fs.existsSync(portraitPath)) {
+            fs.unlinkSync(portraitPath);
+            imageDeletionResults.deleted.push(game.portraitImage);
+          }
+        } catch (imageError) {
+          console.error(`Error deleting portrait image for game ${game._id}:`, imageError);
+          imageDeletionResults.failed.push({
+            gameId: game._id,
+            image: game.portraitImage,
+            error: imageError.message
+          });
+        }
+      }
+
+      // Delete landscape image
+      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
+        try {
+          const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
+          if (fs.existsSync(landscapePath)) {
+            fs.unlinkSync(landscapePath);
+            imageDeletionResults.deleted.push(game.landscapeImage);
+          }
+        } catch (imageError) {
+          console.error(`Error deleting landscape image for game ${game._id}:`, imageError);
+          imageDeletionResults.failed.push({
+            gameId: game._id,
+            image: game.landscapeImage,
+            error: imageError.message
+          });
+        }
+      }
+    }
+
+    const result = await Game.deleteMany({});
+
+    res.json({
+      message: `Successfully deleted ${result.deletedCount} game(s)`,
+      details: {
+        gamesDeleted: result.deletedCount,
+        images: {
+          successfullyDeleted: imageDeletionResults.deleted.length,
+          failedDeletions: imageDeletionResults.failed.length
+        }
+      },
+      imageDeletionErrors: imageDeletionResults.failed.length > 0 ? imageDeletionResults.failed : undefined
+    });
+
+  } catch (error) {
+    console.error("Error deleting all games:", error);
+    res.status(500).json({ 
+      error: "Failed to delete all games",
+      details: error.message 
+    });
+  }
+});
+
+// DELETE game by ID - MUST COME AFTER the /all route
+Adminrouter.delete("/games/:id", async (req, res) => {
+  try {
+    const game = await Game.findById(req.params.id);
+    if (!game) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+
+    // Delete image files
+    if (game.portraitImage && !game.portraitImage.startsWith('http')) {
+      const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
+      if (fs.existsSync(portraitPath)) {
+        fs.unlinkSync(portraitPath);
+      }
+    }
+
+    if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
+      const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
+      if (fs.existsSync(landscapePath)) {
+        fs.unlinkSync(landscapePath);
+      }
+    }
+
+    await Game.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Game deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting game:", error);
+    res.status(500).json({ error: "Failed to delete game" });
+  }
+});
 // DELETE game
 Adminrouter.delete("/games/:id", async (req, res) => {
   try {
@@ -3480,515 +3595,6 @@ Adminrouter.delete("/games/:id", async (req, res) => {
   }
 });
 
-// DELETE all games - Use with caution!
-Adminrouter.delete("/games/all", async (req, res) => {
-  try {
-    // Optional: Add a confirmation parameter for safety
-    const { confirm } = req.query;
-    
-    if (confirm !== "true") {
-      return res.status(400).json({ 
-        error: "Please confirm deletion by adding ?confirm=true to the URL. This action cannot be undone!" 
-      });
-    }
-
-    // Get all games to delete their images
-    const games = await Game.find({});
-    
-    if (games.length === 0) {
-      return res.status(404).json({ message: "No games found to delete" });
-    }
-
-    // Delete associated image files for each game
-    const imageDeletionResults = {
-      deleted: [],
-      failed: []
-    };
-
-    for (const game of games) {
-      // Delete portrait image if it's a local file (not a URL)
-      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
-        try {
-          const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
-          if (fs.existsSync(portraitPath)) {
-            fs.unlinkSync(portraitPath);
-            imageDeletionResults.deleted.push(game.portraitImage);
-          }
-        } catch (imageError) {
-          console.error(`Error deleting portrait image for game ${game._id}:`, imageError);
-          imageDeletionResults.failed.push({
-            gameId: game._id,
-            image: game.portraitImage,
-            error: imageError.message
-          });
-        }
-      }
-
-      // Delete landscape image if it's a local file (not a URL)
-      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
-        try {
-          const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
-          if (fs.existsSync(landscapePath)) {
-            fs.unlinkSync(landscapePath);
-            imageDeletionResults.deleted.push(game.landscapeImage);
-          }
-        } catch (imageError) {
-          console.error(`Error deleting landscape image for game ${game._id}:`, imageError);
-          imageDeletionResults.failed.push({
-            gameId: game._id,
-            image: game.landscapeImage,
-            error: imageError.message
-          });
-        }
-      }
-    }
-
-    // Delete all games from database
-    const result = await Game.deleteMany({});
-
-    res.json({
-      message: `Successfully deleted ${result.deletedCount} game(s)`,
-      details: {
-        gamesDeleted: result.deletedCount,
-        images: {
-          successfullyDeleted: imageDeletionResults.deleted.length,
-          failedDeletions: imageDeletionResults.failed.length
-        }
-      },
-      imageDeletionErrors: imageDeletionResults.failed.length > 0 ? imageDeletionResults.failed : undefined
-    });
-
-  } catch (error) {
-    console.error("Error deleting all games:", error);
-    res.status(500).json({ 
-      error: "Failed to delete all games",
-      details: error.message 
-    });
-  }
-});
-// DELETE all games - Enhanced version with better error handling
-Adminrouter.delete("/games/all", async (req, res) => {
-  try {
-    // Optional: Add a confirmation parameter for safety
-    const { confirm, keepFeatured, dryRun } = req.query;
-    
-    if (confirm !== "true") {
-      return res.status(400).json({ 
-        success: false,
-        error: "Please confirm deletion by adding ?confirm=true to the URL. This action cannot be undone!" 
-      });
-    }
-
-    // Build filter based on parameters
-    let filter = {};
-    
-    // If keepFeatured is true, only delete non-featured games
-    if (keepFeatured === "true") {
-      filter.featured = false;
-    }
-
-    // Get games to delete
-    const gamesToDelete = await Game.find(filter);
-    
-    if (gamesToDelete.length === 0) {
-      return res.status(404).json({ 
-        success: true,
-        message: keepFeatured === "true" 
-          ? "No non-featured games found to delete" 
-          : "No games found to delete",
-        gamesDeleted: 0
-      });
-    }
-
-    // If dryRun is true, just return what would be deleted without actually deleting
-    if (dryRun === "true") {
-      const gamesPreview = gamesToDelete.map(game => ({
-        _id: game._id,
-        name: game.name,
-        game_uid: game.game_uid,
-        gameApiID: game.gameApiID,
-        provider: game.provider,
-        featured: game.featured,
-        status: game.status,
-        hasPortraitImage: !!game.portraitImage && !game.portraitImage.startsWith('http'),
-        hasLandscapeImage: !!game.landscapeImage && !game.landscapeImage.startsWith('http')
-      }));
-      
-      return res.json({
-        success: true,
-        dryRun: true,
-        message: `DRY RUN: Would delete ${gamesToDelete.length} game(s)`,
-        gamesToDelete: gamesPreview,
-        summary: {
-          totalGames: gamesToDelete.length,
-          featuredGames: gamesToDelete.filter(g => g.featured).length,
-          activeGames: gamesToDelete.filter(g => g.status).length,
-          inactiveGames: gamesToDelete.filter(g => !g.status).length,
-          gamesWithLocalImages: gamesToDelete.filter(g => 
-            (g.portraitImage && !g.portraitImage.startsWith('http')) ||
-            (g.landscapeImage && !g.landscapeImage.startsWith('http'))
-          ).length
-        }
-      });
-    }
-
-    // Delete associated image files for each game
-    const imageDeletionResults = {
-      deleted: [],
-      failed: [],
-      skipped: []
-    };
-
-    for (const game of gamesToDelete) {
-      // Delete portrait image if it's a local file (not a URL)
-      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
-        try {
-          const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
-          if (fs.existsSync(portraitPath)) {
-            fs.unlinkSync(portraitPath);
-            imageDeletionResults.deleted.push({
-              gameId: game._id,
-              gameName: game.name,
-              imageType: 'portrait',
-              path: game.portraitImage
-            });
-          } else {
-            imageDeletionResults.skipped.push({
-              gameId: game._id,
-              gameName: game.name,
-              imageType: 'portrait',
-              path: game.portraitImage,
-              reason: 'File not found'
-            });
-          }
-        } catch (imageError) {
-          console.error(`Error deleting portrait image for game ${game._id}:`, imageError);
-          imageDeletionResults.failed.push({
-            gameId: game._id,
-            gameName: game.name,
-            imageType: 'portrait',
-            image: game.portraitImage,
-            error: imageError.message
-          });
-        }
-      }
-
-      // Delete landscape image if it's a local file (not a URL)
-      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
-        try {
-          const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
-          if (fs.existsSync(landscapePath)) {
-            fs.unlinkSync(landscapePath);
-            imageDeletionResults.deleted.push({
-              gameId: game._id,
-              gameName: game.name,
-              imageType: 'landscape',
-              path: game.landscapeImage
-            });
-          } else {
-            imageDeletionResults.skipped.push({
-              gameId: game._id,
-              gameName: game.name,
-              imageType: 'landscape',
-              path: game.landscapeImage,
-              reason: 'File not found'
-            });
-          }
-        } catch (imageError) {
-          console.error(`Error deleting landscape image for game ${game._id}:`, imageError);
-          imageDeletionResults.failed.push({
-            gameId: game._id,
-            gameName: game.name,
-            imageType: 'landscape',
-            image: game.landscapeImage,
-            error: imageError.message
-          });
-        }
-      }
-    }
-
-    // Delete games from database
-    const result = await Game.deleteMany(filter);
-
-    // Get deletion summary by provider and category
-    const deletedGamesSummary = gamesToDelete.reduce((acc, game) => {
-      // By Provider
-      acc.byProvider[game.provider] = (acc.byProvider[game.provider] || 0) + 1;
-      
-      // By Category
-      if (Array.isArray(game.category)) {
-        game.category.forEach(cat => {
-          acc.byCategory[cat] = (acc.byCategory[cat] || 0) + 1;
-        });
-      } else if (game.category) {
-        acc.byCategory[game.category] = (acc.byCategory[game.category] || 0) + 1;
-      }
-      
-      return acc;
-    }, { byProvider: {}, byCategory: {} });
-
-    // Also delete any orphaned games from user's favorite lists
-    const userUpdateResult = await User.updateMany(
-      {},
-      { $pull: { favoriteGames: { $in: gamesToDelete.map(g => g._id) } } }
-    );
-
-    res.json({
-      success: true,
-      message: `Successfully deleted ${result.deletedCount} game(s)`,
-      details: {
-        gamesDeleted: result.deletedCount,
-        keepFeatured: keepFeatured === "true",
-        images: {
-          successfullyDeleted: imageDeletionResults.deleted.length,
-          failedDeletions: imageDeletionResults.failed.length,
-          skipped: imageDeletionResults.skipped.length
-        },
-        userFavoritesCleaned: userUpdateResult.modifiedCount
-      },
-      summary: {
-        byProvider: deletedGamesSummary.byProvider,
-        byCategory: deletedGamesSummary.byCategory,
-        totalFeaturedDeleted: gamesToDelete.filter(g => g.featured).length
-      },
-      imageDeletionErrors: imageDeletionResults.failed.length > 0 ? imageDeletionResults.failed : undefined,
-      imageDeletionSkipped: imageDeletionResults.skipped.length > 0 ? imageDeletionResults.skipped : undefined
-    });
-
-  } catch (error) {
-    console.error("Error deleting all games:", error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to delete all games",
-      details: error.message 
-    });
-  }
-});
-
-// DELETE games by provider
-Adminrouter.delete("/games/by-provider/:provider", async (req, res) => {
-  try {
-    const { provider } = req.params;
-    const { confirm, dryRun } = req.query;
-    
-    if (confirm !== "true") {
-      return res.status(400).json({ 
-        success: false,
-        error: "Please confirm deletion by adding ?confirm=true to the URL" 
-      });
-    }
-
-    const gamesToDelete = await Game.find({ provider: provider });
-    
-    if (gamesToDelete.length === 0) {
-      return res.status(404).json({ 
-        success: false,
-        error: `No games found for provider: ${provider}` 
-      });
-    }
-
-    if (dryRun === "true") {
-      return res.json({
-        success: true,
-        dryRun: true,
-        message: `DRY RUN: Would delete ${gamesToDelete.length} game(s) from provider: ${provider}`,
-        games: gamesToDelete.map(g => ({ _id: g._id, name: g.name, game_uid: g.game_uid }))
-      });
-    }
-
-    // Delete images
-    for (const game of gamesToDelete) {
-      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
-        const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
-        if (fs.existsSync(portraitPath)) fs.unlinkSync(portraitPath);
-      }
-      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
-        const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
-        if (fs.existsSync(landscapePath)) fs.unlinkSync(landscapePath);
-      }
-    }
-
-    const result = await Game.deleteMany({ provider: provider });
-
-    res.json({
-      success: true,
-      message: `Successfully deleted ${result.deletedCount} game(s) from provider: ${provider}`,
-      provider: provider,
-      gamesDeleted: result.deletedCount
-    });
-
-  } catch (error) {
-    console.error("Error deleting games by provider:", error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to delete games by provider",
-      details: error.message 
-    });
-  }
-});
-
-// DELETE games by category
-Adminrouter.delete("/games/by-category/:category", async (req, res) => {
-  try {
-    const { category } = req.params;
-    const { confirm, dryRun } = req.query;
-    
-    if (confirm !== "true") {
-      return res.status(400).json({ 
-        success: false,
-        error: "Please confirm deletion by adding ?confirm=true to the URL" 
-      });
-    }
-
-    const gamesToDelete = await Game.find({ category: category });
-    
-    if (gamesToDelete.length === 0) {
-      return res.status(404).json({ 
-        success: false,
-        error: `No games found for category: ${category}` 
-      });
-    }
-
-    if (dryRun === "true") {
-      return res.json({
-        success: true,
-        dryRun: true,
-        message: `DRY RUN: Would delete ${gamesToDelete.length} game(s) from category: ${category}`,
-        games: gamesToDelete.map(g => ({ _id: g._id, name: g.name, provider: g.provider }))
-      });
-    }
-
-    // Delete images
-    for (const game of gamesToDelete) {
-      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
-        const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
-        if (fs.existsSync(portraitPath)) fs.unlinkSync(portraitPath);
-      }
-      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
-        const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
-        if (fs.existsSync(landscapePath)) fs.unlinkSync(landscapePath);
-      }
-    }
-
-    const result = await Game.deleteMany({ category: category });
-
-    res.json({
-      success: true,
-      message: `Successfully deleted ${result.deletedCount} game(s) from category: ${category}`,
-      category: category,
-      gamesDeleted: result.deletedCount
-    });
-
-  } catch (error) {
-    console.error("Error deleting games by category:", error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to delete games by category",
-      details: error.message 
-    });
-  }
-});
-
-// DELETE duplicate games (keep only one per game_uid or gameApiID+provider)
-Adminrouter.delete("/games/duplicates", async (req, res) => {
-  try {
-    const { confirm, dryRun } = req.query;
-    
-    if (confirm !== "true") {
-      return res.status(400).json({ 
-        success: false,
-        error: "Please confirm deletion by adding ?confirm=true to the URL" 
-      });
-    }
-
-    const duplicatesToDelete = [];
-    const duplicateInfo = [];
-
-    // Find duplicates by game_uid
-    const gameUidDuplicates = await Game.aggregate([
-      { $match: { game_uid: { $ne: null, $ne: "" } } },
-      { $group: { _id: "$game_uid", count: { $sum: 1 }, ids: { $push: "$_id" } } },
-      { $match: { count: { $gt: 1 } } }
-    ]);
-
-    for (const dup of gameUidDuplicates) {
-      const [keep, ...remove] = dup.ids;
-      duplicatesToDelete.push(...remove);
-      duplicateInfo.push({
-        type: 'game_uid',
-        value: dup._id,
-        keepId: keep,
-        removeIds: remove,
-        count: dup.count
-      });
-    }
-
-    // Find duplicates by gameApiID + provider combination
-    const apiIdDuplicates = await Game.aggregate([
-      { 
-        $group: { 
-          _id: { gameApiID: "$gameApiID", provider: "$provider" }, 
-          count: { $sum: 1 }, 
-          ids: { $push: "$_id" } 
-        } 
-      },
-      { $match: { count: { $gt: 1 } } }
-    ]);
-
-    for (const dup of apiIdDuplicates) {
-      const [keep, ...remove] = dup.ids;
-      // Filter out any that are already marked for deletion
-      const newRemoves = remove.filter(id => !duplicatesToDelete.includes(id));
-      duplicatesToDelete.push(...newRemoves);
-      if (newRemoves.length > 0) {
-        duplicateInfo.push({
-          type: 'gameApiID+provider',
-          value: `${dup._id.gameApiID}|${dup._id.provider}`,
-          keepId: keep,
-          removeIds: newRemoves,
-          count: dup.count
-        });
-      }
-    }
-
-    if (duplicatesToDelete.length === 0) {
-      return res.json({
-        success: true,
-        message: "No duplicate games found",
-        duplicatesDeleted: 0
-      });
-    }
-
-    if (dryRun === "true") {
-      const gamesToDelete = await Game.find({ _id: { $in: duplicatesToDelete } });
-      return res.json({
-        success: true,
-        dryRun: true,
-        message: `DRY RUN: Would delete ${duplicatesToDelete.length} duplicate game(s)`,
-        duplicates: duplicateInfo,
-        gamesToDelete: gamesToDelete.map(g => ({ _id: g._id, name: g.name, game_uid: g.game_uid, provider: g.provider }))
-      });
-    }
-
-    // Delete duplicate games
-    const result = await Game.deleteMany({ _id: { $in: duplicatesToDelete } });
-
-    res.json({
-      success: true,
-      message: `Successfully deleted ${result.deletedCount} duplicate game(s)`,
-      duplicatesDeleted: result.deletedCount,
-      duplicateGroups: duplicateInfo
-    });
-
-  } catch (error) {
-    console.error("Error deleting duplicate games:", error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to delete duplicate games",
-      details: error.message 
-    });
-  }
-});
 // POST create multiple games at once
 Adminrouter.post(
   "/games/bulk",
