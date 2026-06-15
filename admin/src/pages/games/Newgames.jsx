@@ -601,7 +601,7 @@ const Newgames = () => {
 
         const oracleGamesRes = await oracleApi.get('/game?page=1&limit=5000');
         const oracleGamesData = oracleGamesRes.data;
-        
+        console.log("oracleGamesData",oracleGamesData)
         const localGamesList = await fetchAllLocalGames();
         setLocalGames(localGamesList);
         
