@@ -14956,7 +14956,7 @@ Adminrouter.get("/bonus/stats", adminAuth, async (req, res) => {
 
 // Oracle API configuration
 const oracleApi = axios.create({
-  baseURL: "https://api.oraclegames.live/api",
+  baseURL: "https://oraclegames.net/api",
   timeout: 30000,
   headers: {
     "x-oraclegamedata-key": "1189baca156e1bbbecc3b26651a63565", // Your API key
