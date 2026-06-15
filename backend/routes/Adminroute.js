@@ -3021,6 +3021,7 @@ Adminrouter.get("/games/gameId/:gameId", async (req, res) => {
 });
 
 // POST create new game
+// POST create new game
 Adminrouter.post(
   "/games",
   uploadGameImages.fields([
@@ -3035,6 +3036,7 @@ Adminrouter.post(
         featured, 
         status, 
         gameApiID, 
+        game_uid,
         category, 
         fullScreen,
         defaultImage
@@ -3066,7 +3068,7 @@ Adminrouter.post(
       }
 
       // Enhanced validation
-      const requiredFields = { name, provider, gameApiID };
+      const requiredFields = { name, provider, gameApiID, game_uid };
       const missingFields = Object.keys(requiredFields).filter(field => !requiredFields[field]);
       
       if (missingFields.length > 0) {
@@ -3075,11 +3077,18 @@ Adminrouter.post(
         });
       }
 
-      // Check if game exists with same gameApiID and provider combination
-      const existingGame = await Game.findOne({ 
-        gameApiID: gameApiID,
-        provider: provider
+      // Check if game exists with same game_uid (primary check)
+      let existingGame = await Game.findOne({ 
+        game_uid: game_uid
       });
+      
+      // If not found by game_uid, check by gameApiID + provider combination
+      if (!existingGame) {
+        existingGame = await Game.findOne({ 
+          gameApiID: gameApiID,
+          provider: provider
+        });
+      }
       
       let portraitImageValue;
       let landscapeImageValue;
@@ -3120,12 +3129,15 @@ Adminrouter.post(
           featured: featured !== undefined ? (featured === "true" || featured === true) : existingGame.featured,
           status: status !== undefined ? (status !== "false" && status !== false) : existingGame.status,
           fullScreen: fullScreen !== undefined ? (fullScreen === "true" || fullScreen === true) : existingGame.fullScreen,
-          uniqueId: req.body.uniqueId || existingGame.uniqueId
+          uniqueId: req.body.uniqueId || existingGame.uniqueId,
+          game_uid: game_uid || existingGame.game_uid,
+          gameApiID: gameApiID || existingGame.gameApiID,
+          provider: provider || existingGame.provider
         };
         
         // Update the existing game
         const updatedGame = await Game.findOneAndUpdate(
-          { gameApiID: gameApiID, provider: provider },
+          { _id: existingGame._id },
           updateData,
           { new: true, runValidators: true }
         );
@@ -3146,6 +3158,7 @@ Adminrouter.post(
         const gameData = {
           name,
           gameId: gameApiID,
+          game_uid: game_uid, // Required field
           provider,
           category: categoriesArray,
           portraitImage: portraitImageValue,
@@ -3155,7 +3168,7 @@ Adminrouter.post(
           status: status !== "false" && status !== false,
           fullScreen: fullScreen === "true" || fullScreen === true,
           gameApiID,
-          uniqueId: req.body.uniqueId
+          uniqueId: req.body.uniqueId || game_uid // Use game_uid as fallback for uniqueId
         };
         
         const newGame = new Game(gameData);
@@ -3169,8 +3182,14 @@ Adminrouter.post(
     } catch (error) {
       console.error("Error creating/updating game:", error);
       
-      // Handle duplicate key error (gameApiID + provider combination)
+      // Handle duplicate key error
       if (error.code === 11000) {
+        // Check which field caused the duplicate key error
+        if (error.keyPattern?.game_uid) {
+          return res.status(400).json({ 
+            error: "A game with this game_uid already exists." 
+          });
+        }
         return res.status(400).json({ 
           error: "A game with this API ID and provider combination already exists." 
         });
@@ -3180,6 +3199,7 @@ Adminrouter.post(
     }
   }
 );
+
 // PUT update game
 Adminrouter.put(
   "/games/:id",
@@ -3196,8 +3216,23 @@ Adminrouter.put(
       
       console.log("Update request body:", req.body);
 
-      // Update fields
+      // Update basic fields
       if (req.body.name) game.name = req.body.name;
+      
+      // Handle game_uid update (check for uniqueness)
+      if (req.body.game_uid && req.body.game_uid !== game.game_uid) {
+        const existingGame = await Game.findOne({
+          game_uid: req.body.game_uid,
+          _id: { $ne: req.params.id }
+        });
+        
+        if (existingGame) {
+          return res.status(400).json({ 
+            error: `Game with game_uid "${req.body.game_uid}" already exists` 
+          });
+        }
+        game.game_uid = req.body.game_uid;
+      }
       
       // Handle gameApiID update with provider combination check
       if (req.body.gameApiID || req.body.provider) {
@@ -3250,6 +3285,7 @@ Adminrouter.put(
       if (req.body.featured !== undefined) game.featured = req.body.featured === "true" || req.body.featured === true;
       if (req.body.status !== undefined) game.status = req.body.status === "true" || req.body.status === true;
       if (req.body.fullScreen !== undefined) game.fullScreen = req.body.fullScreen === "true" || req.body.fullScreen === true;
+      if (req.body.uniqueId) game.uniqueId = req.body.uniqueId;
 
       // Handle default image URL update
       if (req.body.defaultImage) {
@@ -3306,12 +3342,17 @@ Adminrouter.put(
       console.error("Error updating game:", error);
       
       if (error.code === 11000) {
+        if (error.keyPattern?.game_uid) {
+          return res.status(400).json({ 
+            error: "Game with this game_uid already exists" 
+          });
+        }
         return res.status(400).json({ 
           error: "Game with this API ID and provider combination already exists" 
         });
       }
       
-      res.status(500).json({ error: "Failed to update game" });
+      res.status(500).json({ error: "Failed to update game: " + error.message });
     }
   }
 );
@@ -3525,7 +3566,92 @@ Adminrouter.delete("/games/all", async (req, res) => {
     });
   }
 });
+// DELETE all games - Use with caution!
+Adminrouter.delete("/games/all", async (req, res) => {
+  try {
+    // Optional: Add a confirmation parameter for safety
+    const { confirm } = req.query;
+    
+    if (confirm !== "true") {
+      return res.status(400).json({ 
+        error: "Please confirm deletion by adding ?confirm=true to the URL. This action cannot be undone!" 
+      });
+    }
 
+    // Get all games to delete their images
+    const games = await Game.find({});
+    
+    if (games.length === 0) {
+      return res.status(404).json({ message: "No games found to delete" });
+    }
+
+    // Delete associated image files for each game
+    const imageDeletionResults = {
+      deleted: [],
+      failed: []
+    };
+
+    for (const game of games) {
+      // Delete portrait image if it's a local file (not a URL)
+      if (game.portraitImage && !game.portraitImage.startsWith('http')) {
+        try {
+          const portraitPath = path.join(__dirname, "..", "public", game.portraitImage);
+          if (fs.existsSync(portraitPath)) {
+            fs.unlinkSync(portraitPath);
+            imageDeletionResults.deleted.push(game.portraitImage);
+          }
+        } catch (imageError) {
+          console.error(`Error deleting portrait image for game ${game._id}:`, imageError);
+          imageDeletionResults.failed.push({
+            gameId: game._id,
+            image: game.portraitImage,
+            error: imageError.message
+          });
+        }
+      }
+
+      // Delete landscape image if it's a local file (not a URL)
+      if (game.landscapeImage && !game.landscapeImage.startsWith('http')) {
+        try {
+          const landscapePath = path.join(__dirname, "..", "public", game.landscapeImage);
+          if (fs.existsSync(landscapePath)) {
+            fs.unlinkSync(landscapePath);
+            imageDeletionResults.deleted.push(game.landscapeImage);
+          }
+        } catch (imageError) {
+          console.error(`Error deleting landscape image for game ${game._id}:`, imageError);
+          imageDeletionResults.failed.push({
+            gameId: game._id,
+            image: game.landscapeImage,
+            error: imageError.message
+          });
+        }
+      }
+    }
+
+    // Delete all games from database
+    const result = await Game.deleteMany({});
+
+    res.json({
+      message: `Successfully deleted ${result.deletedCount} game(s)`,
+      details: {
+        gamesDeleted: result.deletedCount,
+        images: {
+          successfullyDeleted: imageDeletionResults.deleted.length,
+          failedDeletions: imageDeletionResults.failed.length
+        }
+      },
+      imageDeletionErrors: imageDeletionResults.failed.length > 0 ? imageDeletionResults.failed : undefined
+    });
+
+  } catch (error) {
+    console.error("Error deleting all games:", error);
+    res.status(500).json({ 
+      error: "Failed to delete all games",
+      details: error.message 
+    });
+  }
+});
 // POST create multiple games at once
 Adminrouter.post(
   "/games/bulk",

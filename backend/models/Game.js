@@ -16,6 +16,10 @@ const gameSchema = new mongoose.Schema(
     uniqueId: {
       type: String,
     },
+    game_uid:{
+       type: String,
+       required: true,
+    },
     gameApiID: {
       type: String,
       required: true,
