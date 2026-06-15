@@ -3,13 +3,12 @@ import { FaUpload, FaTimes, FaSpinner, FaFilter, FaGamepad, FaSearch, FaImage, F
 import { MdCategory, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
-import toast,{Toaster} from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import axios from "axios";
 import Swal from 'sweetalert2';
 
 const Newgames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
-  const premium_api_key = import.meta.env.VITE_PREMIUM_API_KEY;
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [localProviders, setLocalProviders] = useState([]);
@@ -18,13 +17,13 @@ const Newgames = () => {
   const [selectedProvider, setSelectedProvider] = useState("");
   const [games, setGames] = useState([]);
   const [filteredGames, setFilteredGames] = useState([]);
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [gamesPerPage] = useState(30);
   const [paginatedGames, setPaginatedGames] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,43 +67,37 @@ const Newgames = () => {
   const [showProvidersDropdown, setShowProvidersDropdown] = useState(false);
   const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
 
-  // Create axios instances
+  // Create axios instance for backend API
   const api = axios.create({
     baseURL: base_url,
     timeout: 30000,
-    headers: { 'Content-Type': 'multipart/form-data', "Authorization": localStorage.getItem("adminToken") }
-  });
-
-  const oracleApi = axios.create({
-    baseURL: "https://api.oraclegames.live/api",
-    timeout: 30000,
     headers: {
-      "x-oraclegamedata-key": "1189baca156e1bbbecc3b26651a63565",
-      "Content-Type": "application/json"
+      'Content-Type': 'multipart/form-data',
+      "Authorization": localStorage.getItem("adminToken")
     }
   });
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   // Custom Select Component
-  const CustomSelect = ({ 
-    options, 
-    value, 
-    onChange, 
-    placeholder, 
-    loading, 
-    icon: Icon, 
-    dropdownOpen, 
+  const CustomSelect = ({
+    options,
+    value,
+    onChange,
+    placeholder,
+    loading,
+    icon: Icon,
+    dropdownOpen,
     setDropdownOpen,
     label,
     disabled = false
   }) => {
     const selectedOption = options.find(opt => opt._id === value || opt.value === value);
-    
+
     const getDisplayName = (option) => {
       return option.providerName || option.name || option.label || option.providerCode || 'Unknown';
     };
-    
+
     return (
       <div className="relative w-full">
         {label && (
@@ -117,29 +110,28 @@ const Newgames = () => {
             type="button"
             onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
             disabled={loading || disabled}
-            className={`w-full px-4 py-3 text-left bg-[#161B22] border border-gray-700 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 flex items-center justify-between transition-all duration-200 hover:border-indigo-400 ${
-              disabled ? 'bg-gray-800 cursor-not-allowed opacity-60' : ''
-            }`}
+            className={`w-full px-4 py-3 text-left bg-[#161B22] border border-gray-700 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 flex items-center justify-between transition-all duration-200 hover:border-indigo-400 ${disabled ? 'bg-gray-800 cursor-not-allowed opacity-60' : ''
+              }`}
           >
             <div className="flex items-center space-x-3">
               {Icon && <Icon className="text-gray-400 text-lg" />}
               <span className={selectedOption ? "text-gray-200" : "text-gray-500"}>
-                {loading ? `Loading ${placeholder}...` : 
-                 selectedOption ? getDisplayName(selectedOption) : 
-                 disabled ? 'Select a category first' : 
-                 `Select ${placeholder}`}
+                {loading ? `Loading ${placeholder}...` :
+                  selectedOption ? getDisplayName(selectedOption) :
+                    disabled ? 'Select a category first' :
+                      `Select ${placeholder}`}
               </span>
             </div>
-            <svg 
+            <svg
               className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'transform rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          
+
           {dropdownOpen && !disabled && (
             <div className="absolute z-50 w-full mt-1 bg-[#1F2937] border border-gray-700 rounded-xl shadow-lg max-h-60 overflow-auto">
               {options.length === 0 ? (
@@ -154,11 +146,10 @@ const Newgames = () => {
                       onChange(option._id || option.value);
                       setDropdownOpen(false);
                     }}
-                    className={`px-4 py-3 cursor-pointer flex items-center space-x-3 transition-colors duration-150 ${
-                      value === (option._id || option.value)
-                        ? 'bg-indigo-900 text-indigo-300'
-                        : 'hover:bg-gray-700 text-gray-300'
-                    }`}
+                    className={`px-4 py-3 cursor-pointer flex items-center space-x-3 transition-colors duration-150 ${value === (option._id || option.value)
+                      ? 'bg-indigo-900 text-indigo-300'
+                      : 'hover:bg-gray-700 text-gray-300'
+                      }`}
                   >
                     {value === (option._id || option.value) ? (
                       <MdCheckBox className="text-indigo-400 text-lg" />
@@ -179,7 +170,7 @@ const Newgames = () => {
   // Custom Multi-Select Component for Categories
   const MultiCategorySelect = ({ options, value, onChange, label }) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
-    
+
     const toggleCategory = (categoryId) => {
       if (value.includes(categoryId)) {
         onChange(value.filter(id => id !== categoryId));
@@ -187,12 +178,12 @@ const Newgames = () => {
         onChange([...value, categoryId]);
       }
     };
-    
+
     const getSelectedNames = () => {
       const selected = options.filter(opt => value.includes(opt._id));
       return selected.map(opt => opt.name).join(', ');
     };
-    
+
     return (
       <div className="relative w-full">
         <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -211,16 +202,16 @@ const Newgames = () => {
                 {value.length > 0 ? getSelectedNames() : "Select categories"}
               </span>
             </div>
-            <svg 
+            <svg
               className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'transform rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          
+
           {dropdownOpen && (
             <div className="absolute z-50 w-full mt-1 bg-[#1F2937] border border-gray-700 rounded-xl shadow-lg max-h-60 overflow-auto">
               {options.length === 0 ? (
@@ -267,11 +258,10 @@ const Newgames = () => {
           className="hidden"
         />
         <label htmlFor={id} className="cursor-pointer">
-          <div className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-200 ${
-            checked 
-              ? 'bg-indigo-500 border-indigo-500' 
-              : 'bg-[#161B22] border-gray-600 hover:border-indigo-400'
-          }`}>
+          <div className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-200 ${checked
+            ? 'bg-indigo-500 border-indigo-500'
+            : 'bg-[#161B22] border-gray-600 hover:border-indigo-400'
+            }`}>
             {checked && (
               <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -288,36 +278,6 @@ const Newgames = () => {
           <p className="text-xs text-gray-500 mt-1">{description}</p>
         )}
       </div>
-    </div>
-  );
-
-  // Search Component
-  const SearchBar = () => (
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <FaSearch className="h-5 w-5 text-gray-500" />
-      </div>
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setCurrentPage(1);
-        }}
-        placeholder="Search games by name..."
-        className="w-full pl-10 pr-4 py-3 bg-[#161B22] border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
-      />
-      {searchTerm && (
-        <button
-          onClick={() => {
-            setSearchTerm("");
-            setCurrentPage(1);
-          }}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-        >
-          <FaTimes className="h-5 w-5 text-gray-500 hover:text-gray-300" />
-        </button>
-      )}
     </div>
   );
 
@@ -357,11 +317,10 @@ const Newgames = () => {
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`p-2 rounded-lg border transition-all duration-200 ${
-            currentPage === 1
-              ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
-              : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:border-indigo-500 hover:text-indigo-300 border-gray-700'
-          }`}
+          className={`p-2 rounded-lg border transition-all duration-200 ${currentPage === 1
+            ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
+            : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:border-indigo-500 hover:text-indigo-300 border-gray-700'
+            }`}
         >
           <FaChevronLeft className="w-4 h-4" />
         </button>
@@ -372,13 +331,12 @@ const Newgames = () => {
               key={index}
               onClick={() => typeof page === 'number' && onPageChange(page)}
               disabled={page === '...'}
-              className={`min-w-[40px] h-10 px-3 rounded-lg font-medium transition-all duration-200 ${
-                page === currentPage
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : page === '...'
+              className={`min-w-[40px] h-10 px-3 rounded-lg font-medium transition-all duration-200 ${page === currentPage
+                ? 'bg-indigo-600 text-white shadow-md'
+                : page === '...'
                   ? 'cursor-default text-gray-500'
                   : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:text-indigo-300 border border-gray-700'
-              }`}
+                }`}
             >
               {page}
             </button>
@@ -388,11 +346,10 @@ const Newgames = () => {
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`p-2 rounded-lg border transition-all duration-200 ${
-            currentPage === totalPages
-              ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
-              : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:border-indigo-500 hover:text-indigo-300 border-gray-700'
-          }`}
+          className={`p-2 rounded-lg border transition-all duration-200 ${currentPage === totalPages
+            ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
+            : 'bg-[#161B22] text-gray-300 hover:bg-indigo-900 hover:border-indigo-500 hover:text-indigo-300 border-gray-700'
+            }`}
         >
           <FaChevronRight className="w-4 h-4" />
         </button>
@@ -403,9 +360,9 @@ const Newgames = () => {
   // Function to filter games based on search term
   const filterGamesBySearch = (gamesList, term) => {
     if (!term.trim()) return gamesList;
-    
+
     const searchTermLower = term.toLowerCase();
-    return gamesList.filter(game => 
+    return gamesList.filter(game =>
       game.gameName?.toLowerCase().includes(searchTermLower) ||
       game.name?.toLowerCase().includes(searchTermLower) ||
       (game.provider?.providerName?.toLowerCase().includes(searchTermLower) || false)
@@ -425,7 +382,7 @@ const Newgames = () => {
   useEffect(() => {
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSavedInSelectedCategory);
     const currentPageSelectedCount = currentPageUnsavedGames.filter(game => selectedGames.has(game.uniqueId)).length;
-    
+
     if (currentPageUnsavedGames.length > 0) {
       setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length);
     } else {
@@ -483,7 +440,7 @@ const Newgames = () => {
   useEffect(() => {
     if (selectedCategory && localProviders.length > 0 && categories.length > 0) {
       const selectedCategoryObj = categories.find(c => c._id === selectedCategory);
-      
+
       if (selectedCategoryObj) {
         const categoryName = selectedCategoryObj.name?.toLowerCase();
         const filtered = localProviders.filter(provider => {
@@ -491,7 +448,7 @@ const Newgames = () => {
           return providerCategory === categoryName;
         });
         setFilteredProviders(filtered);
-        
+
         if (selectedProvider) {
           const selectedProviderObj = filtered.find(p => p._id === selectedProvider);
           if (!selectedProviderObj) {
@@ -505,19 +462,20 @@ const Newgames = () => {
     }
   }, [selectedCategory, localProviders, categories]);
 
-  // Fetch and merge providers from Oracle API
+  // Fetch and merge providers from Oracle API via backend
   useEffect(() => {
     const fetchAndMergeProviders = async () => {
       if (filteredProviders.length === 0) {
         setProviders([]);
         return;
       }
-      
+
       setLoadingProviders(true);
       try {
-        const externalRes = await oracleApi.get('/providerlist');
+        // Calling backend endpoint instead of Oracle API directly
+        const externalRes = await api.get('/api/admin/oracle/providerlist');
         const externalProviders = externalRes.data.data || [];
-        
+
         const localProviderMap = new Map();
         filteredProviders.forEach(p => {
           if (p.providercode) localProviderMap.set(p.providercode.toLowerCase(), p);
@@ -530,11 +488,11 @@ const Newgames = () => {
           const providerName = p.providerName?.toLowerCase();
           const code = p.code?.toLowerCase();
           const id = p._id;
-          
-          return localProviderMap.has(providerCode) || 
-                 localProviderMap.has(providerName) ||
-                 localProviderMap.has(code) ||
-                 localProviderMap.has(id);
+
+          return localProviderMap.has(providerCode) ||
+            localProviderMap.has(providerName) ||
+            localProviderMap.has(code) ||
+            localProviderMap.has(id);
         });
 
         setProviders(mergedProviders);
@@ -587,41 +545,42 @@ const Newgames = () => {
       setEditingGame(null);
       setSelectedGames(new Set());
       setSelectAll(false);
-      
+
       const currentPageBeforeLoad = currentPage;
-      
+
       try {
         const selectedProviderObj = providers.find(p => p._id === selectedProvider || p.value === selectedProvider);
         const providerCode = selectedProviderObj?.providerCode || selectedProviderObj?.code;
-        
+
         if (!providerCode) {
           toast.error("Invalid provider selection");
           return;
         }
 
-        const oracleGamesRes = await oracleApi.get('/games?page=1&limit=5000');
+        // Calling backend endpoint instead of Oracle API directly
+        const oracleGamesRes = await api.get('/api/admin/oracle/games?page=1&limit=5000');
         const oracleGamesData = oracleGamesRes.data;
-        
+
         const localGamesList = await fetchAllLocalGames();
         setLocalGames(localGamesList);
-        
+
         // Create maps for existing games
         const existingGamesMap = new Map();
         const existingGamesByGameId = new Map();
         const existingGamesByUniqueId = new Map();
-        
+
         localGamesList.forEach(game => {
           const compositeKey = `${game.gameApiID}-${game.provider}`;
           existingGamesMap.set(compositeKey, game);
-          
+
           if (game.gameApiID) {
             existingGamesByGameId.set(game.gameApiID, game);
           }
-          
+
           if (game._id) {
             existingGamesMap.set(`id-${game._id}`, game);
           }
-          
+
           if (game.uniqueId) {
             existingGamesByUniqueId.set(game.uniqueId, game);
           }
@@ -638,34 +597,34 @@ const Newgames = () => {
           const gameApiID = externalGame.game_code || externalGame.code;
           const provider = externalGame.provider?.provider_code || externalGame.provider?.code;
           const gameUuid = externalGame._id || externalGame.game_uuid;
-          const gameUid = externalGame.game_uid; // Extract game_uid
-          
+          const gameUid = externalGame.game_uid;
+
           const compositeKey = `${gameApiID}-${provider}`;
           let existingGame = null;
-          
+
           // Try multiple matching strategies
           existingGame = existingGamesMap.get(compositeKey);
-          
+
           if (!existingGame) {
             existingGame = existingGamesByGameId.get(gameApiID);
           }
-          
+
           if (!existingGame && gameUuid) {
             existingGame = existingGamesByUniqueId.get(gameUuid);
             if (!existingGame) {
               existingGame = existingGamesMap.get(`id-${gameUuid}`);
             }
           }
-          
+
           if (!existingGame) {
-            existingGame = localGamesList.find(g => 
-              (g.name === (externalGame.gameName || externalGame.name)) && 
+            existingGame = localGamesList.find(g =>
+              (g.name === (externalGame.gameName || externalGame.name)) &&
               g.provider === provider
             );
           }
-          
+
           const uniqueId = gameUuid || compositeKey;
-          
+
           // Parse existing categories
           let existingCategories = [];
           if (existingGame?.category) {
@@ -675,30 +634,27 @@ const Newgames = () => {
               existingCategories = [existingGame.category];
             }
           }
-          
-          // CRITICAL FIX: Determine if game should show "Edit Game" based on current selected category
-          // A game is considered "saved for this category" ONLY if it already has the selected category in its categories
-          const isSavedInSelectedCategory = existingGame && selectedCategoryName && 
+
+          const isSavedInSelectedCategory = existingGame && selectedCategoryName &&
             existingCategories.some(cat => cat.toLowerCase() === selectedCategoryName.toLowerCase());
-          
-          // For cases where no category is selected, default to existing game existence
+
           const defaultIsSaved = !!existingGame;
-          
+
           return {
             ...externalGame,
             _id: uniqueId,
             uniqueId: uniqueId,
             game_uuid: gameUuid,
-            game_uid: gameUid, // Store game_uid
+            game_uid: gameUid,
             name: externalGame.gameName || externalGame.name,
             game_code: gameApiID,
             provider: externalGame.provider,
             coverImage: externalGame.image,
             image: externalGame.image,
-            isSaved: !!existingGame, // Overall saved status
-            isSavedInSelectedCategory: selectedCategoryName ? isSavedInSelectedCategory : defaultIsSaved, // Category-specific saved status
+            isSaved: !!existingGame,
+            isSavedInSelectedCategory: selectedCategoryName ? isSavedInSelectedCategory : defaultIsSaved,
             existingGameData: existingGame,
-            existingCategories: existingCategories, // Store existing categories for reference
+            existingCategories: existingCategories,
             localFeatured: existingGame?.featured || false,
             localStatus: existingGame?.status ?? true,
             localFullScreen: existingGame?.fullScreen || false,
@@ -710,27 +666,27 @@ const Newgames = () => {
             useDefaultImage: true,
           };
         });
-        
-        console.log("Transformed games:", transformedGames.map(g => ({ 
-          name: g.name, 
-          isSaved: g.isSaved, 
+
+        console.log("Transformed games:", transformedGames.map(g => ({
+          name: g.name,
+          isSaved: g.isSaved,
           isSavedInSelectedCategory: g.isSavedInSelectedCategory,
           existingCategories: g.existingCategories,
           selectedCategoryName: selectedCategoryName,
-          game_uid: g.game_uid // Log game_uid
+          game_uid: g.game_uid
         })));
-        
+
         setGames(transformedGames);
         setFilteredGames(transformedGames);
-        
+
         const defaultImageState = {};
         transformedGames.forEach(game => {
           defaultImageState[game.uniqueId] = true;
         });
         setUseDefaultImage(defaultImageState);
-        
+
         setCurrentPage(currentPageBeforeLoad);
-        
+
       } catch (error) {
         console.error("Error fetching and filtering games:", error);
         toast.error('Failed to fetch games');
@@ -761,7 +717,7 @@ const Newgames = () => {
       newSelected.add(gameId);
     }
     setSelectedGames(newSelected);
-    
+
     const currentPageUnsavedGames = paginatedGames.filter(game => !game.isSavedInSelectedCategory);
     const currentPageSelectedCount = currentPageUnsavedGames.filter(game => newSelected.has(game.uniqueId)).length;
     setSelectAll(currentPageSelectedCount === currentPageUnsavedGames.length && currentPageUnsavedGames.length > 0);
@@ -801,7 +757,7 @@ const Newgames = () => {
     }
 
     const selectedGamesList = filteredGames.filter(game => selectedGames.has(game.uniqueId) && !game.isSavedInSelectedCategory);
-    
+
     if (selectedGamesList.length === 0) {
       toast.error("Selected games are already saved for this category");
       clearSelections();
@@ -886,7 +842,7 @@ const Newgames = () => {
           return game;
         })
       );
-      
+
       setUseDefaultImage(prev => ({
         ...prev,
         [gameId]: false
@@ -910,7 +866,7 @@ const Newgames = () => {
         return game;
       })
     );
-    
+
     setUseDefaultImage(prev => ({
       ...prev,
       [gameId]: true
@@ -922,7 +878,7 @@ const Newgames = () => {
       ...prev,
       [gameId]: !prev[gameId]
     }));
-    
+
     if (!useDefaultImage[gameId]) {
       setGames((prevGames) =>
         prevGames.map((game) => {
@@ -955,7 +911,7 @@ const Newgames = () => {
   // handleSaveOrUpdateGame function with game_uid
   const handleSaveOrUpdateGame = async (gameId) => {
     const gameToSave = games.find((g) => g.uniqueId === gameId);
-    
+
     // Get category names from IDs
     const categoryNames = gameToSave.localCategories
       .map(catId => {
@@ -963,21 +919,21 @@ const Newgames = () => {
         return cat ? cat.name : null;
       })
       .filter(name => name !== null);
-    
+
     if (categoryNames.length === 0) {
       toast.error("Please select at least one category for the game.");
       return;
     }
-    
+
     const isUsingDefaultImage = useDefaultImage[gameId];
-    
+
     if (!isUsingDefaultImage && !gameToSave.localPortraitImage) {
       toast.error("Please upload an image or use the default image.");
       return;
     }
 
     const isUpdate = gameToSave.isSaved;
-    
+
     if (isUpdate) {
       setUpdatingGameId(gameId);
     } else {
@@ -990,15 +946,15 @@ const Newgames = () => {
       formData.append("name", gameToSave.gameName || gameToSave.name);
       formData.append("provider", gameToSave.provider?.provider_code);
       formData.append("uniqueId", gameToSave.uniqueId);
-      formData.append("game_uid", gameToSave.game_uid || ""); // Add game_uid to form data
-      
+      formData.append("game_uid", gameToSave.game_uid || "");
+
       // Send categories as comma-separated string
       formData.append("category", categoryNames.join(','));
-      
+
       formData.append("featured", gameToSave.localFeatured ? "true" : "false");
       formData.append("status", gameToSave.localStatus ? "true" : "false");
       formData.append("fullScreen", gameToSave.localFullScreen ? "true" : "false");
-      
+
       if (isUsingDefaultImage) {
         const defaultImageUrl = gameToSave.image || gameToSave.coverImage;
         if (defaultImageUrl) {
@@ -1019,10 +975,10 @@ const Newgames = () => {
         }
       }
 
-      const url = isUpdate 
+      const url = isUpdate
         ? `/api/admin/games/${gameToSave.existingGameData?._id || gameId}`
         : '/api/admin/games';
-      
+
       let response;
       if (isUpdate) {
         response = await api.put(url, formData, {
@@ -1036,36 +992,36 @@ const Newgames = () => {
 
       if (response.status === 200 || response.status === 201) {
         const updatedGameData = response.data.game || response.data;
-        
+
         // Refresh local games list
         const refreshedLocalGames = await fetchAllLocalGames();
         setLocalGames(refreshedLocalGames);
-        
+
         // Create a map for quick lookup
         const refreshedGamesMap = new Map();
         refreshedLocalGames.forEach(game => {
           const compositeKey = `${game.gameApiID}-${game.provider}`;
           refreshedGamesMap.set(compositeKey, game);
         });
-        
+
         // Update the games state with refreshed data
-        setGames(prevGames => 
+        setGames(prevGames =>
           prevGames.map(game => {
             if (game.uniqueId === gameId) {
               const compositeKey = `${game.game_code}-${game.provider?.provider_code}`;
               const refreshedGame = refreshedGamesMap.get(compositeKey);
-              
+
               let updatedCategories = categoryNames;
               if (refreshedGame?.category) {
                 updatedCategories = refreshedGame.category;
               } else if (updatedGameData?.category) {
                 updatedCategories = updatedGameData.category;
               }
-              
+
               // Update isSavedInSelectedCategory based on whether selected category is in updated categories
-              const isSavedInSelectedCategory = selectedCategoryName && 
+              const isSavedInSelectedCategory = selectedCategoryName &&
                 updatedCategories.some(cat => cat.toLowerCase() === selectedCategoryName.toLowerCase());
-              
+
               return {
                 ...game,
                 isSaved: true,
@@ -1084,7 +1040,7 @@ const Newgames = () => {
             return game;
           })
         );
-        
+
         toast.success(response.data.message || `Game ${isUpdate ? 'updated' : 'added'} successfully`);
         setEditingGame(null);
       } else {
@@ -1109,14 +1065,14 @@ const Newgames = () => {
       toast.error("Please select a provider first");
       return;
     }
-    
+
     if (!selectedCategory) {
       toast.error("Please select a default category first");
       return;
     }
 
     const unsavedGames = filteredGames.filter(game => !game.isSavedInSelectedCategory);
-    
+
     if (unsavedGames.length === 0) {
       toast.info("No unsaved games available for bulk add");
       return;
@@ -1198,25 +1154,25 @@ const Newgames = () => {
       for (let i = 0; i < validGames.length; i++) {
         const game = validGames[i];
         setCurrentAddingGame(game.gameName || game.name || `Game ${i + 1}`);
-        
+
         try {
           const formData = new FormData();
-          
+
           formData.append("gameApiID", game.game_code);
           formData.append("name", game.gameName || game.name);
           formData.append("provider", game.provider?.provider_code);
           formData.append("uniqueId", game.uniqueId);
-          formData.append("game_uid", game.game_uid || ""); // Add game_uid to bulk add
-          
+          formData.append("game_uid", game.game_uid || "");
+
           // Merge existing categories with new categories
           const existingCatNames = game.existingCategories || [];
           const mergedCategoryNames = [...new Set([...existingCatNames, ...categoryNames])];
           formData.append("category", mergedCategoryNames.join(','));
-          
+
           formData.append("featured", bulkFeatured ? "true" : "false");
           formData.append("status", bulkStatus ? "true" : "false");
           formData.append("fullScreen", bulkFullScreen ? "true" : "false");
-          
+
           if (bulkUseDefaultImage) {
             const defaultImageUrl = game.image || game.coverImage;
             if (defaultImageUrl) {
@@ -1240,14 +1196,14 @@ const Newgames = () => {
           }
         } catch (error) {
           console.error(`Error adding game ${game.gameName || game.name}:`, error);
-          results.failed.push({ 
-            game, 
-            error: error.response?.data?.message || error.message || "Unknown error" 
+          results.failed.push({
+            game,
+            error: error.response?.data?.message || error.message || "Unknown error"
           });
         }
 
         setBulkProgress({ current: i + 1, total: validGames.length });
-        
+
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
@@ -1273,16 +1229,16 @@ const Newgames = () => {
         refreshedGamesMap.set(compositeKey, game);
       });
 
-      setGames(prevGames => 
+      setGames(prevGames =>
         prevGames.map(game => {
           const compositeKey = `${game.game_code}-${game.provider?.provider_code}`;
           const refreshedGame = refreshedGamesMap.get(compositeKey);
-          
+
           if (refreshedGame) {
             const updatedCategories = refreshedGame.category || [];
-            const isSavedInSelectedCategory = selectedCategoryName && 
+            const isSavedInSelectedCategory = selectedCategoryName &&
               updatedCategories.some(cat => cat.toLowerCase() === selectedCategoryName.toLowerCase());
-            
+
             return {
               ...game,
               isSaved: true,
@@ -1330,7 +1286,7 @@ const Newgames = () => {
   // Delete Single Game Function with SweetAlert
   const handleDeleteGame = async (gameId) => {
     const gameToDelete = games.find(g => g.uniqueId === gameId);
-    
+
     if (!gameToDelete?.existingGameData?._id) {
       toast.error("Cannot delete game: Game not found in database");
       return;
@@ -1356,10 +1312,10 @@ const Newgames = () => {
 
     if (result.isConfirmed) {
       setDeletingGameId(gameId);
-      
+
       try {
         const response = await api.delete(`/api/admin/games/${gameToDelete.existingGameData._id}`);
-        
+
         if (response.status === 200) {
           Swal.fire({
             title: 'Deleted!',
@@ -1372,11 +1328,11 @@ const Newgames = () => {
               confirmButton: 'px-6 py-2 rounded-lg font-medium'
             }
           });
-          
+
           const updatedLocalGames = await fetchAllLocalGames();
           setLocalGames(updatedLocalGames);
-          
-          setGames(prevGames => 
+
+          setGames(prevGames =>
             prevGames.map(game => {
               if (game.uniqueId === gameId) {
                 return {
@@ -1394,13 +1350,13 @@ const Newgames = () => {
               return game;
             })
           );
-          
+
           if (selectedGames.has(gameId)) {
             const newSelected = new Set(selectedGames);
             newSelected.delete(gameId);
             setSelectedGames(newSelected);
           }
-          
+
           setEditingGame(null);
         }
       } catch (error) {
@@ -1454,7 +1410,7 @@ const Newgames = () => {
 
     if (result.isConfirmed) {
       setDeletingSelected(true);
-      
+
       const results = {
         successful: [],
         failed: []
@@ -1463,11 +1419,11 @@ const Newgames = () => {
       for (const game of selectedSavedGames) {
         try {
           const response = await api.delete(`/api/admin/games/${game.existingGameData._id}`);
-          
+
           if (response.status === 200) {
             results.successful.push(game);
-            
-            setGames(prevGames => 
+
+            setGames(prevGames =>
               prevGames.map(g => {
                 if (g.uniqueId === game.uniqueId) {
                   return {
@@ -1490,9 +1446,9 @@ const Newgames = () => {
           }
         } catch (error) {
           console.error(`Error deleting game ${game.gameName || game.name}:`, error);
-          results.failed.push({ 
-            game, 
-            error: error.response?.data?.message || error.message || "Unknown error" 
+          results.failed.push({
+            game,
+            error: error.response?.data?.message || error.message || "Unknown error"
           });
         }
       }
@@ -1573,10 +1529,10 @@ const Newgames = () => {
 
     if (result.isConfirmed) {
       setDeletingAll(true);
-      
+
       try {
         const response = await api.delete('/api/admin/games/all?confirm=true');
-        
+
         if (response.status === 200) {
           Swal.fire({
             title: 'Deleted!',
@@ -1589,11 +1545,11 @@ const Newgames = () => {
               confirmButton: 'px-6 py-2 rounded-lg font-medium'
             }
           });
-          
+
           const updatedLocalGames = await fetchAllLocalGames();
           setLocalGames(updatedLocalGames);
-          
-          setGames(prevGames => 
+
+          setGames(prevGames =>
             prevGames.map(game => ({
               ...game,
               isSaved: false,
@@ -1606,7 +1562,7 @@ const Newgames = () => {
               localCategories: [selectedCategoryName],
             }))
           );
-          
+
           setShowDeleteAllModal(false);
           setDeleteConfirmText("");
           setEditingGame(null);
@@ -1665,13 +1621,12 @@ const Newgames = () => {
     <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
 
-      <Toaster/>
+      <Toaster />
       <div className="flex pt-[10vh]">
         <Sidebar isOpen={isSidebarOpen} />
         <main
-          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto h-[90vh] ${
-            isSidebarOpen ? "md:ml-[40%] lg:ml-[28%] xl:ml-[17%]" : "ml-0"
-          }`}
+          className={`transition-all duration-300 flex-1 p-4 md:p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? "md:ml-[40%] lg:ml-[28%] xl:ml-[17%]" : "ml-0"
+            }`}
         >
           <div className="w-full mx-auto">
             {/* Header Section */}
@@ -1680,7 +1635,7 @@ const Newgames = () => {
                 <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Manage Games</h1>
                 <p className="text-xs font-bold text-gray-500 mt-1">Add new games or update existing games from providers</p>
               </div>
-              
+
               {savedGamesCount > 0 && (
                 <button
                   onClick={() => setShowDeleteAllModal(true)}
@@ -1703,7 +1658,7 @@ const Newgames = () => {
                   </div>
                 )}
               </div>
-              
+
               <div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1732,7 +1687,7 @@ const Newgames = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex mt-[20px] justify-center w-full gap-[20px]">
                 <CustomSelect
                   options={categories.filter(cat => cat.status)}
@@ -1783,7 +1738,7 @@ const Newgames = () => {
                       {selectedGames.size > 0 && (
                         <>
                           <span className="text-sm text-gray-500">
-                            {currentPageSelectedCount + currentPageSelectedSavedCount} of {paginatedGames.length} on this page • 
+                            {currentPageSelectedCount + currentPageSelectedSavedCount} of {paginatedGames.length} on this page •
                             {selectedUnsavedCount > 0 && <span className="text-indigo-400 ml-1">{selectedUnsavedCount} new</span>}
                             {selectedSavedCount > 0 && <span className="text-green-500 ml-1">{selectedSavedCount} saved</span>}
                           </span>
@@ -1796,7 +1751,7 @@ const Newgames = () => {
                         </>
                       )}
                     </div>
-                    
+
                     <div className="flex items-center space-x-3">
                       {selectedSavedCount > 0 && (
                         <button
@@ -1807,7 +1762,7 @@ const Newgames = () => {
                           Delete Selected ({selectedSavedCount})
                         </button>
                       )}
-                      
+
                       {selectedUnsavedCount > 0 && (
                         <button
                           onClick={handleBulkAction}
@@ -1817,7 +1772,7 @@ const Newgames = () => {
                           Add Selected ({selectedUnsavedCount})
                         </button>
                       )}
-                      
+
                       <button
                         onClick={openBulkModal}
                         className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center shadow-md text-sm"
@@ -1829,7 +1784,7 @@ const Newgames = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {selectedGames.size > 0 && (
                   <div className="px-4 py-2 bg-indigo-900/30 text-sm text-indigo-300 flex items-center">
                     <FaCheckCircle className="mr-2 text-indigo-400" />
@@ -1868,7 +1823,7 @@ const Newgames = () => {
                         <>
                           Showing <span className="font-semibold text-indigo-400">{paginatedGames.length}</span> of <span className="font-semibold">{filteredGames.length}</span> games from {selectedProviderName}
                           <span className="ml-2 text-sm">
-                            (<span className="text-green-500">{filteredGames.filter(g => g.isSavedInSelectedCategory).length} saved in {selectedCategoryName || 'this category'}</span> • 
+                            (<span className="text-green-500">{filteredGames.filter(g => g.isSavedInSelectedCategory).length} saved in {selectedCategoryName || 'this category'}</span> •
                             <span className="text-indigo-400"> {unsavedGamesCount} new</span>)
                           </span>
                         </>
@@ -1884,7 +1839,7 @@ const Newgames = () => {
                         Clear Search
                       </button>
                     )}
-                    
+
                     {!searchTerm && (
                       <div className="text-sm text-gray-500">
                         Page {currentPage} of {totalPages}
@@ -1892,14 +1847,14 @@ const Newgames = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {paginatedGames.map((game) => {
                     let imageSource;
-                    
+
                     if (useDefaultImage[game.uniqueId]) {
                       imageSource = game.image || game.coverImage;
-                      
+
                       if (game.isSaved && game.existingGameData) {
                         if (game.existingGameData.portraitImage) {
                           if (game.existingGameData.portraitImage.startsWith('http')) {
@@ -1930,30 +1885,27 @@ const Newgames = () => {
                         imageSource = game.image || game.coverImage;
                       }
                     }
-                    
+
                     return (
                       <div
                         id={`game-${game.uniqueId}`}
                         key={game.uniqueId}
-                        className={`bg-[#161B22] rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${
-                          game.isSavedInSelectedCategory 
-                            ? 'border-green-700 hover:border-green-600' 
-                            : 'border-indigo-700 hover:border-indigo-600'
-                        } ${editingGame === game.uniqueId ? 'ring-4 ring-indigo-500' : ''} ${
-                          selectedGames.has(game.uniqueId) && !game.isSavedInSelectedCategory ? 'ring-2 ring-blue-500' : ''
-                        } ${selectedGames.has(game.uniqueId) && game.isSavedInSelectedCategory ? 'ring-2 ring-red-500' : ''}`}
+                        className={`bg-[#161B22] rounded-2xl shadow-lg overflow-hidden border-2 transition-all duration-300 hover:shadow-xl relative ${game.isSavedInSelectedCategory
+                          ? 'border-green-700 hover:border-green-600'
+                          : 'border-indigo-700 hover:border-indigo-600'
+                          } ${editingGame === game.uniqueId ? 'ring-4 ring-indigo-500' : ''} ${selectedGames.has(game.uniqueId) && !game.isSavedInSelectedCategory ? 'ring-2 ring-blue-500' : ''
+                          } ${selectedGames.has(game.uniqueId) && game.isSavedInSelectedCategory ? 'ring-2 ring-red-500' : ''}`}
                       >
                         {/* Selection Checkbox */}
                         <div className="absolute top-2 left-2 z-10">
                           <button
                             onClick={() => toggleGameSelection(game.uniqueId)}
-                            className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 ${
-                              selectedGames.has(game.uniqueId)
-                                ? game.isSavedInSelectedCategory
-                                  ? 'bg-red-600 text-white shadow-lg'
-                                  : 'bg-blue-600 text-white shadow-lg'
-                                : 'bg-[#0F111A] text-gray-500 border-2 border-gray-600 hover:border-blue-500'
-                            }`}
+                            className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 ${selectedGames.has(game.uniqueId)
+                              ? game.isSavedInSelectedCategory
+                                ? 'bg-red-600 text-white shadow-lg'
+                                : 'bg-blue-600 text-white shadow-lg'
+                              : 'bg-[#0F111A] text-gray-500 border-2 border-gray-600 hover:border-blue-500'
+                              }`}
                           >
                             {selectedGames.has(game.uniqueId) ? (
                               <FaCheck className="w-4 h-4" />
@@ -1969,9 +1921,8 @@ const Newgames = () => {
                             <button
                               onClick={() => handleDeleteGame(game.uniqueId)}
                               disabled={deletingGameId === game.uniqueId}
-                              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 bg-red-600 text-white hover:bg-red-700 shadow-lg ${
-                                deletingGameId === game.uniqueId ? 'opacity-50 cursor-wait' : ''
-                              }`}
+                              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition-all duration-200 bg-red-600 text-white hover:bg-red-700 shadow-lg ${deletingGameId === game.uniqueId ? 'opacity-50 cursor-wait' : ''
+                                }`}
                             >
                               {deletingGameId === game.uniqueId ? (
                                 <FaSpinner className="animate-spin w-4 h-4" />
@@ -1983,11 +1934,10 @@ const Newgames = () => {
                         )}
 
                         {/* Game Header */}
-                        <div className={`p-4 bg-gradient-to-r ${
-                          game.isSavedInSelectedCategory 
-                            ? 'from-green-900/30 to-[#161B22]' 
-                            : 'from-indigo-900/30 to-[#161B22]'
-                        }`}>
+                        <div className={`p-4 bg-gradient-to-r ${game.isSavedInSelectedCategory
+                          ? 'from-green-900/30 to-[#161B22]'
+                          : 'from-indigo-900/30 to-[#161B22]'
+                          }`}>
                           <div className="flex justify-between items-start mb-2">
                             <h3 className="text-lg font-bold text-white truncate pr-2">
                               {game.gameName || game.name}
@@ -2048,13 +1998,13 @@ const Newgames = () => {
                               }}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            
+
                             {useDefaultImage[game.uniqueId] && (
                               <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full flex items-center">
                                 <FaImage className="mr-1" /> Default
                               </div>
                             )}
-                            
+
                             {!useDefaultImage[game.uniqueId] && game.localPortraitPreview && (
                               <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center">
                                 <FaImage className="mr-1" /> New Image
@@ -2080,14 +2030,12 @@ const Newgames = () => {
                                 <span className="text-sm text-gray-400">Use Default Image:</span>
                                 <button
                                   onClick={() => toggleUseDefaultImage(game.uniqueId)}
-                                  className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
-                                    useDefaultImage[game.uniqueId] ? 'bg-indigo-600' : 'bg-gray-600'
-                                  }`}
+                                  className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${useDefaultImage[game.uniqueId] ? 'bg-indigo-600' : 'bg-gray-600'
+                                    }`}
                                 >
                                   <span
-                                    className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${
-                                      useDefaultImage[game.uniqueId] ? 'translate-x-6' : 'translate-x-1'
-                                    }`}
+                                    className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${useDefaultImage[game.uniqueId] ? 'translate-x-6' : 'translate-x-1'
+                                      }`}
                                   />
                                 </button>
                               </div>
@@ -2104,11 +2052,10 @@ const Newgames = () => {
                                       <button
                                         key={category._id}
                                         onClick={() => handleCategoryToggle(game.uniqueId, category._id)}
-                                        className={`px-3 py-1.5 text-sm rounded-full border transition-all duration-200 ${
-                                          (game.localCategories || []).includes(category._id)
-                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                            : 'bg-[#161B22] text-gray-400 border-gray-700 hover:border-indigo-500'
-                                        }`}
+                                        className={`px-3 py-1.5 text-sm rounded-full border transition-all duration-200 ${(game.localCategories || []).includes(category._id)
+                                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                          : 'bg-[#161B22] text-gray-400 border-gray-700 hover:border-indigo-500'
+                                          }`}
                                       >
                                         {category.name}
                                       </button>
@@ -2195,20 +2142,18 @@ const Newgames = () => {
                                   type="button"
                                   onClick={() => handleSaveOrUpdateGame(game.uniqueId)}
                                   disabled={
-                                    (updatingGameId === game.uniqueId || savingGameId === game.uniqueId) || 
-                                    !game.localCategories || 
+                                    (updatingGameId === game.uniqueId || savingGameId === game.uniqueId) ||
+                                    !game.localCategories ||
                                     game.localCategories.length === 0 ||
                                     (!useDefaultImage[game.uniqueId] && !game.localPortraitImage)
                                   }
-                                  className={`flex-1 px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${
-                                    updatingGameId === game.uniqueId || savingGameId === game.uniqueId
-                                      ? 'bg-gray-600 cursor-wait' 
+                                  className={`flex-1 px-4 py-3 text-white font-semibold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center ${updatingGameId === game.uniqueId || savingGameId === game.uniqueId
+                                      ? 'bg-gray-600 cursor-wait'
                                       : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
-                                  } ${
-                                    (!game.localCategories || game.localCategories.length === 0 || (!useDefaultImage[game.uniqueId] && !game.localPortraitImage)) 
-                                      ? 'opacity-50 cursor-not-allowed' 
+                                    } ${(!game.localCategories || game.localCategories.length === 0 || (!useDefaultImage[game.uniqueId] && !game.localPortraitImage))
+                                      ? 'opacity-50 cursor-not-allowed'
                                       : 'cursor-pointer'
-                                  }`}
+                                    }`}
                                 >
                                   {updatingGameId === game.uniqueId || savingGameId === game.uniqueId ? (
                                     <>
@@ -2358,8 +2303,8 @@ const Newgames = () => {
                       <div>
                         <h4 className="font-medium text-gray-300">Image Source</h4>
                         <p className="text-sm text-gray-500 mt-1">
-                          {bulkUseDefaultImage 
-                            ? "Using default images from provider for all games" 
+                          {bulkUseDefaultImage
+                            ? "Using default images from provider for all games"
                             : "Using a single custom image for all games"}
                         </p>
                       </div>
@@ -2371,14 +2316,12 @@ const Newgames = () => {
                             setBulkImagePreview(null);
                           }
                         }}
-                        className={`relative inline-flex items-center h-8 rounded-full w-14 transition-colors focus:outline-none ${
-                          bulkUseDefaultImage ? 'bg-indigo-600' : 'bg-gray-600'
-                        }`}
+                        className={`relative inline-flex items-center h-8 rounded-full w-14 transition-colors focus:outline-none ${bulkUseDefaultImage ? 'bg-indigo-600' : 'bg-gray-600'
+                          }`}
                       >
                         <span
-                          className={`inline-block w-6 h-6 transform transition-transform bg-white rounded-full shadow-md ${
-                            bulkUseDefaultImage ? 'translate-x-7' : 'translate-x-1'
-                          }`}
+                          className={`inline-block w-6 h-6 transform transition-transform bg-white rounded-full shadow-md ${bulkUseDefaultImage ? 'translate-x-7' : 'translate-x-1'
+                            }`}
                         />
                       </button>
                     </div>
@@ -2457,7 +2400,7 @@ const Newgames = () => {
                         <span className="font-medium">Adding games...</span>
                         <span className="text-indigo-400 font-semibold">{bulkProgress.current} / {bulkProgress.total}</span>
                       </div>
-                      
+
                       {currentAddingGame && (
                         <div className="bg-indigo-900/30 p-3 rounded-lg border border-indigo-700">
                           <p className="text-sm text-indigo-300 flex items-center">
@@ -2466,16 +2409,16 @@ const Newgames = () => {
                           </p>
                         </div>
                       )}
-                      
+
                       <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-3 rounded-full transition-all duration-300 relative"
                           style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
                         >
                           <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
                         </div>
                       </div>
-                      
+
                       <p className="text-xs text-gray-500 text-center">
                         {Math.round((bulkProgress.current / bulkProgress.total) * 100)}% complete
                       </p>
@@ -2505,11 +2448,10 @@ const Newgames = () => {
                     (!bulkUseDefaultImage && !bulkImage) ||
                     (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
                   }
-                  className={`px-6 py-2 text-[14px] bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
-                    bulkSaving || bulkCategories.length === 0 || (!bulkUseDefaultImage && !bulkImage) || (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
+                  className={`px-6 py-2 text-[14px] bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${bulkSaving || bulkCategories.length === 0 || (!bulkUseDefaultImage && !bulkImage) || (bulkUseDefaultImage && bulkGames.filter(g => g.image || g.coverImage).length === 0)
                       ? 'opacity-50 cursor-not-allowed'
                       : 'hover:from-indigo-700 hover:to-indigo-800'
-                  }`}
+                    }`}
                 >
                   {bulkSaving ? (
                     <>
@@ -2571,12 +2513,12 @@ const Newgames = () => {
                   <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
                     <p className="text-red-300 font-medium mb-2">⚠️ Warning</p>
                     <p className="text-sm text-red-300">
-                      You are about to delete all <span className="font-bold">{savedGamesCount}</span> games that have been added to your platform. 
-                      This will permanently remove these games from your database including any custom images. 
+                      You are about to delete all <span className="font-bold">{savedGamesCount}</span> games that have been added to your platform.
+                      This will permanently remove these games from your database including any custom images.
                       This action cannot be reversed.
                     </p>
                     <p className="text-sm text-red-300 mt-2">
-                      <strong>Note:</strong> This will only delete games that have been added to your platform. 
+                      <strong>Note:</strong> This will only delete games that have been added to your platform.
                       Games from the Oracle API that haven't been added yet will remain visible.
                     </p>
                   </div>
@@ -2612,11 +2554,10 @@ const Newgames = () => {
                   type="button"
                   onClick={handleDeleteAllAddedGames}
                   disabled={deletingAll || deleteConfirmText !== "DELETE ALL ADDED GAMES"}
-                  className={`px-6 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${
-                    deletingAll || deleteConfirmText !== "DELETE ALL ADDED GAMES"
+                  className={`px-6 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-medium rounded-lg shadow-lg transition-all duration-300 flex items-center ${deletingAll || deleteConfirmText !== "DELETE ALL ADDED GAMES"
                       ? 'opacity-50 cursor-not-allowed'
                       : 'hover:from-red-700 hover:to-red-800'
-                  }`}
+                    }`}
                 >
                   {deletingAll ? (
                     <>

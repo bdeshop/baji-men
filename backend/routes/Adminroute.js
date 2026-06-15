@@ -14947,4 +14947,337 @@ Adminrouter.get("/bonus/stats", adminAuth, async (req, res) => {
     });
   }
 });
+
+
+
+
+// ---------------------------oracle-api---------------------------
+// ==================== ORACLE API INTEGRATION ROUTES ====================
+
+// Oracle API configuration
+const oracleApi = axios.create({
+  baseURL: "https://api.oraclegames.live/api",
+  timeout: 30000,
+  headers: {
+    "x-oraclegamedata-key": "1189baca156e1bbbecc3b26651a63565", // Your API key
+    "Content-Type": "application/json"
+  }
+});
+
+// GET providers from Oracle API
+Adminrouter.get("/oracle/providers", async (req, res) => {
+  try {
+    const response = await oracleApi.get('/providerlist');
+    
+    if (!response.data || !response.data.data) {
+      return res.status(404).json({
+        success: false,
+        message: "No providers found"
+      });
+    }
+
+    // Format the response to match what the frontend expects
+    const providers = response.data.data.map(provider => ({
+      _id: provider._id || provider.code,
+      providerCode: provider.providerCode || provider.code,
+      providerName: provider.providerName || provider.name,
+      name: provider.name || provider.providerName,
+      code: provider.code,
+      status: provider.status !== undefined ? provider.status : true
+    }));
+
+    res.json({
+      success: true,
+      data: providers,
+      total: providers.length
+    });
+  } catch (error) {
+    console.error("Error fetching Oracle providers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch providers from Oracle API",
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+// GET games from Oracle API with pagination and filtering
+Adminrouter.get("/oracle/games", async (req, res) => {
+  try {
+    const { page = 1, limit = 5000, providerCode } = req.query;
+    
+    let url = `/games?page=${page}&limit=${limit}`;
+    
+    // Add provider filter if specified
+    if (providerCode) {
+      url += `&provider_code=${providerCode}`;
+    }
+    
+    const response = await oracleApi.get(url);
+    
+    if (!response.data) {
+      return res.status(404).json({
+        success: false,
+        message: "No games found"
+      });
+    }
+
+    // Format the response
+    const games = response.data.data.map(game => ({
+      _id: game._id || game.game_uuid,
+      game_uid: game.game_uid,
+      game_code: game.game_code || game.code,
+      gameName: game.gameName || game.name,
+      name: game.name || game.gameName,
+      provider: game.provider,
+      image: game.image,
+      coverImage: game.coverImage || game.image,
+      status: game.status !== undefined ? game.status : 1
+    }));
+
+    res.json({
+      success: true,
+      data: games,
+      pagination: {
+        currentPage: response.data.currentPage || page,
+        totalPages: response.data.totalPages || 1,
+        total: response.data.total || games.length
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching Oracle games:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch games from Oracle API",
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+// GET single game by ID from Oracle API
+Adminrouter.get("/oracle/games/:gameId", async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    
+    const response = await oracleApi.get(`/games/${gameId}`);
+    
+    if (!response.data) {
+      return res.status(404).json({
+        success: false,
+        message: "Game not found"
+      });
+    }
+
+    const game = response.data;
+    const formattedGame = {
+      _id: game._id || game.game_uuid,
+      game_uid: game.game_uid,
+      game_code: game.game_code || game.code,
+      gameName: game.gameName || game.name,
+      name: game.name || game.gameName,
+      provider: game.provider,
+      image: game.image,
+      coverImage: game.coverImage || game.image,
+      status: game.status !== undefined ? game.status : 1
+    };
+
+    res.json({
+      success: true,
+      data: formattedGame
+    });
+  } catch (error) {
+    console.error("Error fetching Oracle game:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch game from Oracle API",
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+// GET games filtered by provider from Oracle API
+Adminrouter.get("/oracle/providers/:providerCode/games", async (req, res) => {
+  try {
+    const { providerCode } = req.params;
+    const { page = 1, limit = 5000 } = req.query;
+    
+    const response = await oracleApi.get(`/games?page=${page}&limit=${limit}&provider_code=${providerCode}`);
+    
+    if (!response.data) {
+      return res.status(404).json({
+        success: false,
+        message: `No games found for provider: ${providerCode}`
+      });
+    }
+
+    const games = response.data.data.map(game => ({
+      _id: game._id || game.game_uuid,
+      game_uid: game.game_uid,
+      game_code: game.game_code || game.code,
+      gameName: game.gameName || game.name,
+      name: game.name || game.gameName,
+      provider: game.provider,
+      image: game.image,
+      coverImage: game.coverImage || game.image,
+      status: game.status !== undefined ? game.status : 1
+    }));
+
+    res.json({
+      success: true,
+      data: games,
+      providerCode: providerCode,
+      pagination: {
+        currentPage: response.data.currentPage || page,
+        totalPages: response.data.totalPages || 1,
+        total: response.data.total || games.length
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching Oracle games by provider:", error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to fetch games for provider: ${providerCode}`,
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+// GET all games from Oracle API (for bulk operations)
+Adminrouter.get("/oracle/games/all", async (req, res) => {
+  try {
+    const { providerCode } = req.query;
+    
+    // Fetch first page to get total count
+    let url = `/games?page=1&limit=1`;
+    if (providerCode) {
+      url += `&provider_code=${providerCode}`;
+    }
+    
+    const firstResponse = await oracleApi.get(url);
+    const total = firstResponse.data.total || 0;
+    const totalPages = firstResponse.data.totalPages || Math.ceil(total / 5000);
+    
+    // Fetch all games in parallel
+    const pagePromises = [];
+    for (let i = 1; i <= Math.min(totalPages, 10); i++) { // Limit to 10 pages (50,000 games max)
+      let pageUrl = `/games?page=${i}&limit=5000`;
+      if (providerCode) {
+        pageUrl += `&provider_code=${providerCode}`;
+      }
+      pagePromises.push(oracleApi.get(pageUrl));
+    }
+    
+    const responses = await Promise.all(pagePromises);
+    
+    // Combine all games
+    let allGames = [];
+    responses.forEach(response => {
+      if (response.data && response.data.data) {
+        const games = response.data.data.map(game => ({
+          _id: game._id || game.game_uuid,
+          game_uid: game.game_uid,
+          game_code: game.game_code || game.code,
+          gameName: game.gameName || game.name,
+          name: game.name || game.gameName,
+          provider: game.provider,
+          image: game.image,
+          coverImage: game.coverImage || game.image,
+          status: game.status !== undefined ? game.status : 1
+        }));
+        allGames = [...allGames, ...games];
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: allGames,
+      total: allGames.length,
+      providerFilter: providerCode || 'all'
+    });
+  } catch (error) {
+    console.error("Error fetching all Oracle games:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch all games from Oracle API",
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+// GET provider list from Oracle API (alternative endpoint)
+Adminrouter.get("/oracle/providerlist", async (req, res) => {
+  try {
+    // Try different endpoints
+    let response;
+    try {
+      response = await oracleApi.get('/providerlist');
+    } catch (firstError) {
+      console.log("First endpoint failed, trying alternative...");
+      try {
+        response = await oracleApi.get('/providers');
+      } catch (secondError) {
+        console.log("Both endpoints failed");
+        throw new Error("Unable to fetch providers from Oracle API");
+      }
+    }
+    
+    if (!response.data) {
+      return res.status(404).json({
+        success: false,
+        message: "No providers found"
+      });
+    }
+
+    // Handle different response structures
+    let providersData = [];
+    if (response.data.data && Array.isArray(response.data.data)) {
+      providersData = response.data.data;
+    } else if (Array.isArray(response.data)) {
+      providersData = response.data;
+    } else if (response.data.providers && Array.isArray(response.data.providers)) {
+      providersData = response.data.providers;
+    }
+
+    const providers = providersData.map(provider => ({
+      _id: provider._id || provider.id || provider.code,
+      providerCode: provider.providerCode || provider.code,
+      providerName: provider.providerName || provider.name,
+      name: provider.name || provider.providerName,
+      code: provider.code,
+      status: provider.status !== undefined ? provider.status : true
+    }));
+
+    res.json({
+      success: true,
+      data: providers,
+      total: providers.length
+    });
+  } catch (error) {
+    console.error("Error fetching Oracle provider list:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch provider list from Oracle API",
+      error: error.message
+    });
+  }
+});
+
+// Health check for Oracle API
+Adminrouter.get("/oracle/health", async (req, res) => {
+  try {
+    const response = await oracleApi.get('/health', { timeout: 5000 });
+    res.json({
+      success: true,
+      status: "connected",
+      data: response.data
+    });
+  } catch (error) {
+    console.error("Oracle API health check failed:", error.message);
+    res.status(503).json({
+      success: false,
+      status: "disconnected",
+      error: error.message
+    });
+  }
+});
 module.exports = Adminrouter;
