@@ -114,8 +114,9 @@ const GamePage = () => {
         );
         console.log(response)
         const link = response.data?.joyhobeResponse;
+        console.log("response",response.data?.joyhobeResponse)
         if (link) {
-          setGameLink(link);
+          setGameLink(link.launch_url);
         } else {
           throw new Error("Game link not found in response");
         }
