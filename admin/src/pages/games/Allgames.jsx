@@ -744,13 +744,6 @@ const handleDeleteAll = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="space-y-1">
-                                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                                    <FaGamepad className="text-[10px]" />
-                                    <span>Game ID:</span>
-                                  </div>
-                                  <div className="text-sm font-mono text-gray-300 bg-[#0F111A] px-2 py-1 rounded border border-gray-700">
-                                    {game.gameId || game.gameApiID || 'N/A'}
-                                  </div>
                                   {game.game_uid && (
                                     <>
                                       <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
