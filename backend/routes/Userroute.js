@@ -3340,6 +3340,220 @@ Userrouter.post("/getGameLink", async (req, res) => {
 // });
 
 
+// Userrouter.post("/callback-data-game", async (req, res) => {
+//   try {
+//     const { game_uid, game_round, bet_amount, serial_number, win_amount, member_account, currency_code, timestamp } = req.body;
+//     console.log("response", req.body);
+
+//     // Validate required fields
+//     if (!member_account || !game_uid || !serial_number) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields missing: member_account, game_uid, and serial_number are required",
+//       });
+//     }
+
+//     // Parse amounts
+//     const winamount = parseFloat(win_amount || 0);
+//     const betamount = parseFloat(bet_amount || 0);
+
+//     // CHECK FOR DUPLICATE serial_number
+//     const existingDuplicate = await BettingHistory.findOne({
+//       $or: [
+//         { serial_number: serial_number },
+//         { game_uid: game_uid, member_account: member_account, transaction_time: { $gt: new Date(Date.now() - 5000) } } // Prevent duplicate within 5 seconds
+//       ]
+//     });
+
+//     if (existingDuplicate && existingDuplicate.serial_number === serial_number) {
+//       return res.status(409).json({
+//         success: false,
+//         message: `Duplicate transaction - serial_number '${serial_number}' already exists.`,
+//       });
+//     }
+
+//     // Match user
+//     const matcheduser = await User.findOne({ username: member_account });
+//     console.log("matcheduser",matcheduser)
+//     if (!matcheduser) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found!",
+//       });
+//     }
+
+//     // Get balance before update
+//     const balanceBefore = matcheduser.balance;
+//     console.log("balanceBefore",balanceBefore)
+//     // YOUR SIMPLE BALANCE UPDATE LOGIC
+//     if (winamount <= 0) {
+//       // Loss: deduct bet amount
+//       matcheduser.balance = matcheduser.balance - betamount;
+//       console.log(`💰 Loss: User ${matcheduser.username} lost ${betamount}, New balance: ${matcheduser.balance}`);
+//     } else {
+//       // Win: add win amount
+//       matcheduser.balance = matcheduser.balance + winamount;
+//       console.log(`💰 Win: User ${matcheduser.username} won ${winamount}, New balance: ${matcheduser.balance}`);
+//     }
+
+//     // Update weekly and monthly bet amounts
+//     matcheduser.weeklybetamount = (matcheduser.weeklybetamount || 0) + betamount;
+//     matcheduser.monthlybetamount = (matcheduser.monthlybetamount || 0) + betamount;
+    
+//     // Save user balance
+//     await matcheduser.save();
+    
+//     // Check if user has affiliate code
+//     const hasAffiliateCode = !!matcheduser.registrationSource?.affiliateCode;
+    
+//     // Determine if win or loss
+//     const isWin = winamount > 0;
+//     const status = isWin ? 'won' : 'lost';
+    
+//     // Create BettingHistory record
+//     const bettingHistoryRecord = new BettingHistory({
+//       game_name: "Game", // You can fetch actual game name if needed
+//       member_account: member_account,
+//       original_username: member_account,
+//       user_id: matcheduser._id,
+//       bet_amount: betamount,
+//       win_amount: winamount,
+//       net_amount: isWin ? winamount : -betamount,
+//       original_bet_amount: betamount,
+//       game_uid: game_uid,
+//       serial_number: serial_number,
+//       verification_key: null, // Not available in new format
+//       currency_code: currency_code || 'BDT',
+//       status: status,
+//       balance_before: balanceBefore,
+//       balance_after: matcheduser.balance,
+//       transaction_time: new Date(),
+//       processed_at: new Date(),
+//       platform: 'casino',
+//       game_type: 'game',
+//       device_info: 'web',
+//       provider_code: 'game_provider',
+//       bet_type: 'SETTLE',
+//       processing_format: 'simple',
+//       has_affiliate_code: hasAffiliateCode,
+//       is_win: isWin,
+//       net_win_amount: isWin ? winamount : 0,
+//       game_round: game_round,
+//       timestamp: timestamp
+//     });
+
+//     // Save BettingHistory record
+//     await bettingHistoryRecord.save();
+
+//     // Prepare bet record for user's betHistory array
+//     const betRecord = {
+//       betAmount: betamount,
+//       betResult: isWin ? "win" : "loss",
+//       transaction_id: serial_number,
+//       game_id: game_uid,
+//       bet_time: new Date(),
+//       status: "completed",
+//       provider_code: "game_provider",
+//       bet_type: "SETTLE",
+//       winAmount: winamount,
+//       netWinAmount: isWin ? winamount : 0
+//     };
+
+//     // Update user's betHistory and transactionHistory
+//     await User.findByIdAndUpdate(matcheduser._id, {
+//       $push: {
+//         betHistory: betRecord,
+//         transactionHistory: {
+//           type: isWin ? "win" : "loss",
+//           amount: isWin ? winamount : betamount,
+//           balanceBefore: balanceBefore,
+//           balanceAfter: matcheduser.balance,
+//           description: isWin 
+//             ? `Won ${winamount} in game ${game_uid}` 
+//             : `Lost ${betamount} in game ${game_uid}`,
+//           referenceId: serial_number,
+//           createdAt: new Date(),
+//         }
+//       },
+//       $inc: {
+//         total_bet: betamount,
+//         total_wins: isWin ? winamount : 0,
+//         total_loss: !isWin ? betamount : 0,
+//         lifetime_bet: betamount
+//       }
+//     });
+
+//     // -------------------------------------AFFILIATE COMMISSION SYSTEM------------------------------------------
+//     if (hasAffiliateCode && !isWin) {
+//       // Only give commission on losses (winamount <= 0)
+//       const affiliate = await Affiliate.findOne({
+//         affiliateCode: matcheduser.registrationSource.affiliateCode.toUpperCase(),
+//         status: 'active'
+//       });
+
+//       if (affiliate) {
+//         const commissionAmount = (betamount / 100) * affiliate.commissionRate;
+        
+//         // Add commission to affiliate's balance
+//         affiliate.pendingEarnings = (affiliate.pendingEarnings || 0) + commissionAmount;
+//         affiliate.totalEarnings = (affiliate.totalEarnings || 0) + commissionAmount;
+        
+//         // Save earnings history
+//         affiliate.earningsHistory.push({
+//           amount: commissionAmount,
+//           type: 'bet_commission',
+//           description: `Commission from user ${matcheduser.username}'s losing bet`,
+//           status: 'approved',
+//           referredUser: matcheduser._id,
+//           sourceId: bettingHistoryRecord._id,
+//           sourceType: 'bet',
+//           commissionRate: affiliate.commissionRate,
+//           sourceAmount: betamount,
+//           calculatedAmount: commissionAmount,
+//           earnedAt: new Date(),
+//           metadata: {
+//             betType: 'SETTLE',
+//             gameCode: game_uid,
+//             currency: 'BDT',
+//             userWon: false,
+//             userLost: true,
+//             betAmount: betamount,
+//             winAmount: winamount,
+//             transactionType: 'SETTLE'
+//           }
+//         });
+        
+//         await affiliate.save();
+//         console.log(`💰 Affiliate commission: ${commissionAmount} added to ${affiliate.affiliateCode}`);
+//       }
+//     }
+//     // -------------------------------------AFFILIATE COMMISSION SYSTEM------------------------------------------
+
+//     // Send success response
+//     res.status(200).json({
+//       success: true,
+//       balance: matcheduser.balance,
+//       message: "Callback data received and processed",
+//       data: {
+//         ...req.body,
+//         status: status,
+//         balance_before: balanceBefore,
+//         balance_after: matcheduser.balance,
+//         betting_history_id: bettingHistoryRecord._id
+//       }
+//     });
+
+//   } catch (err) {
+//     console.error("Error in callback-data-game:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: process.env.NODE_ENV === "development" ? err.message : undefined
+//     });
+//   }
+// });
+
+
 Userrouter.post("/callback-data-game", async (req, res) => {
   try {
     const { game_uid, game_round, bet_amount, serial_number, win_amount, member_account, currency_code, timestamp } = req.body;
@@ -3361,7 +3575,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     const existingDuplicate = await BettingHistory.findOne({
       $or: [
         { serial_number: serial_number },
-        { game_uid: game_uid, member_account: member_account, transaction_time: { $gt: new Date(Date.now() - 5000) } } // Prevent duplicate within 5 seconds
+        { game_uid: game_uid, member_account: member_account, transaction_time: { $gt: new Date(Date.now() - 5000) } }
       ]
     });
 
@@ -3374,7 +3588,8 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
     // Match user
     const matcheduser = await User.findOne({ username: member_account });
-    console.log("matcheduser",matcheduser)
+    console.log("matcheduser", matcheduser);
+    
     if (!matcheduser) {
       return res.status(404).json({
         success: false,
@@ -3384,7 +3599,40 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
     // Get balance before update
     const balanceBefore = matcheduser.balance;
-    console.log("balanceBefore",balanceBefore)
+    console.log("balanceBefore", balanceBefore);
+
+    // ============== AVIATOR SPECIFIC HANDLING ==============
+    // Check for Aviator game using the specific game_uid
+    const AVIATOR_GAME_UID = "a04d1f3eb8ccec8a4823bdf18e3f0e84";
+    const isAviatorGame = game_uid === AVIATOR_GAME_UID;
+
+    let aviatorMultiplier = null;
+    let cashoutAmount = null;
+    let isCashout = false;
+
+    if (isAviatorGame) {
+      console.log("🛩️ Aviator game detected with UID:", game_uid);
+      
+      // For Aviator, win_amount might be the cashout amount
+      // If win_amount > 0, it's a cashout (win)
+      // If win_amount <= 0, it's a crash (loss)
+      
+      if (winamount > 0) {
+        // Cashout - win
+        isCashout = true;
+        aviatorMultiplier = betamount > 0 ? (winamount / betamount) : 0; // Calculate multiplier
+        cashoutAmount = winamount;
+        console.log(`🛩️ Aviator Cashout! Multiplier: ${aviatorMultiplier.toFixed(2)}x, Amount: ${cashoutAmount}`);
+      } else {
+        // Crash - loss
+        isCashout = false;
+        aviatorMultiplier = 0;
+        cashoutAmount = 0;
+        console.log(`🛩️ Aviator Crash! Loss: ${betamount}`);
+      }
+    }
+    // =====================================================
+
     // YOUR SIMPLE BALANCE UPDATE LOGIC
     if (winamount <= 0) {
       // Loss: deduct bet amount
@@ -3410,9 +3658,21 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     const isWin = winamount > 0;
     const status = isWin ? 'won' : 'lost';
     
+    // Get game name
+    let gameName = "Game";
+    if (isAviatorGame) {
+      gameName = "Aviator";
+    } else {
+      // Try to find game in database
+      const game = await Game.findOne({ gameApiID: game_uid });
+      if (game) {
+        gameName = game.name || "Game";
+      }
+    }
+    
     // Create BettingHistory record
     const bettingHistoryRecord = new BettingHistory({
-      game_name: "Game", // You can fetch actual game name if needed
+      game_name: gameName,
       member_account: member_account,
       original_username: member_account,
       user_id: matcheduser._id,
@@ -3422,7 +3682,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       original_bet_amount: betamount,
       game_uid: game_uid,
       serial_number: serial_number,
-      verification_key: null, // Not available in new format
+      verification_key: null,
       currency_code: currency_code || 'BDT',
       status: status,
       balance_before: balanceBefore,
@@ -3430,7 +3690,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       transaction_time: new Date(),
       processed_at: new Date(),
       platform: 'casino',
-      game_type: 'game',
+      game_type: isAviatorGame ? 'aviator' : 'game',
       device_info: 'web',
       provider_code: 'game_provider',
       bet_type: 'SETTLE',
@@ -3439,7 +3699,11 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       is_win: isWin,
       net_win_amount: isWin ? winamount : 0,
       game_round: game_round,
-      timestamp: timestamp
+      timestamp: timestamp,
+      // Aviator specific fields
+      aviator_multiplier: aviatorMultiplier,
+      is_cashout: isCashout,
+      cashout_amount: cashoutAmount
     });
 
     // Save BettingHistory record
@@ -3451,16 +3715,36 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       betResult: isWin ? "win" : "loss",
       transaction_id: serial_number,
       game_id: game_uid,
+      game_name: gameName,
       bet_time: new Date(),
       status: "completed",
       provider_code: "game_provider",
       bet_type: "SETTLE",
       winAmount: winamount,
-      netWinAmount: isWin ? winamount : 0
+      netWinAmount: isWin ? winamount : 0,
+      // Aviator specific
+      aviator_multiplier: aviatorMultiplier,
+      is_aviator: isAviatorGame,
+      is_cashout: isCashout,
+      cashout_amount: cashoutAmount
     };
 
+    // Prepare transaction description
+    let transactionDescription = "";
+    if (isAviatorGame) {
+      if (isWin) {
+        transactionDescription = `🛩️ Aviator cashout: Won ${winamount} (${aviatorMultiplier ? aviatorMultiplier.toFixed(2) : '0.00'}x multiplier)`;
+      } else {
+        transactionDescription = `🛩️ Aviator crash: Lost ${betamount}`;
+      }
+    } else {
+      transactionDescription = isWin 
+        ? `Won ${winamount} in ${gameName}` 
+        : `Lost ${betamount} in ${gameName}`;
+    }
+
     // Update user's betHistory and transactionHistory
-    await User.findByIdAndUpdate(matcheduser._id, {
+    const updateData = {
       $push: {
         betHistory: betRecord,
         transactionHistory: {
@@ -3468,10 +3752,14 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           amount: isWin ? winamount : betamount,
           balanceBefore: balanceBefore,
           balanceAfter: matcheduser.balance,
-          description: isWin 
-            ? `Won ${winamount} in game ${game_uid}` 
-            : `Lost ${betamount} in game ${game_uid}`,
+          description: transactionDescription,
           referenceId: serial_number,
+          game_uid: game_uid,
+          game_name: gameName,
+          is_aviator: isAviatorGame,
+          aviator_multiplier: aviatorMultiplier,
+          is_cashout: isCashout,
+          cashout_amount: cashoutAmount,
           createdAt: new Date(),
         }
       },
@@ -3481,7 +3769,39 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         total_loss: !isWin ? betamount : 0,
         lifetime_bet: betamount
       }
-    });
+    };
+
+    // Add Aviator specific stats if it's an Aviator game
+    if (isAviatorGame) {
+      // Initialize aviator stats if they don't exist
+      if (!matcheduser.aviator_stats) {
+        matcheduser.aviator_stats = {
+          total_bets: 0,
+          total_wins: 0,
+          total_losses: 0,
+          total_win_amount: 0,
+          total_loss_amount: 0,
+          highest_multiplier: 0,
+          total_cashouts: 0,
+          total_crashes: 0
+        };
+      }
+
+      // Update aviator stats
+      updateData.$set = {
+        'aviator_stats.total_bets': (matcheduser.aviator_stats.total_bets || 0) + 1,
+        'aviator_stats.total_cashouts': isWin ? (matcheduser.aviator_stats.total_cashouts || 0) + 1 : (matcheduser.aviator_stats.total_cashouts || 0),
+        'aviator_stats.total_crashes': !isWin ? (matcheduser.aviator_stats.total_crashes || 0) + 1 : (matcheduser.aviator_stats.total_crashes || 0),
+        'aviator_stats.total_win_amount': isWin ? (matcheduser.aviator_stats.total_win_amount || 0) + winamount : (matcheduser.aviator_stats.total_win_amount || 0),
+        'aviator_stats.total_loss_amount': !isWin ? (matcheduser.aviator_stats.total_loss_amount || 0) + betamount : (matcheduser.aviator_stats.total_loss_amount || 0),
+        'aviator_stats.highest_multiplier': isWin && aviatorMultiplier > (matcheduser.aviator_stats.highest_multiplier || 0) ? aviatorMultiplier : (matcheduser.aviator_stats.highest_multiplier || 0)
+      };
+      
+      updateData.$inc['aviator_stats.total_wins'] = isWin ? 1 : 0;
+      updateData.$inc['aviator_stats.total_losses'] = !isWin ? 1 : 0;
+    }
+
+    await User.findByIdAndUpdate(matcheduser._id, updateData);
 
     // -------------------------------------AFFILIATE COMMISSION SYSTEM------------------------------------------
     if (hasAffiliateCode && !isWin) {
@@ -3502,7 +3822,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         affiliate.earningsHistory.push({
           amount: commissionAmount,
           type: 'bet_commission',
-          description: `Commission from user ${matcheduser.username}'s losing bet`,
+          description: `Commission from user ${matcheduser.username}'s ${isAviatorGame ? 'Aviator' : ''} losing bet`,
           status: 'approved',
           referredUser: matcheduser._id,
           sourceId: bettingHistoryRecord._id,
@@ -3514,12 +3834,17 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           metadata: {
             betType: 'SETTLE',
             gameCode: game_uid,
+            gameName: gameName,
             currency: 'BDT',
             userWon: false,
             userLost: true,
             betAmount: betamount,
             winAmount: winamount,
-            transactionType: 'SETTLE'
+            transactionType: 'SETTLE',
+            isAviator: isAviatorGame,
+            aviatorMultiplier: aviatorMultiplier,
+            isCashout: isCashout,
+            cashoutAmount: cashoutAmount
           }
         });
         
@@ -3530,7 +3855,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     // -------------------------------------AFFILIATE COMMISSION SYSTEM------------------------------------------
 
     // Send success response
-    res.status(200).json({
+    const responseData = {
       success: true,
       balance: matcheduser.balance,
       message: "Callback data received and processed",
@@ -3539,9 +3864,33 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         status: status,
         balance_before: balanceBefore,
         balance_after: matcheduser.balance,
-        betting_history_id: bettingHistoryRecord._id
+        betting_history_id: bettingHistoryRecord._id,
+        game_name: gameName,
+        is_aviator: isAviatorGame,
+        ...(isAviatorGame && {
+          aviator_multiplier: aviatorMultiplier,
+          is_cashout: isCashout,
+          cashout_amount: cashoutAmount,
+          aviator_stats: matcheduser.aviator_stats
+        })
       }
-    });
+    };
+
+    // Log Aviator specific info
+    if (isAviatorGame) {
+      console.log("🛩️ Aviator Transaction Summary:");
+      console.log(`   - User: ${matcheduser.username}`);
+      console.log(`   - Bet: ${betamount}`);
+      console.log(`   - Result: ${isWin ? 'CASHOUT ✅' : 'CRASH ❌'}`);
+      if (isWin) {
+        console.log(`   - Multiplier: ${aviatorMultiplier ? aviatorMultiplier.toFixed(2) : '0.00'}x`);
+        console.log(`   - Win Amount: ${winamount}`);
+      }
+      console.log(`   - New Balance: ${matcheduser.balance}`);
+      console.log(`   - Total Aviator Bets: ${matcheduser.aviator_stats?.total_bets || 0}`);
+    }
+
+    res.status(200).json(responseData);
 
   } catch (err) {
     console.error("Error in callback-data-game:", err);
