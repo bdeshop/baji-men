@@ -219,9 +219,11 @@ const UserSchema = new Schema({
         required: true,
         unique: true
     },
-    gamingid:{
+ gamingid: {
+        type: String,
         required: true,
-        unique: true  
+        unique: true,
+        match: [/^[a-z]{10}$/, 'Gaming ID must be exactly 10 lowercase letters']
     },
     isOneClickUser: {
         type: Boolean,
@@ -802,6 +804,16 @@ UserSchema.virtual('isAffiliateReferred').get(function () {
     return !!this.affiliateReferral;
 });
 
+// Helper function to generate random 10-letter gaming ID
+function generateGamingId() {
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
+    let result = '';
+    for (let i = 0; i < 10; i++) {
+        result += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    return result;
+}
+// ========== PRE-SAVE HOOKS ==========
 // ========== PRE-SAVE HOOKS ==========
 UserSchema.pre('save', async function (next) {
     // Generate player_id if not exists
@@ -874,6 +886,7 @@ UserSchema.pre('save', async function (next) {
 
     next();
 });
+
 // ========== AFFILIATE TRACKING METHODS ==========
 UserSchema.methods.trackAffiliateConversion = async function (affiliateId, affiliateCode, clickId = null) {
     const Affiliate = mongoose.model('Affiliate');
