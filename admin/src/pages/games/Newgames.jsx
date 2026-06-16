@@ -426,7 +426,7 @@ const Newgames = () => {
       try {
         const externalRes = await oracleApi.get('/providerlist');
         const externalProviders = externalRes.data || [];
-        
+        console.log("externalProviders",externalProviders)
         const localProviderMap = new Map();
         filteredProviders.forEach(p => {
           if (p.providercode) localProviderMap.set(p.providercode.toLowerCase(), p);

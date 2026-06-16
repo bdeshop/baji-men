@@ -52,15 +52,31 @@ const Gameproviders = () => {
   const fetchPremiumProviders = async () => {
     try {
       const response = await axios.get(
-        `https://api.oraclegames.live/api/providers`,
+        `https://oraclegames.net/api/providerlist`,
         {
           headers: {
-            "x-api-key": import.meta.env.VITE_PREMIUM_API_KEY,
+            "x-oraclegamedata-key": "1189baca156e1bbbecc3b26651a63565",
           },
         }
       );
-      console.log("response", response);
-      setPremiumProviders(response.data.data);
+      console.log("Premium providers response:", response.data);
+      
+      // The API returns an array directly, not nested in data.data
+      // Each item has: id, code, name, currency, language, image, feature, status, rating
+      // Map them to the format expected by the dropdown
+      const mappedProviders = response.data.map(provider => ({
+        _id: provider.id.toString(), // Convert id to string for consistency
+        providerName: provider.name,
+        providerCode: provider.code,
+        // Keep other fields if needed
+        currency: provider.currency,
+        language: provider.language,
+        image: provider.image,
+        status: provider.status,
+        rating: provider.rating
+      }));
+      
+      setPremiumProviders(mappedProviders);
     } catch (error) {
       console.error("Error fetching premium providers:", error);
       toast.error("Error fetching premium providers");
