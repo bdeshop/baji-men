@@ -346,7 +346,7 @@ const Bettings = () => {
                                 </div>
                                 <div>
                                   <div className="text-sm font-medium text-gray-200">
-                                    {getTranslatedGameType(record.game_type)}
+                                    {record.game_name}
                                   </div>
                                   <div className="text-xs text-gray-500">{record.game_uid?.substring(0, 8) || "N/A"}</div>
                                 </div>
