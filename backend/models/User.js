@@ -221,7 +221,6 @@ const UserSchema = new Schema({
     },
  gamingid: {
         type: String,
-        required: true,
         unique: true,
         match: [/^[a-z]{10}$/, 'Gaming ID must be exactly 10 lowercase letters']
     },
