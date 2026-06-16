@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom"; // Add useSearchParams
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { FaArrowLeft, FaHome } from "react-icons/fa";
 import axios from "axios";
 import { Header } from "../../components/header/Header";
 import Sidebar from "../../components/sidebar/Sidebar";
 import logo from "../../assets/logo.png";
-import oracle_logo from "../../assets/red-logo.png"
 
 const GamePage = () => {
   const { gameuuid } = useParams();
-  const [searchParams] = useSearchParams(); // Get query parameters
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [gameLink, setGameLink] = useState(null);
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState(null);
@@ -24,6 +25,49 @@ const GamePage = () => {
   // Get provider and category from query parameters
   const provider = searchParams.get('provider');
   const category = searchParams.get('category');
+
+  // Handle browser back button
+  useEffect(() => {
+    // Add event listener for browser back/forward buttons
+    const handlePopState = (event) => {
+      // Check if we should navigate back
+      if (window.history.state?.action === 'POP') {
+        // Prevent default back navigation if game is still loading
+        if (isLoading) {
+          window.history.pushState(null, '', window.location.href);
+          return;
+        }
+        // Allow natural back navigation
+        navigate(-1);
+      }
+    };
+
+    // Push current state to history to track navigation
+    window.history.pushState({ action: 'PUSH' }, '', window.location.href);
+
+    // Add popstate event listener
+    window.addEventListener('popstate', handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [navigate, isLoading]);
+
+  // Also handle custom back button click
+  const handleBackButton = () => {
+    // Check if we can go back in history
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      // Fallback to home if no history
+      navigate('/');
+    }
+  };
+
+  const handleHomeButton = () => {
+    navigate('/');
+  };
 
   // Minimum loader time (3 seconds)
   useEffect(() => {
@@ -60,7 +104,6 @@ const GamePage = () => {
           return;
         }
 
-        // Fetch user information
         const userResponse = await axios.get(
           `${API_BASE_URL}/api/user/all-information/${user.id}`,
           {
@@ -92,18 +135,14 @@ const GamePage = () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
         
-        // Log the provider and category for debugging
-        console.log("Provider from query:", provider);
-        console.log("Category from query:", category);
-        
         const response = await axios.post(
           `${API_BASE_URL}/api/user/getGameLink`,
           {
             gameID: gameuuid,
             money: parseInt(userData?.balance || 0, 10),
             username: user?.username,
-            provider: provider, // Pass provider from query
-            category: category, // Pass category from query
+            provider: provider,
+            category: category,
           },
           {
             headers: {
@@ -112,9 +151,8 @@ const GamePage = () => {
             },
           }
         );
-        console.log(response)
+        
         const link = response.data?.joyhobeResponse;
-        console.log("response",response.data?.joyhobeResponse)
         if (link) {
           setGameLink(link.launch_url);
         } else {
@@ -130,20 +168,15 @@ const GamePage = () => {
     if (gameuuid && userData) {
       fetchGameLink();
     }
-  }, [gameuuid, userData, API_BASE_URL, provider, category]); // Add provider and category to dependencies
+  }, [gameuuid, userData, API_BASE_URL, provider, category]);
 
   // Professional Unified Loader Component
   const ProfessionalLoader = ({ message = "গেম লোড হচ্ছে", subMessage = "অনুগ্রহ করে একটু অপেক্ষা করুন..." }) => (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 z-30">
-      {/* Main loader container */}
       <div className="relative flex flex-col items-center justify-center">
-    
-        {/* Loading text */}
         <div className="flex justify-center items-center text-center mt-8 space-y-2">
           <img className="w-[150px]" src={logo} alt="" />
         </div>
-
-        {/* Progress bar */}
         <div className="w-64 h-1.5 bg-gray-700 rounded-full mt-6 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full animate-progress"></div>
         </div>
@@ -153,7 +186,6 @@ const GamePage = () => {
 
   // Determine what to show in the iframe box
   const renderIframeContent = () => {
-    // Show loader if still loading or minimum time hasn't passed
     if (isLoading || !minLoaderTimePassed) {
       return <ProfessionalLoader 
         message="গেম লোড হচ্ছে" 
@@ -161,7 +193,6 @@ const GamePage = () => {
       />;
     }
 
-    // Show error state
     if (error) {
       return (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 z-10">
@@ -186,7 +217,6 @@ const GamePage = () => {
       );
     }
 
-    // Show "Game link not found" warning
     if (!gameLink) {
       return (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 z-10">
@@ -211,10 +241,8 @@ const GamePage = () => {
       );
     }
 
-    // Show iframe when everything is ready
     return (
       <div className="w-full h-full relative">
-        {/* Iframe Loader - shows for 4 seconds after iframe starts loading */}
         {showIframeLoader && (
           <ProfessionalLoader 
             message="গেম শুরু হচ্ছে" 
@@ -222,7 +250,6 @@ const GamePage = () => {
           />
         )}
         
-        {/* Game Iframe */}
         <iframe
           ref={videoRef}
           className="w-full h-full"
@@ -245,6 +272,36 @@ const GamePage = () => {
 
   return (
     <div className="h-screen overflow-hidden font-poppins bg-[#0f0f0f] text-white">
+      {/* Navigation Bar with Back/Home Buttons */}
+      <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex items-center gap-3 max-w-7xl mx-auto">
+          {/* Back Button */}
+          <button
+            onClick={handleBackButton}
+            className="flex items-center gap-2 px-4 py-2 bg-black/50 backdrop-blur-sm hover:bg-black/70 rounded-lg transition-all duration-300 border border-white/10 hover:border-white/30 group"
+            title="Go Back"
+          >
+            <FaArrowLeft className="text-white group-hover:scale-110 transition-transform duration-300" size={18} />
+            <span className="text-white text-sm font-medium hidden sm:inline">Back</span>
+          </button>
+
+          {/* Home Button */}
+          <button
+            onClick={handleHomeButton}
+            className="flex items-center gap-2 px-4 py-2 bg-black/50 backdrop-blur-sm hover:bg-black/70 rounded-lg transition-all duration-300 border border-white/10 hover:border-white/30 group"
+            title="Go Home"
+          >
+            <FaHome className="text-white group-hover:scale-110 transition-transform duration-300" size={18} />
+            <span className="text-white text-sm font-medium hidden sm:inline">Home</span>
+          </button>
+
+          {/* Game Title */}
+          <div className="ml-4 text-white/80 text-sm font-medium truncate">
+            {gameuuid ? `Game: ${gameuuid.substring(0, 15)}...` : 'Loading...'}
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="flex h-[100vh]">
         <div className={`flex-1 overflow-auto transition-all duration-300 relative`}>
