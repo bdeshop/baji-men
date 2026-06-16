@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { FaUpload, FaTimes, FaEdit, FaTrash, FaGlobe } from "react-icons/fa";
+import React, { useState, useEffect, useRef } from "react";
+import { FaUpload, FaTimes, FaEdit, FaTrash, FaGlobe, FaSearch, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
 import { FaRegFileImage } from "react-icons/fa6";
@@ -29,11 +29,33 @@ const Gameproviders = () => {
     providerName: "",
   });
 
+  // Custom Select States
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [providerSearchTerm, setProviderSearchTerm] = useState("");
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
+  const providerDropdownRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
+
   // Fetch providers and categories on component mount
   useEffect(() => {
     fetchLocalProviders();
     fetchPremiumProviders();
     fetchCategories();
+  }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (providerDropdownRef.current && !providerDropdownRef.current.contains(event.target)) {
+        setIsProviderDropdownOpen(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchLocalProviders = async () => {
@@ -61,14 +83,10 @@ const Gameproviders = () => {
       );
       console.log("Premium providers response:", response.data);
       
-      // The API returns an array directly, not nested in data.data
-      // Each item has: id, code, name, currency, language, image, feature, status, rating
-      // Map them to the format expected by the dropdown
       const mappedProviders = response.data.map(provider => ({
-        _id: provider.id.toString(), // Convert id to string for consistency
+        _id: provider.id.toString(),
         providerName: provider.name,
         providerCode: provider.code,
-        // Keep other fields if needed
         currency: provider.currency,
         language: provider.language,
         image: provider.image,
@@ -95,22 +113,34 @@ const Gameproviders = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
+  // Handle provider selection from custom dropdown
+  const handleProviderSelect = (provider) => {
+    setFormData({
+      ...formData,
+      name: provider.providerName,
+      providerOracleID: provider._id,
+      providercode: provider.providerCode,
+    });
+    setProviderSearchTerm(provider.providerName);
+    setIsProviderDropdownOpen(false);
+  };
+
+  // Handle category selection from custom dropdown
+  const handleCategorySelect = (category) => {
+    setFormData({
+      ...formData,
+      category: category.name,
+    });
+    setCategorySearchTerm(category.name);
+    setIsCategoryDropdownOpen(false);
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === "providerSelection") {
-      const selectedProvider = premiumProviders.find((p) => p._id === value);
-      setFormData({
-        ...formData,
-        name: selectedProvider ? selectedProvider.providerName : "",
-        providerOracleID: value,
-        providercode: selectedProvider ? selectedProvider.providerCode : "",
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      });
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
   };
 
   const handleImageUpload = (e) => {
@@ -180,6 +210,8 @@ const Gameproviders = () => {
         image: null,
       });
       setImagePreview(null);
+      setProviderSearchTerm("");
+      setCategorySearchTerm("");
       setEditingId(null);
     } catch (error) {
       console.error("Error saving provider:", error);
@@ -200,6 +232,8 @@ const Gameproviders = () => {
       image: null,
     });
     setImagePreview(provider.image);
+    setProviderSearchTerm(provider.name);
+    setCategorySearchTerm(provider.category || "");
     setEditingId(provider._id);
   };
 
@@ -213,6 +247,8 @@ const Gameproviders = () => {
       image: null,
     });
     setImagePreview(null);
+    setProviderSearchTerm("");
+    setCategorySearchTerm("");
     setEditingId(null);
   };
 
@@ -282,9 +318,23 @@ const Gameproviders = () => {
     return `${base_url}${imagePath}`;
   };
 
+  // Filter providers based on search term
+  const filteredProviders = premiumProviders.filter(provider =>
+    provider.providerName.toLowerCase().includes(providerSearchTerm.toLowerCase()) ||
+    provider.providerCode.toLowerCase().includes(providerSearchTerm.toLowerCase())
+  );
+
+  // Filter categories based on search term
+  const filteredCategories = categories
+    .filter(category => category.status)
+    .filter(category =>
+      category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+    );
+
   return (
     <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
+      <Toaster position="top-right" />
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm.isOpen && (
@@ -340,26 +390,83 @@ const Gameproviders = () => {
                 {editingId ? "Edit Provider" : "Add New Provider"}
               </h3>
               <form onSubmit={handleSubmit}>
-                {/* Provider Selection Field */}
-                <div className="mb-6">
+                {/* Provider Selection - Custom Dropdown with Search */}
+                <div className="mb-6" ref={providerDropdownRef}>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Select Provider <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    name="providerSelection"
-                    value={formData.providerOracleID}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
-                    required
-                    disabled={isLoading || editingId}
-                  >
-                    <option value="">Select a provider</option>
-                    {premiumProviders.map((provider) => (
-                      <option key={provider._id} value={provider._id}>
-                        {provider.providerName} ({provider.providerCode})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <div 
+                      className={`w-full px-4 py-2 bg-[#0F111A] border rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 cursor-pointer flex items-center justify-between ${
+                        editingId ? 'border-gray-600 cursor-not-allowed opacity-60' : 'border-gray-700 hover:border-gray-600'
+                      }`}
+                      onClick={() => !editingId && setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <FaSearch className="text-gray-500 text-sm" />
+                        <input
+                          type="text"
+                          placeholder={editingId ? "Provider locked in edit mode" : "Search for a provider..."}
+                          value={providerSearchTerm}
+                          onChange={(e) => {
+                            if (!editingId) {
+                              setProviderSearchTerm(e.target.value);
+                              setIsProviderDropdownOpen(true);
+                            }
+                          }}
+                          className="bg-transparent outline-none flex-1 text-gray-200 placeholder-gray-500"
+                          disabled={isLoading || editingId}
+                        />
+                      </div>
+                      {isProviderDropdownOpen && !editingId ? (
+                        <FaChevronUp className="text-gray-500" />
+                      ) : (
+                        <FaChevronDown className="text-gray-500" />
+                      )}
+                    </div>
+
+                    {isProviderDropdownOpen && !editingId && (
+                      <div className="absolute z-50 w-full mt-1 bg-[#1F2937] border border-gray-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                        {filteredProviders.length > 0 ? (
+                          filteredProviders.map((provider) => (
+                            <div
+                              key={provider._id}
+                              className="px-4 py-3 hover:bg-[#374151] cursor-pointer transition-colors flex items-center justify-between border-b border-gray-700 last:border-b-0"
+                              onClick={() => handleProviderSelect(provider)}
+                            >
+                              <div>
+                                <div className="text-sm font-medium text-white">
+                                  {provider.providerName}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  Code: {provider.providerCode}
+                                </div>
+                              </div>
+                              {provider.image && (
+                                <img
+                                  src={provider.image}
+                                  alt={provider.providerName}
+                                  className="w-8 h-8 rounded object-contain bg-gray-800"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-6 text-center text-gray-500">
+                            No providers found matching "{providerSearchTerm}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {formData.providercode && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selected Provider Code: <span className="text-indigo-400 font-mono">{formData.providercode}</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Provider Code Field (Read-only) */}
@@ -375,9 +482,6 @@ const Gameproviders = () => {
                     className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] text-gray-500 cursor-not-allowed"
                     placeholder="Auto-filled from selection"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Provider code is automatically filled when you select a provider
-                  </p>
                 </div>
 
                 {/* Website Field */}
@@ -402,28 +506,64 @@ const Gameproviders = () => {
                   </div>
                 </div>
 
-                {/* Category Selection Field */}
-                <div className="mb-6">
+                {/* Category Selection - Custom Dropdown with Search */}
+                <div className="mb-6" ref={categoryDropdownRef}>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Category <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
-                    required
-                    disabled={isLoading}
-                  >
-                    <option value="">Select a category</option>
-                    {categories
-                      .filter((category) => category.status)
-                      .map((category) => (
-                        <option key={category._id} value={category.name}>
-                          {category.name}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="relative">
+                    <div 
+                      className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 cursor-pointer flex items-center justify-between hover:border-gray-600"
+                      onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <FaSearch className="text-gray-500 text-sm" />
+                        <input
+                          type="text"
+                          placeholder="Search for a category..."
+                          value={categorySearchTerm}
+                          onChange={(e) => {
+                            setCategorySearchTerm(e.target.value);
+                            setIsCategoryDropdownOpen(true);
+                          }}
+                          className="bg-transparent outline-none flex-1 text-gray-200 placeholder-gray-500"
+                          disabled={isLoading}
+                        />
+                      </div>
+                      {isCategoryDropdownOpen ? (
+                        <FaChevronUp className="text-gray-500" />
+                      ) : (
+                        <FaChevronDown className="text-gray-500" />
+                      )}
+                    </div>
+
+                    {isCategoryDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-[#1F2937] border border-gray-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                        {filteredCategories.length > 0 ? (
+                          filteredCategories.map((category) => (
+                            <div
+                              key={category._id}
+                              className="px-4 py-3 hover:bg-[#374151] cursor-pointer transition-colors border-b border-gray-700 last:border-b-0"
+                              onClick={() => handleCategorySelect(category)}
+                            >
+                              <div className="text-sm font-medium text-white">
+                                {category.name}
+                              </div>
+                              {category.description && (
+                                <div className="text-xs text-gray-400">
+                                  {category.description}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-6 text-center text-gray-500">
+                            No categories found matching "{categorySearchTerm}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Image Upload Section */}
