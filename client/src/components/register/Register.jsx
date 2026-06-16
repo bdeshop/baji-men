@@ -18,11 +18,11 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [affiliateCode, setAffiliateCode] = useState("");
-
+  
   // Login specific state
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-
+  
   // OTP state with 6 separate digits
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const [otpSent, setOtpSent] = useState(false);
@@ -31,7 +31,7 @@ export default function Register() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [canResend, setCanResend] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-
+  
   // Refs for OTP input fields
   const otpRefs = [
     useRef(null),
@@ -41,14 +41,13 @@ export default function Register() {
     useRef(null),
     useRef(null)
   ];
-
+  
   const [phoneError, setPhoneError] = useState("");
   const [loginError, setLoginError] = useState("");
   const [signupError, setSignupError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [referralError, setReferralError] = useState("");
-  const [usernameError, setUsernameError] = useState("");
-
+  
   const [isSignUpActive, setIsSignUpActive] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingReferral, setIsCheckingReferral] = useState(false);
@@ -69,7 +68,7 @@ export default function Register() {
   useEffect(() => {
     const userReferralCode = searchParams.get('ref');
     const affiliateCodeFromUrl = searchParams.get('aff');
-
+    
     console.log('URL Params:', { userReferralCode, affiliateCodeFromUrl });
 
     if (affiliateCodeFromUrl) {
@@ -90,9 +89,9 @@ export default function Register() {
         const now = new Date().getTime();
         const expiry = new Date(otpExpiry).getTime();
         const diff = Math.max(0, Math.floor((expiry - now) / 1000));
-
+        
         setTimeLeft(diff);
-
+        
         if (diff <= 0) {
           setOtpSent(false);
           setOtpExpiry(null);
@@ -100,11 +99,11 @@ export default function Register() {
           setOtpDigits(["", "", "", "", "", ""]);
         }
       };
-
+      
       updateTimer();
       timer = setInterval(updateTimer, 1000);
     }
-
+    
     return () => {
       if (timer) clearInterval(timer);
     };
@@ -120,7 +119,7 @@ export default function Register() {
     } else {
       setCanResend(true);
     }
-
+    
     return () => {
       if (timer) clearTimeout(timer);
     };
@@ -130,8 +129,8 @@ export default function Register() {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/branding`);
       if (response.data.success && response.data.data && response.data.data.logo) {
-        const logoUrl = response.data.data.logo.startsWith('http')
-          ? response.data.data.logo
+        const logoUrl = response.data.data.logo.startsWith('http') 
+          ? response.data.data.logo 
           : `${API_BASE_URL}${response.data.data.logo.startsWith('/') ? '' : '/'}${response.data.data.logo}`;
         setDynamicLogo(logoUrl);
       }
@@ -173,7 +172,7 @@ export default function Register() {
 
     try {
       const userResponse = await axios.get(`${API_BASE_URL}/api/auth/check-referral/${referralCode}`);
-
+      
       if (userResponse.data.success) {
         setReferralValid(true);
         setReferrerInfo(userResponse.data.referrer);
@@ -199,15 +198,15 @@ export default function Register() {
       // If pasted value, handle it specially
       const pastedValue = value.slice(0, 6);
       const newDigits = [...otpDigits];
-
+      
       for (let i = 0; i < pastedValue.length; i++) {
         if (i < 6) {
           newDigits[i] = pastedValue[i];
         }
       }
-
+      
       setOtpDigits(newDigits);
-
+      
       // Focus the next empty field or last field
       const nextEmptyIndex = newDigits.findIndex(d => d === "");
       if (nextEmptyIndex !== -1 && nextEmptyIndex < 6) {
@@ -220,7 +219,7 @@ export default function Register() {
       const newDigits = [...otpDigits];
       newDigits[index] = value;
       setOtpDigits(newDigits);
-
+      
       // Auto-focus next input
       if (value !== "" && index < 5) {
         otpRefs[index + 1].current?.focus();
@@ -251,7 +250,7 @@ export default function Register() {
     e.preventDefault();
     const pastedData = e.clipboardData.getData("text");
     const pastedNumbers = pastedData.replace(/\D/g, "").slice(0, 6);
-
+    
     if (pastedNumbers.length > 0) {
       const newDigits = [...otpDigits];
       for (let i = 0; i < pastedNumbers.length; i++) {
@@ -260,7 +259,7 @@ export default function Register() {
         }
       }
       setOtpDigits(newDigits);
-
+      
       // Focus the next empty field or last field
       const nextEmptyIndex = newDigits.findIndex(d => d === "");
       if (nextEmptyIndex !== -1 && nextEmptyIndex < 6) {
@@ -276,52 +275,6 @@ export default function Register() {
     return otpDigits.join("");
   };
 
-  // ── NEW: Username validation function ──────────────────────────────────
-  const validateUsername = (value) => {
-    // Check if empty
-    if (!value) {
-      setUsernameError("Username is required.");
-      return false;
-    }
-
-    // Check if exactly 10 characters
-    if (value.length !== 10) {
-      setUsernameError("Username must be exactly 10 characters long.");
-      return false;
-    }
-
-    // Check if only letters (a-z)
-    if (!/^[a-z]+$/.test(value)) {
-      setUsernameError("Username can only contain lowercase letters (a-z).");
-      return false;
-    }
-
-    // All validations passed
-    setUsernameError("");
-    return true;
-  };
-
-  // ── NEW: Username input handler with real-time validation ─────────────
-  const handleUsernameChange = (e) => {
-    // Only allow lowercase letters (a-z)
-    const value = e.target.value.toLowerCase().replace(/[^a-z]/g, '');
-    setUsername(value);
-    
-    // Validate on each change
-    if (value) {
-      validateUsername(value);
-    } else {
-      setUsernameError("");
-    }
-  };
-
-  // ── NEW: Username blur handler for final validation ───────────────────
-  const handleUsernameBlur = () => {
-    if (username) {
-      validateUsername(username);
-    }
-  };
-
   // Request OTP for signup
   const requestOTP = async () => {
     // Validate phone first
@@ -335,20 +288,19 @@ export default function Register() {
       return false;
     }
 
-    // Validate username
+    // Validate username and password before sending OTP
     if (!username) {
-      setUsernameError("Username is required.");
+      setSignupError("Username is required.");
       return false;
     }
-
-    // Validate username exactly 10 characters and only letters
-    if (username.length !== 10) {
-      setUsernameError("Username must be exactly 10 characters long.");
+    
+    if (!/^[a-z0-9_]+$/.test(username)) {
+      setSignupError("Username can only contain lowercase letters, numbers, and underscores.");
       return false;
     }
-
-    if (!/^[a-z]+$/.test(username)) {
-      setUsernameError("Username can only contain lowercase letters (a-z).");
+    
+    if (username.length < 3) {
+      setSignupError("Username must be at least 3 characters long.");
       return false;
     }
 
@@ -356,12 +308,12 @@ export default function Register() {
       setSignupError("Password is required.");
       return false;
     }
-
+    
     if (password.length < 6) {
       setSignupError("Password must be at least 6 characters long.");
       return false;
     }
-
+    
     if (password !== confirmPassword) {
       setSignupError("Passwords do not match.");
       return false;
@@ -377,7 +329,6 @@ export default function Register() {
     setPhoneError("");
     setOtpError("");
     setSignupError("");
-    setUsernameError("");
 
     try {
       const response = await axios.post(`${API_BASE_URL}/api/auth/request-signup-otp`, {
@@ -390,12 +341,12 @@ export default function Register() {
         setCanResend(false);
         setResendCooldown(60); // 60 seconds cooldown
         setOtpDigits(["", "", "", "", "", ""]);
-
+        
         // Focus first OTP input
         setTimeout(() => {
           otpRefs[0].current?.focus();
         }, 100);
-
+        
         toast.success(t.toastOtpSent, {
           position: "top-right",
           autoClose: 3000,
@@ -409,7 +360,7 @@ export default function Register() {
             duration: 10000,
           });
         }
-
+        
         return true;
       } else {
         toast.error(response.data.message || 'Failed to send OTP');
@@ -443,7 +394,7 @@ export default function Register() {
         setCanResend(false);
         setResendCooldown(60);
         setOtpDigits(["", "", "", "", "", ""]);
-
+        
         toast.success(t.toastOtpResent, {
           position: "top-right",
           autoClose: 3000,
@@ -475,9 +426,9 @@ export default function Register() {
   // Verify OTP and complete signup
   const verifyOTPAndSignup = async (e) => {
     e.preventDefault();
-
+    
     const fullOtp = getFullOtp();
-
+    
     if (fullOtp.length !== 6) {
       setOtpError(t.pleaseEnterAllDigits);
       return;
@@ -507,7 +458,7 @@ export default function Register() {
 
       if (response.data.success) {
         setOtpVerified(true);
-
+        
         toast.success(t.toastAccountCreated, {
           position: "top-right",
           autoClose: 3000,
@@ -525,12 +476,12 @@ export default function Register() {
             autoClose: 3000,
           });
         }
-
+        
         // Store token in localStorage
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('usertoken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        localStorage.setItem('show_welcome_bonus', 'true');
+
         // Reset form
         setPhone("");
         setEmail("");
@@ -556,7 +507,7 @@ export default function Register() {
       console.error('OTP verification error:', error);
       const errorMessage = error.response?.data?.message || 'OTP verification failed. Please try again.';
       setOtpError(errorMessage);
-
+      
       toast.error(errorMessage, {
         position: "top-right",
         autoClose: 5000,
@@ -569,13 +520,13 @@ export default function Register() {
   // ============ NEW LOGIN FUNCTION WITH USERNAME/PASSWORD ============
   const handleUsernamePasswordLogin = async (e) => {
     e.preventDefault();
-
+    
     // Validate inputs
     if (!loginUsername) {
       setLoginError("Username is required.");
       return;
     }
-
+    
     if (!loginPassword) {
       setLoginError("Password is required.");
       return;
@@ -613,7 +564,7 @@ export default function Register() {
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Login failed. Please check your credentials.';
       setLoginError(errorMessage);
-
+      
       toast.error(errorMessage, {
         position: "top-right",
         autoClose: 5000,
@@ -650,12 +601,12 @@ export default function Register() {
         setCanResend(false);
         setResendCooldown(60);
         setOtpDigits(["", "", "", "", "", ""]);
-
+        
         // Focus first OTP input
         setTimeout(() => {
           otpRefs[0].current?.focus();
         }, 100);
-
+        
         toast.success(t.toastOtpSent, {
           position: "top-right",
           autoClose: 3000,
@@ -667,7 +618,7 @@ export default function Register() {
             autoClose: 10000,
           });
         }
-
+        
         return true;
       } else {
         toast.success('If this number is registered, OTP will be sent');
@@ -734,7 +685,7 @@ export default function Register() {
       console.error('Login verification error:', error);
       const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
       setLoginError(errorMessage);
-
+      
       toast.error(errorMessage, {
         position: "top-right",
         autoClose: 5000,
@@ -747,7 +698,7 @@ export default function Register() {
   // Handles the form submission logic for Sign Up
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
-
+    
     if (!otpSent) {
       // First step: request OTP
       await requestOTP();
@@ -782,7 +733,7 @@ export default function Register() {
     <div className="relative min-h-screen overflow-hidden bg-gray-900 font-poppins text-white">
       {/* Toast Container */}
       <Toaster />
-
+      
       {/* Background Video */}
       <video className="md:flex hidden absolute top-0 left-0 w-full h-full object-cover" autoPlay loop muted>
         <source src={videoBackgroundUrl} type="video/mp4" />
@@ -791,13 +742,13 @@ export default function Register() {
       {/* Header Section */}
       <header className="relative z-20 bg-[#141515] border-b-[1px] border-gray-700 bg-opacity-70 flex justify-between items-center px-4 py-3 md:px-8">
         <NavLink to="/">
-          <img
-            src={dynamicLogo}
-            alt="Logo"
-            className="w-[100px] md:w-[150px] cursor-pointer"
+          <img 
+            src={dynamicLogo} 
+            alt="Logo" 
+            className="w-[100px] md:w-[150px] cursor-pointer" 
           />
         </NavLink>
-
+        
         {/* Home Icon */}
         <div className="flex items-center">
           <NavLink to="/">
@@ -808,7 +759,7 @@ export default function Register() {
           </NavLink>
         </div>
       </header>
-
+      
       <video className="md:hidden" autoPlay loop muted>
         <source src={videoBackgroundUrl} type="video/mp4" />
       </video>
@@ -820,7 +771,7 @@ export default function Register() {
           <div className="overflow-hidden">
             {/* Tab Navigation */}
             <div className="flex bg-opacity-80 border-b-[1px] border-[#222424]">
-              <button
+              <button 
                 onClick={() => {
                   setIsSignUpActive(false);
                   setOtpSent(false);
@@ -829,19 +780,19 @@ export default function Register() {
                   setLoginError("");
                   setLoginUsername("");
                   setLoginPassword("");
-                }}
+                }} 
                 className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${!isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
                 {t.tabLogin}
               </button>
-              <button
+              <button 
                 onClick={() => {
                   setIsSignUpActive(true);
                   setOtpSent(false);
                   setOtpDigits(["", "", "", "", "", ""]);
                   setOtpError("");
                   setSignupError("");
-                }}
+                }} 
                 className={`flex-1 py-3 md:py-4 text-center text-sm md:text-base font-medium cursor-pointer transition-colors duration-300 ${isSignUpActive ? 'border-b-2 border-green-500 text-green-500' : 'text-gray-200 hover:text-gray-300'}`}
               >
                 {t.tabSignup}
@@ -861,7 +812,7 @@ export default function Register() {
                         <img src="https://img.b112j.com/bj/h5/assets/v3/images/icon-set/flag-type/BD.png?v=1754999737902&source=drccdnsrc" alt="Bangladesh Flag" className="w-5 h-5 md:w-6 md:h-6 mr-1 md:mr-2 rounded-full" />
                         <span className="text-white text-sm md:text-base font-[300]">+880</span>
                       </div>
-
+                      
                       {/* Phone Number Input Field */}
                       <div className="flex items-center flex-grow pl-2 md:pl-3">
                         <input
@@ -881,36 +832,18 @@ export default function Register() {
                   {/* Show other fields only when OTP is NOT sent */}
                   {!otpSent && (
                     <>
-                      {/* Username Input with Real-time Validation */}
+                      {/* Username Input */}
                       <div className="mb-4">
-                        <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">
-                          {t.usernameLabel}
-                          <span className="text-xs text-gray-500 ml-2">(exactly 10 letters, a-z only)</span>
-                        </label>
+                        <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">{t.usernameLabel}</label>
                         <input
                           type="text"
                           id="username"
                           value={username}
-                          onChange={handleUsernameChange}
-                          onBlur={handleUsernameBlur}
-                          className={`w-full p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none transition-colors ${
-                            usernameError ? 'border-2 border-red-500 focus:border-red-500' : 'focus:border-[#0C4D38] hover:border-gray-600'
-                          }`}
+                          onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                          className="w-full p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
                           placeholder={t.enterUsername}
                           disabled={isLoading}
-                          maxLength={10}
                         />
-                        {usernameError && (
-                          <p className="text-red-400 text-xs mt-1">{usernameError}</p>
-                        )}
-                        {username && !usernameError && username.length === 10 && /^[a-z]+$/.test(username) && (
-                          <p className="text-green-400 text-xs mt-1">✓ Username is valid</p>
-                        )}
-                        {username && username.length > 0 && username.length < 10 && (
-                          <p className="text-yellow-400 text-xs mt-1">
-                            {10 - username.length} more character(s) needed
-                          </p>
-                        )}
                       </div>
 
                       {/* Password Input */}
@@ -1001,7 +934,7 @@ export default function Register() {
                       <label className="block text-sm md:text-sm text-gray-200 mb-4 font-[300] text-center">
                         {t.otpSentTo} +880{phone}
                       </label>
-
+                      
                       {/* 6-digit OTP Input Fields */}
                       <div className="flex justify-between gap-2 mb-4" onPaste={handleOtpPaste}>
                         {otpDigits.map((digit, index) => (
@@ -1019,9 +952,9 @@ export default function Register() {
                           />
                         ))}
                       </div>
-
+                      
                       {otpError && <p className="text-red-400 text-xs mb-3 text-center">{otpError}</p>}
-
+                      
                       <div className="flex justify-between items-center">
                         <div className="text-sm text-gray-400">
                           {timeLeft > 0 ? (
@@ -1030,7 +963,7 @@ export default function Register() {
                             <span className="text-red-400">{t.otpExpired}</span>
                           )}
                         </div>
-
+                        
                         <div className="flex gap-3">
                           <button
                             type="button"
@@ -1039,15 +972,16 @@ export default function Register() {
                           >
                             {t.backBtn}
                           </button>
-
+                          
                           <button
                             type="button"
                             onClick={resendOTP}
                             disabled={!canResend || isLoading}
-                            className={`text-sm px-3 py-1 rounded transition-colors ${canResend
-                                ? 'text-green-400 hover:text-green-300 border border-green-800 hover:border-green-600'
+                            className={`text-sm px-3 py-1 rounded transition-colors ${
+                              canResend 
+                                ? 'text-green-400 hover:text-green-300 border border-green-800 hover:border-green-600' 
                                 : 'text-gray-600 border border-gray-700 cursor-not-allowed'
-                              }`}
+                            }`}
                           >
                             {resendCooldown > 0 ? `${t.resendIn} ${resendCooldown}s` : t.resendOtp}
                           </button>
@@ -1060,7 +994,7 @@ export default function Register() {
                   <button
                     type="submit"
                     className="w-full py-3 md:py-4 bg-[#0C4D38] cursor-pointer text-white text-sm font-[500] mt-2 shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isLoading || (otpSent && getFullOtp().length !== 6) || (!!username && !otpSent && (username.length !== 10 || !/^[a-z]+$/.test(username)))}
+                    disabled={isLoading || (otpSent && getFullOtp().length !== 6)}
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">

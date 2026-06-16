@@ -219,6 +219,10 @@ const UserSchema = new Schema({
         required: true,
         unique: true
     },
+    gamingid:{
+        required: true,
+        unique: true  
+    },
     isOneClickUser: {
         type: Boolean,
         default: false
@@ -800,14 +804,28 @@ UserSchema.virtual('isAffiliateReferred').get(function () {
 
 // ========== PRE-SAVE HOOKS ==========
 UserSchema.pre('save', async function (next) {
+    // Generate player_id if not exists
     if (!this.player_id) {
         this.player_id = 'PL' + Math.random().toString(36).substr(2, 8).toUpperCase();
     }
 
+    // Generate gamingid if not exists (only for new users)
+    if (!this.gamingid) {
+        let gamingId = generateGamingId();
+        let existingUser = await mongoose.model('User').findOne({ gamingid: gamingId });
+        while (existingUser) {
+            gamingId = generateGamingId();
+            existingUser = await mongoose.model('User').findOne({ gamingid: gamingId });
+        }
+        this.gamingid = gamingId;
+    }
+
+    // Generate referral code if not exists
     if (!this.referralCode) {
         this.referralCode = 'REF' + Math.random().toString(36).substr(2, 6).toUpperCase();
     }
 
+    // Hash password if modified
     if (this.isModified('password')) {
         const salt = await bcrypt.genSalt(SALT_WORK_FACTOR);
         this.password = await bcrypt.hash(this.password, salt);
@@ -831,17 +849,20 @@ UserSchema.pre('save', async function (next) {
         this.lastPasswordChange = new Date();
     }
 
+    // Hash transaction password if modified
     if (this.isModified('transactionPassword')) {
         const salt = await bcrypt.genSalt(SALT_WORK_FACTOR);
         this.transactionPassword = await bcrypt.hash(this.transactionPassword, salt);
     }
 
+    // Hash money transfer password if modified
     if (this.isModified('moneyTransferPassword')) {
         const salt = await bcrypt.genSalt(SALT_WORK_FACTOR);
         this.moneyTransferPassword = await bcrypt.hash(this.moneyTransferPassword, salt);
         this.isMoneyTransferPasswordSet = true;
     }
 
+    // Reset withdrawal count if new day
     if (this.isModified('lastWithdrawalDate')) {
         const today = new Date().toDateString();
         const lastWithdrawalDay = this.lastWithdrawalDate ? new Date(this.lastWithdrawalDate).toDateString() : null;
@@ -853,7 +874,6 @@ UserSchema.pre('save', async function (next) {
 
     next();
 });
-
 // ========== AFFILIATE TRACKING METHODS ==========
 UserSchema.methods.trackAffiliateConversion = async function (affiliateId, affiliateCode, clickId = null) {
     const Affiliate = mongoose.model('Affiliate');
