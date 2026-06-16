@@ -86,7 +86,7 @@ const translations = {
     phoneNumber: 'ফোন নম্বর',
     enterPhoneNumber: 'ফোন নম্বর লিখুন',
     usernameLabel: 'ব্যবহারকারীর নাম',
-    enterUsername: 'আপনার ব্যবহারকারীর নাম লিখুন',
+    enterUsername: 'আপনার নাম লিখুন',
     passwordLabel: 'পাসওয়ার্ড',
     createPassword: 'একটি পাসওয়ার্ড তৈরি করুন',
     confirmPasswordLabel: 'পাসওয়ার্ড নিশ্চিত করুন',

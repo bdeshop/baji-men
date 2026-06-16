@@ -6,7 +6,7 @@ import { NavLink, useSearchParams } from 'react-router-dom';
 import logo from "../../assets/logo.png";
 import { LanguageContext } from "../../context/LanguageContext"; // ← import context
 
-export default function Login() {
+export default function Register() {
   // ── Translation hook ──────────────────────────────────────────────────────
   const { t } = useContext(LanguageContext);
   // ─────────────────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ export default function Login() {
   const [signupError, setSignupError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [referralError, setReferralError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
 
   const [isSignUpActive, setIsSignUpActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -275,6 +276,52 @@ export default function Login() {
     return otpDigits.join("");
   };
 
+  // ── NEW: Username validation function ──────────────────────────────────
+  const validateUsername = (value) => {
+    // Check if empty
+    if (!value) {
+      setUsernameError("Username is required.");
+      return false;
+    }
+
+    // Check if exactly 10 characters
+    if (value.length !== 10) {
+      setUsernameError("Username must be exactly 10 characters long.");
+      return false;
+    }
+
+    // Check if only letters (a-z)
+    if (!/^[a-z]+$/.test(value)) {
+      setUsernameError("Username can only contain lowercase letters (a-z).");
+      return false;
+    }
+
+    // All validations passed
+    setUsernameError("");
+    return true;
+  };
+
+  // ── NEW: Username input handler with real-time validation ─────────────
+  const handleUsernameChange = (e) => {
+    // Only allow lowercase letters (a-z)
+    const value = e.target.value.toLowerCase().replace(/[^a-z]/g, '');
+    setUsername(value);
+    
+    // Validate on each change
+    if (value) {
+      validateUsername(value);
+    } else {
+      setUsernameError("");
+    }
+  };
+
+  // ── NEW: Username blur handler for final validation ───────────────────
+  const handleUsernameBlur = () => {
+    if (username) {
+      validateUsername(username);
+    }
+  };
+
   // Request OTP for signup
   const requestOTP = async () => {
     // Validate phone first
@@ -288,19 +335,20 @@ export default function Login() {
       return false;
     }
 
-    // Validate username and password before sending OTP
+    // Validate username
     if (!username) {
-      setSignupError("Username is required.");
+      setUsernameError("Username is required.");
       return false;
     }
 
-    if (!/^[a-z0-9_]+$/.test(username)) {
-      setSignupError("Username can only contain lowercase letters, numbers, and underscores.");
+    // Validate username exactly 10 characters and only letters
+    if (username.length !== 10) {
+      setUsernameError("Username must be exactly 10 characters long.");
       return false;
     }
 
-    if (username.length < 3) {
-      setSignupError("Username must be at least 3 characters long.");
+    if (!/^[a-z]+$/.test(username)) {
+      setUsernameError("Username can only contain lowercase letters (a-z).");
       return false;
     }
 
@@ -329,6 +377,7 @@ export default function Login() {
     setPhoneError("");
     setOtpError("");
     setSignupError("");
+    setUsernameError("");
 
     try {
       const response = await axios.post(`${API_BASE_URL}/api/auth/request-signup-otp`, {
@@ -832,18 +881,36 @@ export default function Login() {
                   {/* Show other fields only when OTP is NOT sent */}
                   {!otpSent && (
                     <>
-                      {/* Username Input */}
+                      {/* Username Input with Real-time Validation */}
                       <div className="mb-4">
-                        <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">{t.usernameLabel}</label>
+                        <label htmlFor="username" className="block text-sm md:text-sm text-gray-200 mb-2">
+                          {t.usernameLabel}
+                          <span className="text-xs text-gray-500 ml-2">(exactly 10 letters, a-z only)</span>
+                        </label>
                         <input
                           type="text"
                           id="username"
                           value={username}
-                          onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                          className="w-full p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none focus:border-[#0C4D38] hover:border-gray-600 transition-colors"
+                          onChange={handleUsernameChange}
+                          onBlur={handleUsernameBlur}
+                          className={`w-full p-2 md:p-4 text-sm bg-[#222424] font-[300] text-white focus:outline-none transition-colors ${
+                            usernameError ? 'border-2 border-red-500 focus:border-red-500' : 'focus:border-[#0C4D38] hover:border-gray-600'
+                          }`}
                           placeholder={t.enterUsername}
                           disabled={isLoading}
+                          maxLength={10}
                         />
+                        {usernameError && (
+                          <p className="text-red-400 text-xs mt-1">{usernameError}</p>
+                        )}
+                        {username && !usernameError && username.length === 10 && /^[a-z]+$/.test(username) && (
+                          <p className="text-green-400 text-xs mt-1">✓ Username is valid</p>
+                        )}
+                        {username && username.length > 0 && username.length < 10 && (
+                          <p className="text-yellow-400 text-xs mt-1">
+                            {10 - username.length} more character(s) needed
+                          </p>
+                        )}
                       </div>
 
                       {/* Password Input */}
@@ -993,7 +1060,7 @@ export default function Login() {
                   <button
                     type="submit"
                     className="w-full py-3 md:py-4 bg-[#0C4D38] cursor-pointer text-white text-sm font-[500] mt-2 shadow-lg transition-all transform hover:scale-[1.02] hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isLoading || (otpSent && getFullOtp().length !== 6)}
+                    disabled={isLoading || (otpSent && getFullOtp().length !== 6) || (!!username && !otpSent && (username.length !== 10 || !/^[a-z]+$/.test(username)))}
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">
