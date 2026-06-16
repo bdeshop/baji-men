@@ -34,6 +34,7 @@ const Bettings = () => {
           }
         }
       );
+      console.log("response",response)
       if (response.data.success) {
         setBettingRecords(response.data.data);
       }
