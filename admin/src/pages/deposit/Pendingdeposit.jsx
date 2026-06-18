@@ -65,10 +65,10 @@ const Pendingdeposit = () => {
       setDeposits(response.data.deposits);
       setStats({
         total: response.data.total,
-        completed: response.data.statusCounts.find((s) => s._id === 'approved')?.count || 0,
-        pending: response.data.statusCounts.find((s) => s._id === 'pending')?.count || 0,
-        totalAmount: response.data.totalAmount,
-        completedAmount: response.data.statusCounts.find((s) => s._id === 'approved')?.amount || 0,
+        completed: response.data.statusCounts?.find((s) => s._id === 'approved' || s._id === 'completed')?.count || 0,
+        pending: response.data.statusCounts?.find((s) => s._id === 'pending')?.count || 0,
+        totalAmount: response.data.totalAmount || 0,
+        completedAmount: response.data.statusCounts?.find((s) => s._id === 'approved' || s._id === 'completed')?.amount || 0,
       });
     } catch (err) {
       console.error('Error fetching deposits:', err);
@@ -109,19 +109,24 @@ const Pendingdeposit = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/admin/deposits-stats`, {
+      // Try the correct endpoint - remove /admin prefix if needed
+      const response = await axios.get(`${API_BASE_URL}/deposits-stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setStats((prev) => ({
-        ...prev,
-        total: response.data.total.totalCount,
-        completed: response.data.byStatus.find((s) => s._id === 'approved')?.count || 0,
-        pending: response.data.byStatus.find((s) => s._id === 'pending')?.count || 0,
-        totalAmount: response.data.total.totalAmount,
-        completedAmount: response.data.byStatus.find((s) => s._id === 'approved')?.amount || 0,
-      }));
+      
+      if (response.data && response.data.success) {
+        setStats((prev) => ({
+          ...prev,
+          total: response.data.total?.totalCount || 0,
+          completed: response.data.byStatus?.find((s) => s._id === 'approved' || s._id === 'completed')?.count || 0,
+          pending: response.data.byStatus?.find((s) => s._id === 'pending')?.count || 0,
+          totalAmount: response.data.total?.totalAmount || 0,
+          completedAmount: response.data.byStatus?.find((s) => s._id === 'approved' || s._id === 'completed')?.amount || 0,
+        }));
+      }
     } catch (err) {
       console.error('Error fetching stats:', err);
+      // Don't show error to user, just log it
     }
   };
 
@@ -134,12 +139,16 @@ const Pendingdeposit = () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, methodFilter, dateRange]);
 
+  // FIXED: Update deposit status with proper reject handling
   const updateDepositStatus = async (depositId, success, notes = '') => {
     try {
       setUpdatingStatus(true);
       const token = localStorage.getItem('token');
       const deposit = deposits.find((d) => d._id === depositId);
-      if (!deposit) { setError('Deposit not found'); return; }
+      if (!deposit) { 
+        setError('Deposit not found'); 
+        return; 
+      }
 
       const payload = {
         success,
@@ -151,21 +160,28 @@ const Pendingdeposit = () => {
         updatedBy: 'admin',
       };
 
+      console.log('Sending payload:', payload); // Debug log
+
       const response = await axios.put(
         `${API_BASE_URL}/api/admin/deposits/${depositId}/status`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      console.log('Response:', response.data); // Debug log
+
       if (response.data.success) {
-        fetchDeposits();
-        fetchStats();
+        // Refresh data after successful update
+        await fetchDeposits();
+        await fetchStats();
         setShowStatusUpdateModal(false);
         setShowDepositDetails(false);
+        setError(null);
       } else {
         setError(`Failed to update status: ${response.data.message}`);
       }
     } catch (err) {
+      console.error('Update error:', err);
       setError(`Failed to update deposit status: ${err.response?.data?.message || err.message}`);
     } finally {
       setUpdatingStatus(false);
@@ -176,16 +192,29 @@ const Pendingdeposit = () => {
     try {
       setUpdatingStatus(true);
       const token = localStorage.getItem('token');
+      
+      const payload = {
+        success: updateForm.success,
+        userIdentifyAddress: updateForm.userIdentifyAddress,
+        amount: updateForm.amount,
+        trxid: updateForm.trxid,
+        adminNotes: updateForm.success ? 'Manual approval by admin' : 'Manual rejection by admin',
+        manualUpdate: true,
+        updatedBy: 'admin',
+      };
+
       const response = await axios.put(
         `${API_BASE_URL}/api/admin/deposits/${selectedDeposit._id}/status`,
-        updateForm,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
       if (response.data.success) {
-        fetchDeposits();
-        fetchStats();
+        await fetchDeposits();
+        await fetchStats();
         setShowStatusUpdateModal(false);
         setUpdateForm({ success: true, userIdentifyAddress: '', amount: 0, trxid: '' });
+        setError(null);
       } else {
         setError(`Failed to update status: ${response.data.message}`);
       }
@@ -213,7 +242,7 @@ const Pendingdeposit = () => {
       await axios.put(`${API_BASE_URL}/api/admin/deposits/${depositId}`, updates, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchDeposits();
+      await fetchDeposits();
       setShowEditModal(false);
     } catch (err) {
       setError('Failed to edit deposit.');
@@ -227,8 +256,8 @@ const Pendingdeposit = () => {
       await axios.delete(`${API_BASE_URL}/api/admin/deposits/${depositId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchDeposits();
-      fetchStats();
+      await fetchDeposits();
+      await fetchStats();
       setShowDepositDetails(false);
     } catch (err) {
       setError('Failed to delete deposit.');
@@ -544,11 +573,6 @@ const Pendingdeposit = () => {
                                 className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/20 text-emerald-400 rounded text-xs transition-all"
                                 title="Edit"
                               ><FaEdit /></button>
-                              {/* <button
-                                onClick={() => deleteDeposit(deposit._id)}
-                                className="p-1.5 bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/20 text-rose-400 rounded text-xs transition-all"
-                                title="Delete"
-                              ><FaTrash /></button> */}
                             </div>
                           </td>
                         </tr>
