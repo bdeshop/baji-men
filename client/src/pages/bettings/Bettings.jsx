@@ -20,7 +20,7 @@ const Bettings = () => {
   const { language, t } = useContext(LanguageContext);
 
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('usertoken');
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   
   const fetchBettingRecords = async () => {
