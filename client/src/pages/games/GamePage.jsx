@@ -274,7 +274,7 @@ const GamePage = () => {
     <div className="h-screen overflow-hidden font-poppins bg-[#0f0f0f] text-white">
       {/* Navigation Bar with Back/Home Buttons */}
       <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-gradient-to-b from-black/80 to-transparent">
-        <div className="flex items-center gap-3 max-w-7xl mx-auto">
+        <div className="flex items-center gap-3 w-full">
           {/* Home Button */}
           <button
             onClick={handleHomeButton}
