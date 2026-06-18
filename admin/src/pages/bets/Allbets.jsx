@@ -494,7 +494,7 @@ const Allbets = () => {
                               </div>
                             </td>
                             <td className="px-6 py-2 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-sm text-gray-300">{bet.balance_after} BDT</div>
+                              <div className="text-sm text-gray-300">{bet.balance_after.toFixed(2)} BDT</div>
                             </td>
                             <td className="whitespace-nowrap border-r border-gray-800">
                               {getStatusBadge(bet.status)}
