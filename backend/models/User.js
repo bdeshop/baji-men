@@ -589,6 +589,7 @@ const UserSchema = new Schema({
     // Adding the betHistory field to store betting records
     betHistory: [
         {
+            game_name:{ type: String, required: true },
             betAmount: { type: Number, required: true },
             betResult: { type: String, required: true },
             transaction_id: { type: String, required: true },
