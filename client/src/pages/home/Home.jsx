@@ -208,9 +208,9 @@ const HomeContent = () => {
     <div className="h-screen overflow-hidden font-poppins bg-[#1a1a1a] text-white">
 
       {/* ── Welcome Bonus Popup ────────────────────────────────────────────── */}
-      {showWelcomePopup && (
+      {/* {showWelcomePopup && (
         <WelcomeBonusPopup onClose={() => setShowWelcomePopup(false)} />
-      )}
+      )} */}
 
       {/* ── Loading Overlay ────────────────────────────────────────────────── */}
       {isLoading && (
