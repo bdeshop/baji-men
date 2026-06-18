@@ -3003,7 +3003,7 @@ Userrouter.post("/refund", async (req, res) => {
 
 
 // ----------------betting-records------------------------
-Userrouter.get("/betting-records/:userId", authenticateToken,async(req,res)=>{
+Userrouter.get("/betting-records/:userId",async(req,res)=>{
       const bettingrecords=await BettingHistory.find({user_id:req.params.userId}).sort({createdAt:-1});
       res.status(200).json({success:true,data:bettingrecords});   
 })
