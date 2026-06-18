@@ -1202,7 +1202,7 @@ const Viewdetails = () => {
                         <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
                           <tr>
                             <th className="py-3 px-4 text-left">Transaction ID</th>
-                            <th className="py-3 px-4 text-left">Game ID</th>
+                            <th className="py-3 px-4 text-left">Game Name</th>
                             <th className="py-3 px-4 text-left">Amount</th>
                             <th className="py-3 px-4 text-left">Result</th>
                             <th className="py-3 px-4 text-left">Status</th>
@@ -1215,7 +1215,7 @@ const Viewdetails = () => {
                             filteredBetHistory.map((bet) => (
                               <tr key={bet._id || bet.transaction_id} className="hover:bg-[#1F2937] transition-colors">
                                 <td className="py-3 px-4 text-xs font-mono text-gray-400">{bet.transaction_id?.substring(0, 12)}...</td>
-                                <td className="py-3 px-4 text-xs text-gray-300">{bet.game_id}</td>
+                                <td className="py-3 px-4 text-xs text-gray-300">{bet.game_name}</td>
                                 <td className="py-3 px-4 text-xs font-bold text-amber-400">{formatCurrency(bet.betAmount)} {user.currency}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getBetResultBadge(bet.betResult)}`}>
