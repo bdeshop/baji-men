@@ -275,16 +275,6 @@ const GamePage = () => {
       {/* Navigation Bar with Back/Home Buttons */}
       <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-gradient-to-b from-black/80 to-transparent">
         <div className="flex items-center gap-3 max-w-7xl mx-auto">
-          {/* Back Button */}
-          <button
-            onClick={handleBackButton}
-            className="flex items-center gap-2 px-4 py-2 bg-black/50 backdrop-blur-sm hover:bg-black/70 rounded-lg transition-all duration-300 border border-white/10 hover:border-white/30 group"
-            title="Go Back"
-          >
-            <FaArrowLeft className="text-white group-hover:scale-110 transition-transform duration-300" size={18} />
-            <span className="text-white text-sm font-medium hidden sm:inline">Back</span>
-          </button>
-
           {/* Home Button */}
           <button
             onClick={handleHomeButton}
@@ -294,11 +284,6 @@ const GamePage = () => {
             <FaHome className="text-white group-hover:scale-110 transition-transform duration-300" size={18} />
             <span className="text-white text-sm font-medium hidden sm:inline">Home</span>
           </button>
-
-          {/* Game Title */}
-          <div className="ml-4 text-white/80 text-sm font-medium truncate">
-            {gameuuid ? `Game: ${gameuuid.substring(0, 15)}...` : 'Loading...'}
-          </div>
         </div>
       </div>
 
