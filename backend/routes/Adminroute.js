@@ -4164,100 +4164,200 @@ Adminrouter.get("/deposits/:id", async (req, res) => {
 
 // PUT update deposit status
 // PUT update deposit status - UPDATED VERSION
-// PUT update deposit status - CORRECTED VERSION
+// ==================== DEPOSIT STATUS UPDATE ROUTE (FIXED) ====================
 Adminrouter.put("/deposits/:id/status", async (req, res) => {
   try {
-    const payload = req.body || {};
-    const { success, userIdentifyAddress, amount, trxid, adminNotes } = payload;
     const depositId = req.params.id;
+    const payload = req.body || {};
+    
+    console.log("=== DEPOSIT STATUS UPDATE REQUEST ===");
+    console.log("Deposit ID:", depositId);
+    console.log("Payload:", JSON.stringify(payload, null, 2));
 
-    console.log("Deposit status update request:", {
-      depositId,
-      success,
-      userIdentifyAddress,
-      amount,
-      trxid,
-      adminNotes,
-    });
+    const { success, userIdentifyAddress, amount, trxid, adminNotes } = payload;
 
-    // Normalize amount
-    const amountNum = typeof amount === "number" ? amount : Number(amount);
+    // Validate deposit exists
+    const deposit = await Deposit.findById(depositId);
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found"
+      });
+    }
+
+    console.log("Current deposit status:", deposit.status);
 
     // --- CASE 1: APPROVAL (success === true) ---
-    if (success === true && trxid && userIdentifyAddress && Number.isFinite(amountNum) && amountNum > 0) {
-      // ... your existing approval logic here ...
-      // (Find user, update balance, update deposit status to 'completed', etc.)
-      // Make sure to return the appropriate success response.
-      return res.status(200).json({
-        success: true,
-        applied: true,
-        message: "Deposit processed successfully",
-        // ... data ...
-      });
-    } 
-    // --- CASE 2: REJECTION (success === false) ---
-    else if (success === false) {
-      // Find the deposit record
-      let deposit = await Deposit.findById(depositId);
+    if (success === true) {
+      console.log("Processing APPROVAL for deposit:", depositId);
 
-      if (!deposit) {
-        return res.status(404).json({
+      // Validate required fields for approval
+      if (!userIdentifyAddress) {
+        return res.status(400).json({
           success: false,
-          message: "Deposit record not found",
+          message: "User identify address is required for approval"
         });
       }
 
-      // Update the deposit status to 'rejected'
-      deposit.status = "rejected";
-      if (adminNotes) {
-        deposit.adminNotes = adminNotes;
+      if (!trxid) {
+        return res.status(400).json({
+          success: false,
+          message: "Transaction ID is required for approval"
+        });
       }
+
+      const amountNum = typeof amount === "number" ? amount : Number(amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid amount is required for approval"
+        });
+      }
+
+      // Find the user
+      let user = null;
+      
+      // Try to find by userId from deposit
+      if (deposit.userId) {
+        user = await User.findById(deposit.userId);
+      }
+      
+      // If not found, try by player_id
+      if (!user) {
+        user = await User.findOne({ player_id: userIdentifyAddress });
+      }
+      
+      // If not found, try by phone
+      if (!user) {
+        user = await User.findOne({ phone: userIdentifyAddress });
+      }
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+          userIdentifyAddress: userIdentifyAddress
+        });
+      }
+
+      console.log("User found:", user.username, user._id);
+
+      // Update deposit status to 'completed'
+      deposit.status = "completed";
+      deposit.transactionId = trxid;
       deposit.processedAt = new Date();
+      if (adminNotes) deposit.adminNotes = adminNotes;
       await deposit.save();
 
-      // Optional: Also update the deposit in the user's depositHistory
+      // Update user balance
+      const balanceBefore = user.balance || 0;
+      user.balance = (user.balance || 0) + amountNum;
+      
+      // Update deposit history
+      if (!user.depositHistory) user.depositHistory = [];
+      user.depositHistory.push({
+        method: deposit.method || 'unknown',
+        amount: amountNum,
+        status: 'completed',
+        transactionId: trxid,
+        processedAt: new Date(),
+        completedAt: new Date(),
+        createdAt: new Date()
+      });
+
+      // Add transaction history
+      if (!user.transactionHistory) user.transactionHistory = [];
+      user.transactionHistory.push({
+        type: 'deposit',
+        amount: amountNum,
+        balanceBefore: balanceBefore,
+        balanceAfter: user.balance,
+        description: `Deposit approved by admin (${adminNotes || 'Approved'})`,
+        referenceId: trxid,
+        createdAt: new Date()
+      });
+
+      await user.save();
+
+      console.log("Deposit approved successfully");
+
+      return res.status(200).json({
+        success: true,
+        message: "Deposit approved successfully",
+        data: {
+          depositId: deposit._id,
+          status: deposit.status,
+          amount: amountNum,
+          userBalance: user.balance,
+          transactionId: trxid
+        }
+      });
+    }
+
+    // --- CASE 2: REJECTION (success === false) ---
+    else if (success === false) {
+      console.log("Processing REJECTION for deposit:", depositId);
+
+      // Update deposit status to 'rejected'
+      deposit.status = "rejected";
+      deposit.processedAt = new Date();
+      if (adminNotes) deposit.adminNotes = adminNotes || "Rejected by admin";
+      await deposit.save();
+
+      // Also update the deposit in the user's depositHistory if it exists
       try {
-        await User.updateOne(
-          { 
-            "depositHistory._id": deposit._id // Assuming the depositHistory entry uses the same _id
-          },
-          {
-            $set: {
-              "depositHistory.$.status": "rejected",
-              "depositHistory.$.processedAt": new Date(),
-              "depositHistory.$.adminNotes": adminNotes
+        if (deposit.userId) {
+          const user = await User.findById(deposit.userId);
+          if (user && user.depositHistory) {
+            // Find and update the matching deposit in user's history
+            const depositIndex = user.depositHistory.findIndex(
+              d => d.transactionId === deposit.transactionId || 
+                   d._id && d._id.toString() === deposit._id.toString()
+            );
+            
+            if (depositIndex !== -1) {
+              user.depositHistory[depositIndex].status = 'rejected';
+              user.depositHistory[depositIndex].processedAt = new Date();
+              user.depositHistory[depositIndex].adminNotes = adminNotes || 'Rejected by admin';
+              await user.save();
+              console.log("Updated user's deposit history");
             }
           }
-        );
+        }
       } catch (updateError) {
         console.warn("Could not update user's depositHistory:", updateError.message);
         // Non-critical, continue
       }
 
+      console.log("Deposit rejected successfully");
+
       return res.status(200).json({
         success: true,
-        applied: true,
         message: "Deposit rejected successfully",
         data: {
           depositId: deposit._id,
           status: deposit.status,
-        },
-      });
-    } 
-    // --- CASE 3: INVALID REQUEST ---
-    else {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid request: Missing required fields for approval or rejection",
-        received: { success, userIdentifyAddress, amount, trxid },
+          processedAt: deposit.processedAt
+        }
       });
     }
+
+    // --- CASE 3: INVALID REQUEST ---
+    else {
+      console.log("Invalid request: success is not a boolean");
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request: 'success' must be a boolean (true or false)",
+        received: { success }
+      });
+    }
+
   } catch (err) {
-    console.error("Callback deposit error:", err);
+    console.error("Deposit status update error:", err);
     return res.status(500).json({
       success: false,
       message: "Server error",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 });
