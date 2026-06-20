@@ -941,7 +941,7 @@ const Deposit = () => {
                   <li>{t.enterDepositAmountInstruction || "Enter the amount you want to deposit (minimum ৳100)"}</li>
                   <li>{t.selectBonusIfAvailable || "Select a bonus option if available (optional)"}</li>
                   <li>{t.clickProceedToPayment || `Click "Proceed to [Payment Method] Payment"`}</li>
-                  <li>{t.redirectedToOraclePay || "You will be redirected to OraclePay secure payment page"}</li>
+                  <li>{t.redirectedToOraclePay || ""}</li>
                   <li>{t.completePayment || "Complete the payment using your chosen method"}</li>
                   <li>{t.redirectedBack || "After successful payment, you'll be redirected back"}</li>
                   <li>{t.balanceUpdated || "Your balance will be updated automatically"}</li>
