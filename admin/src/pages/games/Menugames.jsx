@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaImage, FaEye } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaImage, FaEye, FaArrowUp, FaArrowDown, FaGripVertical } from 'react-icons/fa';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import ConfirmationPopup from "../../components/modal/ConfirmationPopup"
+import ConfirmationPopup from "../../components/modal/ConfirmationPopup";
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const Menugames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -15,7 +16,8 @@ const Menugames = () => {
     categoryname: 'Exclusive',
     name: '',
     gameId: '',
-    provider: ''
+    provider: '',
+    serial: ''
   });
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,6 +25,7 @@ const Menugames = () => {
   const [editingId, setEditingId] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [gameToDelete, setGameToDelete] = useState(null);
+  const [isReordering, setIsReordering] = useState(false);
   
   // Image states
   const [imageFile, setImageFile] = useState(null);
@@ -31,7 +34,6 @@ const Menugames = () => {
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   
-  // Fetch games on component mount
   useEffect(() => {
     fetchGames();
   }, []);
@@ -68,7 +70,6 @@ const Menugames = () => {
     });
   };
 
-  // Handle image selection
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -109,11 +110,6 @@ const Menugames = () => {
       return;
     }
     
-    if (!formData.uuid) {
-      toast.error('UUID is required');
-      return;
-    }
-    
     if (!formData.name) {
       toast.error('Game name is required');
       return;
@@ -140,6 +136,11 @@ const Menugames = () => {
       formDataObj.append('gameId', formData.gameId);
       formDataObj.append('provider', formData.provider);
       formDataObj.append('status', 'true');
+      
+      // Include serial if editing and provided
+      if (isEditing && formData.serial !== '') {
+        formDataObj.append('serial', formData.serial);
+      }
       
       if (imageFile) {
         formDataObj.append('image', imageFile);
@@ -179,7 +180,8 @@ const Menugames = () => {
       categoryname: 'Exclusive',
       name: '',
       gameId: '',
-      provider: ''
+      provider: '',
+      serial: ''
     });
     setImageFile(null);
     setImagePreview(null);
@@ -218,7 +220,8 @@ const Menugames = () => {
           categoryname: freshGameData.categoryname || 'Exclusive',
           name: freshGameData.name || '',
           gameId: freshGameData.gameId || '',
-          provider: freshGameData.provider || ''
+          provider: freshGameData.provider || '',
+          serial: freshGameData.serial !== undefined ? freshGameData.serial.toString() : ''
         });
         
         if (freshGameData.image) {
@@ -279,6 +282,68 @@ const Menugames = () => {
     return `${base_url}${imagePath}`;
   };
 
+  // ==================== DRAG AND DROP REORDERING ====================
+  
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+    
+    const items = Array.from(games);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    // Update local state for smooth UI
+    setGames(items);
+    
+    // Prepare data for API
+    const reorderedData = items.map((game, index) => ({
+      _id: game._id,
+      serial: index + 1
+    }));
+    
+    try {
+      setIsReordering(true);
+      await axios.put(`${base_url}/api/admin/menu-games/reorder`, {
+        games: reorderedData
+      });
+      toast.success('Game order updated successfully');
+    } catch (error) {
+      console.error('Error reordering games:', error);
+      toast.error('Failed to update game order');
+      // Re-fetch to restore correct order
+      fetchGames();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  // Move game up/down with buttons
+  const moveGame = async (index, direction) => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= games.length) return;
+    
+    const items = Array.from(games);
+    const [movedItem] = items.splice(index, 1);
+    items.splice(newIndex, 0, movedItem);
+    
+    setGames(items);
+    
+    const reorderedData = items.map((game, idx) => ({
+      _id: game._id,
+      serial: idx + 1
+    }));
+    
+    try {
+      await axios.put(`${base_url}/api/admin/menu-games/reorder`, {
+        games: reorderedData
+      });
+      toast.success('Game moved successfully');
+    } catch (error) {
+      console.error('Error moving game:', error);
+      toast.error('Failed to move game');
+      fetchGames();
+    }
+  };
+
   return (
     <section className="min-h-screen bg-[#0F111A] text-gray-200 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
@@ -296,6 +361,11 @@ const Menugames = () => {
               <div>
                 <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Menu Games - Exclusive Category</h1>
                 <p className="text-xs font-bold text-gray-500 mt-1">Manage exclusive games for the menu section</p>
+              </div>
+              <div className="flex items-center gap-3 mt-2 md:mt-0">
+                <span className="text-xs text-gray-500">Total: {games.length}</span>
+                <span className="text-xs text-gray-500">|</span>
+                <span className="text-xs text-gray-500">Active: {games.filter(g => g.status).length}</span>
               </div>
             </div>
             
@@ -392,10 +462,10 @@ const Menugames = () => {
                   </div>
                 </div>
 
-                {/* UUID Field - Manual Entry */}
+                {/* UUID Field */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    UUID <span className="text-red-500">*</span>
+                    UUID
                   </label>
                   <input
                     type="text"
@@ -403,13 +473,33 @@ const Menugames = () => {
                     value={formData.uuid}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
-                    placeholder="Enter UUID "
-                    required
+                    placeholder="Enter UUID (auto-generated if empty)"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Enter a unique identifier for this game
+                    Leave empty to auto-generate
                   </p>
                 </div>
+
+                {/* Serial Field - Only show when editing */}
+                {isEditing && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Serial Number
+                    </label>
+                    <input
+                      type="number"
+                      name="serial"
+                      value={formData.serial}
+                      onChange={handleInputChange}
+                      min="1"
+                      className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
+                      placeholder="Enter serial number"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty to keep current position
+                    </p>
+                  </div>
+                )}
 
                 {/* Category Name (Read-only) */}
                 <div className="mb-6">
@@ -498,7 +588,7 @@ const Menugames = () => {
               </form>
             </div>
             
-            {/* Games Table */}
+            {/* Games Table with Drag and Drop */}
             <div className="">
               <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-indigo-500"></div>
@@ -518,110 +608,167 @@ const Menugames = () => {
                   <p className="text-gray-500">No exclusive games found. Add your first game above.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-gray-800 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-800">
-                    <thead className="bg-[#1C2128]">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Image</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">UUID</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Category</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Game Name</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Provider</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Game ID</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-[#161B22] divide-y divide-gray-800">
-                      {games.map((game) => (
-                        <tr key={game._id} className="hover:bg-[#1F2937] transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              {game.image ? (
-                                <div className="relative group">
-                                  <img 
-                                    src={getImageUrl(game.image)} 
-                                    alt={game.name}
-                                    className="w-12 h-12 object-cover rounded-lg border border-gray-700"
-                                    onError={(e) => {
-                                      e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
-                                    }}
-                                  />
-                                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                    <button
-                                      onClick={() => window.open(getImageUrl(game.image), '_blank')}
-                                      className="text-white text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-700"
+                <div className="border border-gray-800 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <DragDropContext onDragEnd={handleDragEnd}>
+                      <Droppable droppableId="games-list">
+                        {(provided) => (
+                          <table 
+                            className="min-w-full divide-y divide-gray-800"
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                          >
+                            <thead className="bg-[#1C2128]">
+                              <tr>
+                                <th className="px-4 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider w-12">
+                                  #
+                                </th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider w-12">
+                                  <FaGripVertical className="text-gray-500" />
+                                </th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Image</th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">UUID</th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Game Name</th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Provider</th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-indigo-400 uppercase tracking-wider">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-[#161B22] divide-y divide-gray-800">
+                              {games.map((game, index) => (
+                                <Draggable key={game._id} draggableId={game._id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <tr 
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      className={`hover:bg-[#1F2937] transition-colors duration-150 ${
+                                        snapshot.isDragging ? 'bg-[#1F2937] shadow-2xl border-2 border-indigo-500' : ''
+                                      }`}
                                     >
-                                      <FaEye className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="w-12 h-12 bg-[#0F111A] rounded-lg border border-gray-700 flex items-center justify-center">
-                                  <FaImage className="text-gray-600 w-6 h-6" />
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <code className="text-xs text-gray-400 bg-[#0F111A] px-2 py-1 rounded font-mono">
-                              {game.uuid || 'N/A'}
-                            </code>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="bg-indigo-900/50 text-indigo-300 px-2 py-1 rounded-full text-xs font-medium border border-indigo-700">
-                              {game.categoryname || 'Exclusive'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-white font-medium">{game.name}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="bg-blue-900/50 text-blue-300 px-2 py-1 rounded-full text-xs font-medium border border-blue-700">
-                              {game.provider || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <code className="text-xs text-gray-400 bg-[#0F111A] px-2 py-1 rounded border border-gray-700">
-                              {game.gameId}
-                            </code>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input 
-                                type="checkbox" 
-                                className="sr-only peer" 
-                                checked={game.status === true}
-                                onChange={() => toggleStatus(game._id, game.status)}
-                              />
-                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                              <span className={`ml-3 text-sm font-medium ${game.status ? 'text-green-500' : 'text-red-500'}`}>
-                                {game.status ? 'Active' : 'Inactive'}
-                              </span>
-                            </label>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
-                              <button 
-                                className="px-3 py-2 text-white bg-blue-600 cursor-pointer rounded-md hover:bg-blue-700 transition-colors flex items-center text-xs"
-                                onClick={() => editGame(game)}
-                              >
-                                <FaEdit className="mr-1" />
-                                <span className="hidden sm:inline">Edit</span>
-                              </button>
-                              <button 
-                                className="px-3 py-2 text-white bg-red-600 cursor-pointer rounded-md hover:bg-red-700 transition-colors flex items-center text-xs"
-                                onClick={() => confirmDelete(game)}
-                              >
-                                <FaTrash className="mr-1" />
-                                <span className="hidden sm:inline">Delete</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-400 text-center">
+                                        {index + 1}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap" {...provided.dragHandleProps}>
+                                        <div className="flex flex-col items-center">
+                                          <button
+                                            onClick={() => moveGame(index, 'up')}
+                                            disabled={index === 0}
+                                            className={`p-1 rounded hover:bg-gray-700 transition-colors ${
+                                              index === 0 ? 'opacity-30 cursor-not-allowed' : 'text-gray-400 hover:text-white'
+                                            }`}
+                                          >
+                                            <FaArrowUp className="w-3 h-3" />
+                                          </button>
+                                          <FaGripVertical className="text-gray-600 my-1" />
+                                          <button
+                                            onClick={() => moveGame(index, 'down')}
+                                            disabled={index === games.length - 1}
+                                            className={`p-1 rounded hover:bg-gray-700 transition-colors ${
+                                              index === games.length - 1 ? 'opacity-30 cursor-not-allowed' : 'text-gray-400 hover:text-white'
+                                            }`}
+                                          >
+                                            <FaArrowDown className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                          {game.image ? (
+                                            <div className="relative group">
+                                              <img 
+                                                src={getImageUrl(game.image)} 
+                                                alt={game.name}
+                                                className="w-12 h-12 object-cover rounded-lg border border-gray-700"
+                                                onError={(e) => {
+                                                  e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
+                                                }}
+                                              />
+                                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <button
+                                                  onClick={() => window.open(getImageUrl(game.image), '_blank')}
+                                                  className="text-white text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-700"
+                                                >
+                                                  <FaEye className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="w-12 h-12 bg-[#0F111A] rounded-lg border border-gray-700 flex items-center justify-center">
+                                              <FaImage className="text-gray-600 w-6 h-6" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <code className="text-xs text-gray-400 bg-[#0F111A] px-2 py-1 rounded font-mono">
+                                          {game.uuid || 'N/A'}
+                                        </code>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-white font-medium">{game.name}</div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="bg-blue-900/50 text-blue-300 px-2 py-1 rounded-full text-xs font-medium border border-blue-700">
+                                          {game.provider || 'N/A'}
+                                        </span>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                          <input 
+                                            type="checkbox" 
+                                            className="sr-only peer" 
+                                            checked={game.status === true}
+                                            onChange={() => toggleStatus(game._id, game.status)}
+                                          />
+                                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                          <span className={`ml-3 text-sm font-medium ${game.status ? 'text-green-500' : 'text-red-500'}`}>
+                                            {game.status ? 'Active' : 'Inactive'}
+                                          </span>
+                                        </label>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div className="flex space-x-2">
+                                          <button 
+                                            className="px-3 py-2 text-white bg-blue-600 cursor-pointer rounded-md hover:bg-blue-700 transition-colors flex items-center text-xs"
+                                            onClick={() => editGame(game)}
+                                          >
+                                            <FaEdit className="mr-1" />
+                                            <span className="hidden sm:inline">Edit</span>
+                                          </button>
+                                          <button 
+                                            className="px-3 py-2 text-white bg-red-600 cursor-pointer rounded-md hover:bg-red-700 transition-colors flex items-center text-xs"
+                                            onClick={() => confirmDelete(game)}
+                                          >
+                                            <FaTrash className="mr-1" />
+                                            <span className="hidden sm:inline">Delete</span>
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </tbody>
+                          </table>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
+                  </div>
+                  <div className="bg-[#1C2128] px-6 py-3 border-t border-gray-800 flex justify-between items-center">
+                    <span className="text-xs text-gray-500">
+                      Drag the grip icon <FaGripVertical className="inline text-gray-600 mx-1" /> to reorder
+                    </span>
+                    {isReordering && (
+                      <span className="text-xs text-indigo-400 flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Updating order...
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

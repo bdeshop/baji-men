@@ -10477,12 +10477,14 @@ const uploadMenuGame = multer({
 });
 // ==================== MENU GAME ROUTES ====================
 // ==================== MENU GAME ROUTES ====================
-// GET all menu games
+// ==================== MENU GAME SERIAL ROUTES ====================
+
+// GET all menu games sorted by serial
 Adminrouter.get("/menu-games", async (req, res) => {
     try {
         const games = await MenuGame.find()
             .populate("category", "name")
-            .sort({ createdAt: -1 });
+            .sort({ serial: 1, createdAt: -1 }); // Sort by serial ascending
         res.json(games);
     } catch (error) {
         console.error("Error fetching menu games:", error);
@@ -10490,25 +10492,11 @@ Adminrouter.get("/menu-games", async (req, res) => {
     }
 });
 
-// GET single menu game
-Adminrouter.get("/menu-games/:id", async (req, res) => {
-    try {
-        const game = await MenuGame.findById(req.params.id).populate("category", "name");
-        if (!game) {
-            return res.status(404).json({ error: "Menu game not found" });
-        }
-        res.json(game);
-    } catch (error) {
-        console.error("Error fetching menu game:", error);
-        res.status(500).json({ error: "Failed to fetch menu game" });
-    }
-});
-
-// POST create new menu game with image upload
+// POST create new menu game with auto-serial
 Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res) => {
     try {
-        const { uuid,category, categoryname, name, gameId, provider, status = true } = req.body;
-             console.log(req.body)
+        const { uuid, category, categoryname, name, gameId, provider, status = true } = req.body;
+
         // Validation
         if (!req.file) {
             return res.status(400).json({ error: "Image is required" });
@@ -10520,21 +10508,25 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
             });
         }
 
+        // Get the highest serial number and add 1
+        const lastGame = await MenuGame.findOne().sort({ serial: -1 });
+        const nextSerial = lastGame ? lastGame.serial + 1 : 1;
+
         const gameData = {
-            uuid,
+            uuid: uuid || `GAME-${Date.now()}`,
             image: `/uploads/menu-games/${req.file.filename}`,
             category,
             categoryname,
             name,
             gameId,
             provider,
+            serial: nextSerial, // Auto-assign serial
             status
         };
 
         const newGame = new MenuGame(gameData);
         const savedGame = await newGame.save();
 
-        // Populate category for response
         await savedGame.populate("category", "name");
 
         res.status(201).json({
@@ -10554,10 +10546,99 @@ Adminrouter.post("/menu-games", uploadMenuGame.single("image"), async (req, res)
     }
 });
 
-// PUT update menu game with optional image upload
+// PUT update menu game serial (for reordering)
+Adminrouter.put("/menu-games/reorder", async (req, res) => {
+    try {
+        const { games } = req.body;
+
+        if (!games || !Array.isArray(games) || games.length === 0) {
+            return res.status(400).json({ error: "Games array is required" });
+        }
+
+        // Update serial numbers in bulk
+        const bulkOps = games.map((game, index) => ({
+            updateOne: {
+                filter: { _id: game._id },
+                update: { $set: { serial: index + 1 } }
+            }
+        }));
+
+        await MenuGame.bulkWrite(bulkOps);
+
+        const updatedGames = await MenuGame.find().sort({ serial: 1 });
+
+        res.json({
+            message: "Game order updated successfully",
+            games: updatedGames
+        });
+    } catch (error) {
+        console.error("Error reordering games:", error);
+        res.status(500).json({ error: "Failed to reorder games" });
+    }
+});
+
+// PUT update menu game serial individually
+Adminrouter.put("/menu-games/:id/serial", async (req, res) => {
+    try {
+        const { serial } = req.body;
+
+        if (serial === undefined || serial < 0) {
+            return res.status(400).json({ error: "Valid serial number is required" });
+        }
+
+        const game = await MenuGame.findById(req.params.id);
+        if (!game) {
+            return res.status(404).json({ error: "Menu game not found" });
+        }
+
+        // Get the current highest serial
+        const maxSerial = await MenuGame.findOne().sort({ serial: -1 });
+        const maxValue = maxSerial ? maxSerial.serial : 0;
+
+        if (serial > maxValue + 1) {
+            return res.status(400).json({ 
+                error: `Serial number cannot exceed ${maxValue + 1}` 
+            });
+        }
+
+        const oldSerial = game.serial;
+
+        // If moving to a lower number, shift other games up
+        if (serial < oldSerial) {
+            await MenuGame.updateMany(
+                { serial: { $gte: serial, $lt: oldSerial }, _id: { $ne: game._id } },
+                { $inc: { serial: 1 } }
+            );
+        } 
+        // If moving to a higher number, shift other games down
+        else if (serial > oldSerial) {
+            await MenuGame.updateMany(
+                { serial: { $gt: oldSerial, $lte: serial }, _id: { $ne: game._id } },
+                { $inc: { serial: -1 } }
+            );
+        }
+
+        // Update the game's serial
+        game.serial = serial;
+        await game.save();
+
+        const updatedGames = await MenuGame.find().sort({ serial: 1 });
+
+        res.json({
+            message: "Serial number updated successfully",
+            game,
+            allGames: updatedGames
+        });
+    } catch (error) {
+        console.error("Error updating serial:", error);
+        res.status(500).json({ error: "Failed to update serial number" });
+    }
+});
+
+// PUT update menu game (updated to handle serial)
 Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, res) => {
     try {
-        const {uuid, category, categoryname, name, gameId, provider, status } = req.body;
+        const { uuid, category, categoryname, name, gameId, provider, status, serial } = req.body;
 
         const game = await MenuGame.findById(req.params.id);
         if (!game) {
@@ -10571,11 +10652,42 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
         }
 
         // Update fields
+        if (uuid) game.uuid = uuid;
         if (category) game.category = category;
         if (categoryname) game.categoryname = categoryname;
         if (name) game.name = name;
         if (provider) game.provider = provider;
         if (status !== undefined) game.status = status;
+
+        // Handle serial update if provided
+        if (serial !== undefined && serial >= 0) {
+            const oldSerial = game.serial;
+            
+            // Get the current highest serial
+            const maxSerial = await MenuGame.findOne().sort({ serial: -1 });
+            const maxValue = maxSerial ? maxSerial.serial : 0;
+
+            if (serial > maxValue + 1 && serial !== oldSerial) {
+                return res.status(400).json({ 
+                    error: `Serial number cannot exceed ${maxValue + 1}` 
+                });
+            }
+
+            // Shift other games if serial is changing
+            if (serial < oldSerial) {
+                await MenuGame.updateMany(
+                    { serial: { $gte: serial, $lt: oldSerial }, _id: { $ne: game._id } },
+                    { $inc: { serial: 1 } }
+                );
+            } else if (serial > oldSerial) {
+                await MenuGame.updateMany(
+                    { serial: { $gt: oldSerial, $lte: serial }, _id: { $ne: game._id } },
+                    { $inc: { serial: -1 } }
+                );
+            }
+            
+            game.serial = serial;
+        }
 
         // Handle image update
         if (req.file) {
@@ -10589,7 +10701,6 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
             fs.unlinkSync(oldImagePath);
         }
 
-        // Populate category for response
         await game.populate("category", "name");
 
         res.json({
@@ -10598,7 +10709,6 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
         });
     } catch (error) {
         console.error("Error updating menu game:", error);
-        // Clean up new uploaded file if error occurs
         if (req.file) {
             const filePath = path.join(__dirname, "..", "public", "uploads", "menu-games", req.file.filename);
             if (fs.existsSync(filePath)) {
@@ -10609,39 +10719,15 @@ Adminrouter.put("/menu-games/:id", uploadMenuGame.single("image"), async (req, r
     }
 });
 
-// PUT update menu game status (no image involved)
-Adminrouter.put("/menu-games/:id/status", async (req, res) => {
-    try {
-        const { status } = req.body;
-
-        if (typeof status !== 'boolean') {
-            return res.status(400).json({ error: "Valid status is required" });
-        }
-
-        const game = await MenuGame.findById(req.params.id);
-        if (!game) {
-            return res.status(404).json({ error: "Menu game not found" });
-        }
-
-        game.status = status;
-        await game.save();
-
-        res.json({
-            message: `Menu game ${status ? 'activated' : 'deactivated'} successfully`,
-            game: game
-        });
-    } catch (error) {
-        console.error("Error updating menu game status:", error);
-        res.status(500).json({ error: "Failed to update menu game status" });
-    }
-});
-// DELETE menu game
+// DELETE menu game (auto-adjust serials)
 Adminrouter.delete("/menu-games/:id", async (req, res) => {
     try {
         const game = await MenuGame.findById(req.params.id);
         if (!game) {
             return res.status(404).json({ error: "Menu game not found" });
         }
+
+        const deletedSerial = game.serial;
 
         // Delete image file
         if (game.image) {
@@ -10653,7 +10739,16 @@ Adminrouter.delete("/menu-games/:id", async (req, res) => {
 
         await MenuGame.findByIdAndDelete(req.params.id);
 
-        res.json({ message: "Menu game deleted successfully" });
+        // Re-adjust serial numbers of remaining games
+        await MenuGame.updateMany(
+            { serial: { $gt: deletedSerial } },
+            { $inc: { serial: -1 } }
+        );
+
+        res.json({ 
+            message: "Menu game deleted successfully",
+            deletedSerial: deletedSerial
+        });
     } catch (error) {
         console.error("Error deleting menu game:", error);
         res.status(500).json({ error: "Failed to delete menu game" });
