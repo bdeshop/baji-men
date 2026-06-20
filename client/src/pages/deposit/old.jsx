@@ -899,7 +899,7 @@ const Deposit = () => {
                   <li>Enter the amount you want to deposit (minimum ৳5)</li>
                   <li>Select a bonus option if available (optional)</li>
                   <li>Click "Proceed to [Payment Method] Payment"</li>
-                  <li>You will be redirected to OraclePay secure payment page</li>
+                  <li>You will be redirected to Opay secure payment page</li>
                   <li>Complete the payment using your chosen method</li>
                   <li>After successful payment, you'll be redirected back</li>
                   <li>Your balance will be updated automatically</li>
