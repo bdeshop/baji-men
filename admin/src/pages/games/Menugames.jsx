@@ -6,6 +6,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import ConfirmationPopup from "../../components/modal/ConfirmationPopup";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { MdOutlineEdit } from "react-icons/md";
+import { RiDeleteBin6Line } from "react-icons/ri";
 
 const Menugames = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -473,11 +475,8 @@ const Menugames = () => {
                     value={formData.uuid}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 bg-[#0F111A] border border-gray-700 rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
-                    placeholder="Enter UUID (auto-generated if empty)"
+                    placeholder="Enter UUID"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty to auto-generate
-                  </p>
                 </div>
 
                 {/* Serial Field - Only show when editing */}
@@ -726,24 +725,37 @@ const Menugames = () => {
                                           </span>
                                         </label>
                                       </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div className="flex space-x-2">
-                                          <button 
-                                            className="px-3 py-2 text-white bg-blue-600 cursor-pointer rounded-md hover:bg-blue-700 transition-colors flex items-center text-xs"
-                                            onClick={() => editGame(game)}
-                                          >
-                                            <FaEdit className="mr-1" />
-                                            <span className="hidden sm:inline">Edit</span>
-                                          </button>
-                                          <button 
-                                            className="px-3 py-2 text-white bg-red-600 cursor-pointer rounded-md hover:bg-red-700 transition-colors flex items-center text-xs"
-                                            onClick={() => confirmDelete(game)}
-                                          >
-                                            <FaTrash className="mr-1" />
-                                            <span className="hidden sm:inline">Delete</span>
-                                          </button>
-                                        </div>
-                                      </td>
+                                {/* Action buttons */}
+<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+  <div className="flex items-center space-x-2">
+    {/* View Button - Deep Blue */}
+    <button
+      onClick={() => window.open(getImageUrl(game.image), '_blank')}
+      className="p-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded transition-colors shadow-sm hover:shadow-md"
+      title="View Image"
+    >
+      <FaEye className="w-4 h-4" />
+    </button>
+    
+    {/* Edit Button - Deep Green */}
+    <button
+      onClick={() => editGame(game)}
+      className="p-1.5 bg-[#059669] hover:bg-[#047857] text-white rounded transition-colors shadow-sm hover:shadow-md"
+      title="Edit Game"
+    >
+      <MdOutlineEdit className="w-4 h-4" />
+    </button>
+    
+    {/* Delete Button - Deep Red */}
+    <button
+      onClick={() => confirmDelete(game)}
+      className="p-1.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded transition-colors cursor-pointer shadow-sm hover:shadow-md"
+      title="Delete Game"
+    >
+      <RiDeleteBin6Line className="w-4 h-4" />
+    </button>
+  </div>
+</td>
                                     </tr>
                                   )}
                                 </Draggable>
