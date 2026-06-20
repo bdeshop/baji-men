@@ -963,7 +963,7 @@ vipClub: 'VIP Club',
       'With online betting becoming a mainstream entertainment choice, players are looking for a platform that offer both trust and variety. Among the most established names in the industry, Bajiman has built a reputation for excellence, security, and an unparalleled gaming experience.',
     footerCopyright: '© 2026 Bajiman Copyrights. All rights Reserved',
     footerLegalText:
-      'Bajiman owned and operated by BAJI Holdings Limited, registration number 15839, registered address: Hamshahaka, Mutasammudu, Autonomous Island of Anjouan, Union of Comoros. Contact us is licensed and regulated by the Government of the Autonomous Island of Anjouan, Union of Comoros and operates under License No. ALSB-202410030-FJL. Bajiman has passed all regulatory compliance and is legally authorized to conduct gaming operations for any and all games of chance and wagering.',
+      'Bajiman owned and operated by BAJIMAN Holdings Limited, registration number 15839, registered address: Hamshahaka, Mutasammudu, Autonomous Island of Anjouan, Union of Comoros. Contact us is licensed and regulated by the Government of the Autonomous Island of Anjouan, Union of Comoros and operates under License No. ALSB-202410030-FJL. Bajiman has passed all regulatory compliance and is legally authorized to conduct gaming operations for any and all games of chance and wagering.',
   },
 };
 
