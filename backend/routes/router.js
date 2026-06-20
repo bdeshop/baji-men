@@ -627,9 +627,17 @@ router.get("/notice", async (req, res) => {
 // GET all menu games
 router.get("/menu-games", async (req, res) => {
   try {
-    const games = await MenuGame.find({status:true})
+    const games = await MenuGame.find({ status: true })
       .populate("category", "name")
-    res.json(games);
+      .sort({ serial: 1, createdAt: 1 }); // Sort by serial ascending
+    
+    // If you want to add a virtual serial field based on index
+    const gamesWithSerial = games.map((game, index) => ({
+      ...game.toObject(),
+      displaySerial: index + 1 // Virtual serial for display purposes
+    }));
+    
+    res.json(gamesWithSerial);
   } catch (error) {
     console.error("Error fetching menu games:", error);
     res.status(500).json({ error: "Failed to fetch menu games" });
