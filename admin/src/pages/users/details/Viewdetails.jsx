@@ -326,13 +326,28 @@ const Viewdetails = () => {
     setBetTimeFilterType('all');
   };
 
+  // Calculate total wins and losses from bet history
+  const calculateBetStats = (bets) => {
+    let totalWin = 0;
+    let totalLoss = 0;
+    bets.forEach(bet => {
+      if (bet.betResult === 'win') {
+        totalWin += parseFloat(bet.betAmount) || 0;
+      } else if (bet.betResult === 'loss') {
+        totalLoss += parseFloat(bet.betAmount) || 0;
+      }
+    });
+    return { totalWin, totalLoss };
+  };
+
   // Enhanced filter functions with time filter for bets
   const filteredBetHistory = betHistory.filter(bet => {
     // Search filter
     const searchTerm = betSearch.toLowerCase();
     const matchesSearch = 
       bet.transaction_id?.toLowerCase().includes(searchTerm) ||
-      bet.game_id?.toLowerCase().includes(searchTerm);
+      bet.game_id?.toLowerCase().includes(searchTerm) ||
+      bet.game_name?.toLowerCase().includes(searchTerm);
     
     // Status and Result filters
     const matchesStatus = betStatusFilter === 'all' || bet.status === betStatusFilter;
@@ -352,6 +367,9 @@ const Viewdetails = () => {
     
     return matchesSearch && matchesStatus && matchesResult && matchesTime;
   });
+
+  // Calculate win/loss statistics for filtered bets
+  const betStats = calculateBetStats(filteredBetHistory);
 
   const filteredDepositHistory = depositHistory.filter(deposit => {
     const searchTerm = depositSearch.toLowerCase();
@@ -1065,7 +1083,7 @@ const Viewdetails = () => {
                   </div>
                 )}
 
-                {/* Bet History Tab with Time Filter */}
+                {/* Bet History Tab with Time Filter and Stats */}
                 {activeTab === 'betHistory' && (
                   <div className="bg-[#161B22] border border-gray-800 rounded-lg overflow-hidden">
                     <div className="p-5 border-b border-gray-800">
@@ -1104,6 +1122,30 @@ const Viewdetails = () => {
                             <option value="loss">Loss</option>
                             <option value="pending">Pending</option>
                           </select>
+                        </div>
+                      </div>
+                      
+                      {/* Win/Loss Summary Statistics */}
+                      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-[#0F111A] border border-gray-800 rounded-lg p-3">
+                          <p className="text-[8px] uppercase font-bold text-gray-500">Total Bets</p>
+                          <p className="text-base font-bold text-white">{filteredBetHistory.length}</p>
+                        </div>
+                        <div className="bg-[#0F111A] border border-emerald-800/30 rounded-lg p-3">
+                          <p className="text-[8px] uppercase font-bold text-gray-500">Total Wins</p>
+                          <p className="text-base font-bold text-emerald-400">{formatCurrency(betStats.totalWin)} {user.currency}</p>
+                        </div>
+                        <div className="bg-[#0F111A] border border-rose-800/30 rounded-lg p-3">
+                          <p className="text-[8px] uppercase font-bold text-gray-500">Total Losses</p>
+                          <p className="text-base font-bold text-rose-400">{formatCurrency(betStats.totalLoss)} {user.currency}</p>
+                        </div>
+                        <div className="bg-[#0F111A] border border-gray-800 rounded-lg p-3">
+                          <p className="text-[8px] uppercase font-bold text-gray-500">Win/Loss Ratio</p>
+                          <p className="text-base font-bold text-amber-400">
+                            {betStats.totalLoss > 0 
+                              ? (betStats.totalWin / betStats.totalLoss).toFixed(2)
+                              : betStats.totalWin > 0 ? '∞' : '0.00'}
+                          </p>
                         </div>
                       </div>
                       
@@ -1201,6 +1243,7 @@ const Viewdetails = () => {
                       <table className="w-full">
                         <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
                           <tr>
+                            <th className="py-3 px-4 text-left">#</th>
                             <th className="py-3 px-4 text-left">Transaction ID</th>
                             <th className="py-3 px-4 text-left">Game Name</th>
                             <th className="py-3 px-4 text-left">Amount</th>
@@ -1212,19 +1255,20 @@ const Viewdetails = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                           {filteredBetHistory.length > 0 ? (
-                            filteredBetHistory.map((bet) => (
-                              <tr key={bet._id || bet.transaction_id} className="hover:bg-[#1F2937] transition-colors">
+                            filteredBetHistory.map((bet, index) => (
+                              <tr key={bet._id || bet.transaction_id || index} className="hover:bg-[#1F2937] transition-colors">
+                                <td className="py-3 px-4 text-xs text-gray-500">{index + 1}</td>
                                 <td className="py-3 px-4 text-xs font-mono text-gray-400">{bet.transaction_id?.substring(0, 12)}...</td>
-                                <td className="py-3 px-4 text-xs text-gray-300">{bet.game_name}</td>
+                                <td className="py-3 px-4 text-xs text-gray-300">{bet.game_name || 'N/A'}</td>
                                 <td className="py-3 px-4 text-xs font-bold text-amber-400">{formatCurrency(bet.betAmount)} {user.currency}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getBetResultBadge(bet.betResult)}`}>
-                                    {bet.betResult}
+                                    {bet.betResult || 'N/A'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getPaymentStatusBadge(bet.status)}`}>
-                                    {bet.status}
+                                    {bet.status || 'N/A'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(bet.bet_time)}</td>
@@ -1240,7 +1284,7 @@ const Viewdetails = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="7" className="py-8 text-center text-gray-500 text-xs">
+                              <td colSpan="8" className="py-8 text-center text-gray-500 text-xs">
                                 No bet history found
                               </td>
                             </tr>
@@ -1288,6 +1332,7 @@ const Viewdetails = () => {
                       <table className="w-full">
                         <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
                           <tr>
+                            <th className="py-3 px-4 text-left">#</th>
                             <th className="py-3 px-4 text-left">Method</th>
                             <th className="py-3 px-4 text-left">Amount</th>
                             <th className="py-3 px-4 text-left">Status</th>
@@ -1298,17 +1343,18 @@ const Viewdetails = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                           {filteredDepositHistory.length > 0 ? (
-                            filteredDepositHistory.map((deposit) => (
-                              <tr key={deposit._id || deposit.orderId} className="hover:bg-[#1F2937] transition-colors">
+                            filteredDepositHistory.map((deposit, index) => (
+                              <tr key={deposit._id || deposit.orderId || index} className="hover:bg-[#1F2937] transition-colors">
+                                <td className="py-3 px-4 text-xs text-gray-500">{index + 1}</td>
                                 <td className="py-3 px-4">
                                   <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-bold uppercase">
-                                    {deposit.method}
+                                    {deposit.method || 'N/A'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-xs font-bold text-emerald-400">{formatCurrency(deposit.amount)} {user.currency}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getPaymentStatusBadge(deposit.status)}`}>
-                                    {deposit.status}
+                                    {deposit.status || 'N/A'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4">
@@ -1329,7 +1375,7 @@ const Viewdetails = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="6" className="py-8 text-center text-gray-500 text-xs">
+                              <td colSpan="7" className="py-8 text-center text-gray-500 text-xs">
                                 No deposit history found
                               </td>
                             </tr>
@@ -1378,6 +1424,7 @@ const Viewdetails = () => {
                       <table className="w-full">
                         <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
                           <tr>
+                            <th className="py-3 px-4 text-left">#</th>
                             <th className="py-3 px-4 text-left">Method</th>
                             <th className="py-3 px-4 text-left">Amount</th>
                             <th className="py-3 px-4 text-left">Net Amount</th>
@@ -1389,8 +1436,9 @@ const Viewdetails = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                           {filteredWithdrawHistory.length > 0 ? (
-                            filteredWithdrawHistory.map((withdraw) => (
-                              <tr key={withdraw._id || withdraw.orderId} className="hover:bg-[#1F2937] transition-colors">
+                            filteredWithdrawHistory.map((withdraw, index) => (
+                              <tr key={withdraw._id || withdraw.orderId || index} className="hover:bg-[#1F2937] transition-colors">
+                                <td className="py-3 px-4 text-xs text-gray-500">{index + 1}</td>
                                 <td className="py-3 px-4">
                                   <span className="text-[9px] px-2 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded font-bold uppercase">
                                     {withdraw.method || 'N/A'}
@@ -1401,7 +1449,7 @@ const Viewdetails = () => {
                                 <td className="py-3 px-4 text-xs font-mono text-gray-400">{withdraw.accountNumber || 'N/A'}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getPaymentStatusBadge(withdraw.status)}`}>
-                                    {withdraw.status}
+                                    {withdraw.status || 'N/A'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(withdraw.createdAt)}</td>
@@ -1417,7 +1465,7 @@ const Viewdetails = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="7" className="py-8 text-center text-gray-500 text-xs">
+                              <td colSpan="8" className="py-8 text-center text-gray-500 text-xs">
                                 No withdrawal history found
                               </td>
                             </tr>
@@ -1456,6 +1504,7 @@ const Viewdetails = () => {
                       <table className="w-full">
                         <thead className="bg-[#0F111A] text-[9px] text-gray-500 uppercase">
                           <tr>
+                            <th className="py-3 px-4 text-left">#</th>
                             <th className="py-3 px-4 text-left">Type</th>
                             <th className="py-3 px-4 text-left">Amount</th>
                             <th className="py-3 px-4 text-left">Balance Before</th>
@@ -1466,11 +1515,12 @@ const Viewdetails = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-800">
                           {filteredTransactionHistory.length > 0 ? (
-                            filteredTransactionHistory.map((transaction) => (
-                              <tr key={transaction._id} className="hover:bg-[#1F2937] transition-colors">
+                            filteredTransactionHistory.map((transaction, index) => (
+                              <tr key={transaction._id || index} className="hover:bg-[#1F2937] transition-colors">
+                                <td className="py-3 px-4 text-xs text-gray-500">{index + 1}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-[9px] px-2 py-1 rounded font-bold uppercase ${getTransactionTypeBadge(transaction.type)}`}>
-                                    {transaction.type}
+                                    {transaction.type || 'N/A'}
                                   </span>
                                 </td>
                                 <td className={`py-3 px-4 text-xs font-bold ${
@@ -1482,13 +1532,13 @@ const Viewdetails = () => {
                                 </td>
                                 <td className="py-3 px-4 text-xs text-gray-400">{formatCurrency(transaction.balanceBefore)} {user.currency}</td>
                                 <td className="py-3 px-4 text-xs text-gray-400">{formatCurrency(transaction.balanceAfter)} {user.currency}</td>
-                                <td className="py-3 px-4 text-[10px] text-gray-500">{transaction.description}</td>
-                                <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(transaction.createdAt)}                                  </td>
-                               </tr>
+                                <td className="py-3 px-4 text-[10px] text-gray-500">{transaction.description || 'N/A'}</td>
+                                <td className="py-3 px-4 text-[10px] text-gray-500">{formatDate(transaction.createdAt)}</td>
+                              </tr>
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="6" className="py-8 text-center text-gray-500 text-xs">
+                              <td colSpan="7" className="py-8 text-center text-gray-500 text-xs">
                                 No transaction history found
                               </td>
                             </tr>
