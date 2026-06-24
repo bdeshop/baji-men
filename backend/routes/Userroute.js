@@ -4034,7 +4034,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
 
     // Match user by gamingid (member_account is the gaming ID)
     const matcheduser = await User.findOne({ gamingid: member_account });
-    console.log("matcheduser", matcheduser);
     
     if (!matcheduser) {
       return res.status(404).json({
