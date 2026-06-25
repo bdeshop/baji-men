@@ -9481,13 +9481,11 @@ Adminrouter.get("/betting-history", async (req, res) => {
     
     // Get total count for pagination
     const totalCount = await BettingHistory.countDocuments(filter);
-    console.log("bettingHistory",bettingHistory)
     // Get paginated and filtered data
     const bettingHistory = await BettingHistory.find(filter)
       .sort({ [sortBy]: parseInt(sortOrder) })
       .skip(skip)
       .limit(limit);
-    console.log("bettingHistory",bettingHistory)
     if (!bettingHistory || bettingHistory.length === 0) {
       return res.send({
         success: false,
@@ -9501,6 +9499,7 @@ Adminrouter.get("/betting-history", async (req, res) => {
         }
       });
     }
+    console.log("bettingHistory",bettingHistory)
     
     return res.send({
       success: true,
