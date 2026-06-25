@@ -9428,7 +9428,7 @@ Adminrouter.delete("/affiliate-payouts", async (req, res) => {
 });
 
 // ---------------admin-route--------------------------
-router.get("/betting-history", async (req, res) => {
+Adminrouter.get("/betting-history", async (req, res) => {
   try {
     // Get query parameters for pagination and filtering
     const page = parseInt(req.query.page) || 1;
