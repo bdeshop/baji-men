@@ -485,7 +485,7 @@ const Allbets = () => {
             </div>
             
             {/* Bets Table */}
-            <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800">
+            <div className="bg-[#161B22]  overflow-hidden border border-gray-800">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-800">
                   <thead className="bg-[#1C2128]">
