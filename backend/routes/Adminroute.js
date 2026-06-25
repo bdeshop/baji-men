@@ -9497,7 +9497,7 @@ Adminrouter.get("/betting-history", async (req, res) => {
       .sort({ [sortBy]: parseInt(sortOrder) })
       .skip(skip)
       .limit(limit);
-    
+    console.log("bettingHistory",bettingHistory)
     if (!bettingHistory || bettingHistory.length === 0) {
       return res.send({
         success: false,
