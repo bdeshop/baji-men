@@ -9428,17 +9428,100 @@ Adminrouter.delete("/affiliate-payouts", async (req, res) => {
 });
 
 // ---------------admin-route--------------------------
-Adminrouter.get("/betting-history",async(req,res)=>{
+router.get("/betting-history", async (req, res) => {
   try {
-    const bettinghistory=await BettingHistory.find().sort({createdAt:-1});
-    if(!bettinghistory){
-    return res.send({success:false,message:"no data found!"})
+    // Get query parameters for pagination and filtering
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+    
+    // Filter parameters
+    const { 
+      gameType, 
+      status, 
+      search, 
+      startDate, 
+      endDate,
+      sortBy = 'createdAt',
+      sortOrder = -1
+    } = req.query;
+    
+    // Build filter object
+    let filter = {};
+    
+    // Search by username or serial number
+    if (search) {
+      filter.$or = [
+        { original_username: { $regex: search, $options: 'i' } },
+        { serial_number: { $regex: search, $options: 'i' } },
+        { member_account: { $regex: search, $options: 'i' } }
+      ];
     }
-     return res.send({success:true,data:bettinghistory})
+    
+    // Filter by game type
+    if (gameType && gameType !== 'all') {
+      filter.game_type = gameType;
+    }
+    
+    // Filter by status
+    if (status && status !== 'all') {
+      filter.status = status.toLowerCase();
+    }
+    
+    // Filter by date range
+    if (startDate || endDate) {
+      filter.transaction_time = {};
+      if (startDate) {
+        filter.transaction_time.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.transaction_time.$lte = new Date(endDate);
+      }
+    }
+    
+    // Get total count for pagination
+    const totalCount = await BettingHistory.countDocuments(filter);
+    
+    // Get paginated and filtered data
+    const bettingHistory = await BettingHistory.find(filter)
+      .sort({ [sortBy]: parseInt(sortOrder) })
+      .skip(skip)
+      .limit(limit);
+    
+    if (!bettingHistory || bettingHistory.length === 0) {
+      return res.send({
+        success: false,
+        message: "No data found!",
+        data: [],
+        pagination: {
+          total: 0,
+          page: page,
+          limit: limit,
+          totalPages: 0
+        }
+      });
+    }
+    
+    return res.send({
+      success: true,
+      data: bettingHistory,
+      pagination: {
+        total: totalCount,
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    });
+    
   } catch (error) {
     console.log(error);
+    return res.status(500).send({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
   }
-})
+});
 
 // ------------------------deposit-method----------------------
 // Multer setup for file upload
