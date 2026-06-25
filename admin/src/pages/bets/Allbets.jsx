@@ -4,20 +4,21 @@ import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { toast, Toaster } from 'react-hot-toast';
 import axios from "axios";
+import moment from 'moment';
 
 const Allbets = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [gameFilter, setGameFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('today'); // Default to today
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const token = localStorage.getItem('token');
-  const itemsPerPage = 50; // Changed from 70 to 50
+  const itemsPerPage = 50;
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -35,7 +36,6 @@ const Allbets = () => {
     try {
       setLoading(true);
       
-      // Build query parameters
       const params = new URLSearchParams();
       params.append('page', page);
       params.append('limit', itemsPerPage);
@@ -44,34 +44,38 @@ const Allbets = () => {
       if (gameFilter && gameFilter !== 'all') params.append('gameType', gameFilter);
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       
-      // Date filtering
+      // Date filtering using moment
       if (dateFilter && dateFilter !== 'all') {
-        const now = new Date();
-        let startDate, endDate = new Date();
+        let startDate, endDate;
+        const now = moment();
         
         switch(dateFilter) {
-          case 'Today':
-            startDate = new Date(now.setHours(0,0,0,0));
+          case 'today':
+            startDate = moment().startOf('day').toISOString();
+            endDate = moment().endOf('day').toISOString();
             break;
-          case 'Yesterday':
-            startDate = new Date(now.setDate(now.getDate() - 1));
-            startDate.setHours(0,0,0,0);
-            endDate = new Date(startDate);
-            endDate.setHours(23,59,59,999);
+          case 'yesterday':
+            startDate = moment().subtract(1, 'days').startOf('day').toISOString();
+            endDate = moment().subtract(1, 'days').endOf('day').toISOString();
             break;
-          case 'Last 7 days':
-            startDate = new Date(now.setDate(now.getDate() - 7));
+          case 'week':
+            startDate = moment().subtract(7, 'days').startOf('day').toISOString();
+            endDate = moment().endOf('day').toISOString();
             break;
-          case 'Last 30 days':
-            startDate = new Date(now.setDate(now.getDate() - 30));
+          case 'month':
+            startDate = moment().subtract(30, 'days').startOf('day').toISOString();
+            endDate = moment().endOf('day').toISOString();
+            break;
+          case 'custom':
+            // Custom date range would be handled separately
             break;
           default:
             startDate = null;
         }
         
         if (startDate) {
-          params.append('startDate', startDate.toISOString());
-          params.append('endDate', endDate.toISOString());
+          params.append('startDate', startDate);
+          params.append('endDate', endDate);
         }
       }
       
@@ -86,7 +90,7 @@ const Allbets = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-      console.log("response.data",response.data)
+      
       if (response.data.success) {
         const transformedBets = response.data.data.map((bet, index) => ({
           game_name: bet.game_name,
@@ -144,7 +148,13 @@ const Allbets = () => {
 
   const games = ['all', ...Array.from(new Set(bets.map(bet => bet.game_type).filter(Boolean)))];
   const statuses = ['all', 'won', 'lost', 'pending'];
-  const dateRanges = ['all', 'Today', 'Yesterday', 'Last 7 days', 'Last 30 days', 'Custom'];
+  const dateRanges = [
+    { value: 'today', label: 'Today' },
+    { value: 'yesterday', label: 'Yesterday' },
+    { value: 'week', label: 'Last 7 days' },
+    { value: 'month', label: 'Last 30 days' },
+    { value: 'all', label: 'All Time' }
+  ];
 
   const sortedBets = useMemo(() => {
     let sortableItems = [...bets];
@@ -203,17 +213,38 @@ const Allbets = () => {
     }).format(amount);
   };
 
+  // Format date using moment
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const options = { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return moment(dateString).format('MMM DD, YYYY HH:mm:ss');
+  };
+
+  // Get relative time using moment
+  const getRelativeTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    return moment(dateString).fromNow();
+  };
+
+  // Get time ago (e.g., "5 minutes ago")
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return 'N/A';
+    const diff = moment().diff(moment(dateString), 'minutes');
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff} minutes ago`;
+    if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
+    return `${Math.floor(diff / 1440)} days ago`;
+  };
+
+  // Check if date is today
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    return moment(dateString).isSame(moment(), 'day');
+  };
+
+  // Check if date is within last hour
+  const isRecent = (dateString) => {
+    if (!dateString) return false;
+    return moment(dateString).isAfter(moment().subtract(1, 'hour'));
   };
 
   const getStatusBadge = (status) => {
@@ -244,6 +275,12 @@ const Allbets = () => {
   const handleRefresh = () => {
     fetchBettingHistory(currentPage);
     toast.success('Data refreshed');
+  };
+
+  // Get current date range label for display
+  const getCurrentDateRangeLabel = () => {
+    const range = dateRanges.find(r => r.value === dateFilter);
+    return range ? range.label : 'All Time';
   };
 
   // Pagination with ellipsis
@@ -312,11 +349,16 @@ const Allbets = () => {
           }`}
         >
           <div className="w-full mx-auto">
-            {/* Page Header - Smaller */}
+            {/* Page Header */}
             <div className="rounded-lg mb-4 flex flex-col md:flex-row justify-between items-center">
               <div>
                 <h1 className="text-xl font-semibold text-white tracking-tighter uppercase">Bet History</h1>
-                <p className="text-[10px] font-bold text-gray-500 mt-1">View and manage all betting activities</p>
+                <p className="text-[10px] font-bold text-gray-500 mt-1">
+                  View and manage all betting activities 
+                  <span className="text-indigo-400 ml-1">
+                    ({getCurrentDateRangeLabel()})
+                  </span>
+                </p>
               </div>
               <button 
                 onClick={handleRefresh}
@@ -326,7 +368,7 @@ const Allbets = () => {
               </button>
             </div>
             
-            {/* Stats Cards - Smaller */}
+            {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               <div className="bg-[#161B22] border-l-4 border-indigo-500 p-3 rounded shadow-lg border-y border-r border-gray-800">
                 <h3 className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Bets</h3>
@@ -348,7 +390,7 @@ const Allbets = () => {
               </div>
             </div>
             
-            {/* Filters Section - Smaller */}
+            {/* Filters Section */}
             <div className="bg-[#161B22] border border-gray-800 rounded-lg p-4 mb-4 shadow-2xl">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
@@ -360,7 +402,7 @@ const Allbets = () => {
                     setSearchTerm('');
                     setGameFilter('all');
                     setStatusFilter('all');
-                    setDateFilter('all');
+                    setDateFilter('today');
                   }}
                   className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
                 >
@@ -418,23 +460,28 @@ const Allbets = () => {
                     onChange={(e) => setDateFilter(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
-                    {dateRanges.map((range, index) => (
-                      <option key={index} value={range}>{range}</option>
+                    {dateRanges.map((range) => (
+                      <option key={range.value} value={range.value}>{range.label}</option>
                     ))}
                   </select>
                 </div>
               </div>
             </div>
             
-            {/* Results Count and Sort - Smaller */}
+            {/* Results Count and Sort */}
             <div className="mb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
               <p className="text-gray-500 text-[10px]">
                 Showing {pagination.total > 0 ? ((currentPage - 1) * itemsPerPage + 1) : 0} to{' '}
                 {Math.min(currentPage * itemsPerPage, pagination.total)} of {pagination.total} bets
+                {dateFilter !== 'all' && (
+                  <span className="text-indigo-400 ml-1">
+                    ({getCurrentDateRangeLabel()})
+                  </span>
+                )}
               </p>
               
-              <div className="flex items-center text-xs">
-                <span className="mr-2 text-gray-500">Sort by:</span>
+              <div className="flex items-center text-xs gap-2">
+                <span className="text-gray-500">Sort by:</span>
                 <select 
                   className="bg-[#0F111A] border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-200"
                   value={sortConfig.key || ''}
@@ -448,7 +495,7 @@ const Allbets = () => {
               </div>
             </div>
             
-            {/* Bets Table - Smaller font */}
+            {/* Bets Table */}
             <div className="bg-[#161B22] rounded-lg overflow-hidden border border-gray-800">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-800">
@@ -553,11 +600,22 @@ const Allbets = () => {
                               {getStatusBadge(bet.status)}
                             </td>
                             <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-[10px] text-gray-500">{formatDate(bet.date)}</div>
+                              <div className="flex flex-col">
+                                <div className="text-[10px] text-gray-500">{formatDate(bet.date)}</div>
+                                <div className="text-[8px] text-gray-600">
+                                  {isToday(bet.date) ? (
+                                    <span className="text-green-400">{getTimeAgo(bet.date)}</span>
+                                  ) : isRecent(bet.date) ? (
+                                    <span className="text-yellow-400">{getTimeAgo(bet.date)}</span>
+                                  ) : (
+                                    <span className="text-gray-500">{getRelativeTime(bet.date)}</span>
+                                  )}
+                                </div>
+                              </div>
                             </td>
                           </tr>
                           
-                          {/* Expanded Details Row - Smaller */}
+                          {/* Expanded Details Row */}
                           {expandedRows[bet.id] && (
                             <tr className="bg-[#1F2937]">
                               <td colSpan="9" className="px-4 py-4">
@@ -611,6 +669,10 @@ const Allbets = () => {
                                         <span className="text-gray-400">Processed:</span>
                                         <span className="text-gray-200 text-[10px]">{formatDate(bet.processed_at)}</span>
                                       </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-400">Relative:</span>
+                                        <span className="text-gray-200 text-[10px]">{getRelativeTime(bet.date)}</span>
+                                      </div>
                                     </div>
                                   </div>
                                   
@@ -655,7 +717,7 @@ const Allbets = () => {
               </div>
             </div>
             
-            {/* Pagination - Smaller */}
+            {/* Pagination */}
             {!loading && filteredBets.length > 0 && totalPages > 1 && (
               <div className="flex items-center justify-between mt-3 px-2 py-2">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
