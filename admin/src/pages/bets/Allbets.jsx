@@ -11,7 +11,7 @@ const Allbets = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [gameFilter, setGameFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('today'); // Default to today
+  const [dateFilter, setDateFilter] = useState('today');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState({});
@@ -44,7 +44,6 @@ const Allbets = () => {
       if (gameFilter && gameFilter !== 'all') params.append('gameType', gameFilter);
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       
-      // Date filtering using moment
       if (dateFilter && dateFilter !== 'all') {
         let startDate, endDate;
         const now = moment();
@@ -67,7 +66,6 @@ const Allbets = () => {
             endDate = moment().endOf('day').toISOString();
             break;
           case 'custom':
-            // Custom date range would be handled separately
             break;
           default:
             startDate = null;
@@ -79,7 +77,6 @@ const Allbets = () => {
         }
       }
       
-      // Sorting
       if (sortConfig.key) {
         params.append('sortBy', sortConfig.key === 'date' ? 'createdAt' : sortConfig.key);
         params.append('sortOrder', sortConfig.direction === 'ascending' ? '1' : '-1');
@@ -94,7 +91,7 @@ const Allbets = () => {
       if (response.data.success) {
         const transformedBets = response.data.data.map((bet, index) => ({
           game_name: bet.game_name,
-          id: bet._id?.$oid || `bet-${index}`,
+          id: bet._id || `bet-${index}`,
           betId: bet.serial_number || `BT${String(index + 1).padStart(6, '0')}`,
           username: bet.original_username || bet.member_account,
           game: bet.game_uid || 'Unknown Game',
@@ -136,7 +133,6 @@ const Allbets = () => {
     fetchBettingHistory(1);
   }, []);
 
-  // Fetch when filters change
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       fetchBettingHistory(1);
@@ -193,9 +189,9 @@ const Allbets = () => {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return <FaSort className="text-gray-500 text-xs" />;
-    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-indigo-500 text-xs" />;
-    return <FaSortDown className="text-indigo-500 text-xs" />;
+    if (sortConfig.key !== key) return <FaSort className="text-gray-500 text-sm" />;
+    if (sortConfig.direction === 'ascending') return <FaSortUp className="text-indigo-500 text-sm" />;
+    return <FaSortDown className="text-indigo-500 text-sm" />;
   };
 
   const toggleRow = (betId) => {
@@ -213,19 +209,16 @@ const Allbets = () => {
     }).format(amount);
   };
 
-  // Format date using moment
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return moment(dateString).format('MMM DD, YYYY HH:mm:ss');
   };
 
-  // Get relative time using moment
   const getRelativeTime = (dateString) => {
     if (!dateString) return 'N/A';
     return moment(dateString).fromNow();
   };
 
-  // Get time ago (e.g., "5 minutes ago")
   const getTimeAgo = (dateString) => {
     if (!dateString) return 'N/A';
     const diff = moment().diff(moment(dateString), 'minutes');
@@ -235,13 +228,11 @@ const Allbets = () => {
     return `${Math.floor(diff / 1440)} days ago`;
   };
 
-  // Check if date is today
   const isToday = (dateString) => {
     if (!dateString) return false;
     return moment(dateString).isSame(moment(), 'day');
   };
 
-  // Check if date is within last hour
   const isRecent = (dateString) => {
     if (!dateString) return false;
     return moment(dateString).isAfter(moment().subtract(1, 'hour'));
@@ -258,7 +249,7 @@ const Allbets = () => {
     
     const statusInfo = statusMap[status.toLowerCase()] || { color: 'bg-gray-800 text-gray-400 border border-gray-700', text: status };
     return (
-      <div className={`w-[100%] h-[40px] flex justify-center items-center text-xs leading-4 font-[600] ${statusInfo.color} rounded`}>
+      <div className={`w-[100%] h-[40px] flex justify-center items-center text-sm leading-4 font-[600] ${statusInfo.color} rounded`}>
         {statusInfo.text}
       </div>
     );
@@ -277,13 +268,11 @@ const Allbets = () => {
     toast.success('Data refreshed');
   };
 
-  // Get current date range label for display
   const getCurrentDateRangeLabel = () => {
     const range = dateRanges.find(r => r.value === dateFilter);
     return range ? range.label : 'All Time';
   };
 
-  // Pagination with ellipsis
   const getPaginationItems = () => {
     const delta = 2;
     const range = [];
@@ -344,16 +333,16 @@ const Allbets = () => {
         <Sidebar isOpen={isSidebarOpen} />
 
         <main
-          className={`transition-all duration-300 flex-1 p-4 overflow-y-auto h-[90vh] ${
+          className={`transition-all duration-300 flex-1 p-6 overflow-y-auto h-[90vh] ${
             isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'
           }`}
         >
           <div className="w-full mx-auto">
             {/* Page Header */}
-            <div className="rounded-lg mb-4 flex flex-col md:flex-row justify-between items-center">
+            <div className="rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center">
               <div>
-                <h1 className="text-xl font-semibold text-white tracking-tighter uppercase">Bet History</h1>
-                <p className="text-[10px] font-bold text-gray-500 mt-1">
+                <h1 className="text-2xl font-semibold text-white tracking-tighter uppercase">Bet History</h1>
+                <p className="text-sm font-bold text-gray-500 mt-1">
                   View and manage all betting activities 
                   <span className="text-indigo-400 ml-1">
                     ({getCurrentDateRangeLabel()})
@@ -362,39 +351,39 @@ const Allbets = () => {
               </div>
               <button 
                 onClick={handleRefresh}
-                className="w-full md:w-auto mt-3 md:mt-0 bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-4 py-1.5 rounded font-bold text-xs transition-all flex items-center justify-center gap-2"
+                className="w-full md:w-auto mt-3 md:mt-0 bg-[#1F2937] hover:bg-indigo-600 border border-gray-700 px-5 py-2 rounded font-bold text-sm transition-all flex items-center justify-center gap-2"
               >
                 Refresh
               </button>
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              <div className="bg-[#161B22] border-l-4 border-indigo-500 p-3 rounded shadow-lg border-y border-r border-gray-800">
-                <h3 className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Bets</h3>
-                <p className="text-base font-bold text-white mt-1 leading-none">{pagination.total || filteredBets.length}</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-[#161B22] border-l-4 border-indigo-500 p-4 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest leading-none">Total Bets</h3>
+                <p className="text-xl font-bold text-white mt-1.5 leading-none">{pagination.total || filteredBets.length}</p>
               </div>
-              <div className="bg-[#161B22] border-l-4 border-green-500 p-3 rounded shadow-lg border-y border-r border-gray-800">
-                <h3 className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Bet Amount</h3>
-                <p className="text-base font-bold text-white mt-1 leading-none">{formatCurrency(totalBetAmount)}</p>
+              <div className="bg-[#161B22] border-l-4 border-green-500 p-4 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest leading-none">Total Bet Amount</h3>
+                <p className="text-xl font-bold text-white mt-1.5 leading-none">{formatCurrency(totalBetAmount)}</p>
               </div>
-              <div className="bg-[#161B22] border-l-4 border-amber-500 p-3 rounded shadow-lg border-y border-r border-gray-800">
-                <h3 className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Payout</h3>
-                <p className="text-base font-bold text-white mt-1 leading-none">{formatCurrency(totalWinAmount)}</p>
+              <div className="bg-[#161B22] border-l-4 border-amber-500 p-4 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest leading-none">Total Payout</h3>
+                <p className="text-xl font-bold text-white mt-1.5 leading-none">{formatCurrency(totalWinAmount)}</p>
               </div>
-              <div className="bg-[#161B22] border-l-4 border-purple-500 p-3 rounded shadow-lg border-y border-r border-gray-800">
-                <h3 className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none">Profit/Loss</h3>
-                <p className={`text-base font-bold mt-1 leading-none ${totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <div className="bg-[#161B22] border-l-4 border-purple-500 p-4 rounded shadow-lg border-y border-r border-gray-800">
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest leading-none">Profit/Loss</h3>
+                <p className={`text-xl font-bold mt-1.5 leading-none ${totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {formatCurrency(totalProfit)}
                 </p>
               </div>
             </div>
             
             {/* Filters Section */}
-            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-4 mb-4 shadow-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                  <div className="w-1 h-3 bg-indigo-500"></div>
+            <div className="bg-[#161B22] border border-gray-800 rounded-lg p-5 mb-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <div className="w-1.5 h-4 bg-indigo-500"></div>
                   Filters & Search
                 </h3>
                 <button 
@@ -404,23 +393,23 @@ const Allbets = () => {
                     setStatusFilter('all');
                     setDateFilter('today');
                   }}
-                  className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
                 >
                   Clear All Filters
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Search Input */}
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                    <FaSearch className="text-gray-500 text-xs" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaSearch className="text-gray-500 text-sm" />
                   </div>
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8 w-full px-3 py-1.5 text-xs bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
+                    className="pl-10 w-full px-3 py-2.5 text-sm bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200 placeholder-gray-500 transition-all duration-200"
                     placeholder="Search by Bet ID or Username..."
                   />
                 </div>
@@ -430,7 +419,7 @@ const Allbets = () => {
                   <select
                     value={gameFilter}
                     onChange={(e) => setGameFilter(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
+                    className="w-full px-3 py-2.5 text-sm bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     <option value="all">All Games</option>
                     {games.filter(game => game !== 'all').map((game, index) => (
@@ -444,7 +433,7 @@ const Allbets = () => {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
+                    className="w-full px-3 py-2.5 text-sm bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     <option value="all">All Status</option>
                     <option value="won">Won</option>
@@ -458,7 +447,7 @@ const Allbets = () => {
                   <select
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
+                    className="w-full px-3 py-2.5 text-sm bg-[#0F111A] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-200"
                   >
                     {dateRanges.map((range) => (
                       <option key={range.value} value={range.value}>{range.label}</option>
@@ -469,8 +458,8 @@ const Allbets = () => {
             </div>
             
             {/* Results Count and Sort */}
-            <div className="mb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-              <p className="text-gray-500 text-[10px]">
+            <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+              <p className="text-gray-500 text-sm">
                 Showing {pagination.total > 0 ? ((currentPage - 1) * itemsPerPage + 1) : 0} to{' '}
                 {Math.min(currentPage * itemsPerPage, pagination.total)} of {pagination.total} bets
                 {dateFilter !== 'all' && (
@@ -480,10 +469,10 @@ const Allbets = () => {
                 )}
               </p>
               
-              <div className="flex items-center text-xs gap-2">
+              <div className="flex items-center text-sm gap-3">
                 <span className="text-gray-500">Sort by:</span>
                 <select 
-                  className="bg-[#0F111A] border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-200"
+                  className="bg-[#0F111A] border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-200"
                   value={sortConfig.key || ''}
                   onChange={(e) => requestSort(e.target.value)}
                 >
@@ -501,56 +490,56 @@ const Allbets = () => {
                 <table className="min-w-full divide-y divide-gray-800">
                   <thead className="bg-[#1C2128]">
                     <tr>
-                      <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">#</th>
-                      <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">Game</th>
-                      <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">Username</th>
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider">#</th>
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider">Game</th>
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider">Username</th>
                       <th 
                         scope="col" 
-                        className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
+                        className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
                         onClick={() => requestSort('betAmount')}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           Bet
                           {getSortIcon('betAmount')}
                         </div>
                       </th>
                       <th 
                         scope="col" 
-                        className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
+                        className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
                         onClick={() => requestSort('winAmount')}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           Win
                           {getSortIcon('winAmount')}
                         </div>
                       </th>
                       <th 
                         scope="col" 
-                        className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
+                        className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
                         onClick={() => requestSort('netAmount')}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           Net
                           {getSortIcon('netAmount')}
                         </div>
                       </th>
-                      <th scope="col" className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">Balance</th>
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider">Balance</th>
                       <th 
                         scope="col" 
-                        className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
+                        className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
                         onClick={() => requestSort('status')}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           Status
                           {getSortIcon('status')}
                         </div>
                       </th>
                       <th 
                         scope="col" 
-                        className="px-3 py-2 text-left text-[10px] font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
+                        className="px-4 py-3 text-left text-sm font-semibold text-indigo-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
                         onClick={() => requestSort('date')}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           Date
                           {getSortIcon('date')}
                         </div>
@@ -560,10 +549,10 @@ const Allbets = () => {
                   <tbody className="bg-[#161B22] divide-y divide-gray-800">
                     {loading ? (
                       <tr>
-                        <td colSpan="9" className="px-3 py-8 text-center">
+                        <td colSpan="9" className="px-4 py-10 text-center">
                           <div className="flex flex-col items-center justify-center">
-                            <FaSpinner className="animate-spin text-indigo-500 text-2xl mb-2" />
-                            <p className="text-gray-500 text-xs">Loading bets...</p>
+                            <FaSpinner className="animate-spin text-indigo-500 text-3xl mb-3" />
+                            <p className="text-gray-500 text-sm">Loading bets...</p>
                           </div>
                         </td>
                       </tr>
@@ -571,38 +560,38 @@ const Allbets = () => {
                       currentItems.map((bet, index) => (
                         <React.Fragment key={bet.id}>
                           <tr onClick={() => toggleRow(bet.id)} className="hover:bg-[#1F2937] cursor-pointer transition-colors duration-150">
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-xs font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + index + 1}</div>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + index + 1}</div>
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-xs font-medium text-gray-300">{bet.game_name || bet.game_type || 'N/A'}</div>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{bet.game_name || bet.game_type || 'N/A'}</div>
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-xs font-medium text-gray-300">{bet.username}</div>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{bet.username}</div>
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-xs font-medium text-gray-300">{formatCurrency(bet.betAmount)}</div>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm font-medium text-gray-300">{formatCurrency(bet.betAmount)}</div>
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className={`text-xs font-medium ${bet.winAmount > 0 ? 'text-green-500' : 'text-gray-300'}`}>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className={`text-sm font-medium ${bet.winAmount > 0 ? 'text-green-500' : 'text-gray-300'}`}>
                                 {formatCurrency(bet.winAmount)}
                               </div>
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className={`text-xs font-medium ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className={`text-sm font-medium ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 {formatCurrency(bet.netAmount)}
                               </div>
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
-                              <div className="text-xs text-gray-300">{bet.balance_after?.toFixed(2)} BDT</div>
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
+                              <div className="text-sm text-gray-300">{bet.balance_after?.toFixed(2)} BDT</div>
                             </td>
                             <td className="whitespace-nowrap border-r border-gray-800">
                               {getStatusBadge(bet.status)}
                             </td>
-                            <td className="px-3 py-1.5 whitespace-nowrap border-r border-gray-800">
+                            <td className="px-4 py-2.5 whitespace-nowrap border-r border-gray-800">
                               <div className="flex flex-col">
-                                <div className="text-[10px] text-gray-500">{formatDate(bet.date)}</div>
-                                <div className="text-[8px] text-gray-600">
+                                <div className="text-sm text-gray-500">{formatDate(bet.date)}</div>
+                                <div className="text-xs text-gray-600">
                                   {isToday(bet.date) ? (
                                     <span className="text-green-400">{getTimeAgo(bet.date)}</span>
                                   ) : isRecent(bet.date) ? (
@@ -619,10 +608,10 @@ const Allbets = () => {
                           {expandedRows[bet.id] && (
                             <tr className="bg-[#1F2937]">
                               <td colSpan="9" className="px-4 py-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  <div className="bg-[#161B22] p-3 rounded-lg border border-gray-700">
-                                    <h4 className="font-semibold text-indigo-400 text-xs mb-2 pb-1 border-b border-gray-700">Balance</h4>
-                                    <div className="space-y-1 text-xs">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700">
+                                    <h4 className="font-semibold text-indigo-400 text-sm mb-2.5 pb-1.5 border-b border-gray-700">Balance</h4>
+                                    <div className="space-y-1.5 text-sm">
                                       <div className="flex justify-between">
                                         <span className="text-gray-400">Before:</span>
                                         <span className="font-semibold text-gray-200">{formatCurrency(bet.balanceBefore)}</span>
@@ -640,9 +629,9 @@ const Allbets = () => {
                                     </div>
                                   </div>
                                   
-                                  <div className="bg-[#161B22] p-3 rounded-lg border border-gray-700">
-                                    <h4 className="font-semibold text-indigo-400 text-xs mb-2 pb-1 border-b border-gray-700">Transaction</h4>
-                                    <div className="space-y-1 text-xs">
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700">
+                                    <h4 className="font-semibold text-indigo-400 text-sm mb-2.5 pb-1.5 border-b border-gray-700">Transaction</h4>
+                                    <div className="space-y-1.5 text-sm">
                                       <div className="flex justify-between">
                                         <span className="text-gray-400">Currency:</span>
                                         <span className="font-semibold text-gray-200">{bet.currency}</span>
@@ -658,38 +647,38 @@ const Allbets = () => {
                                     </div>
                                   </div>
                                   
-                                  <div className="bg-[#161B22] p-3 rounded-lg border border-gray-700">
-                                    <h4 className="font-semibold text-indigo-400 text-xs mb-2 pb-1 border-b border-gray-700">Timing</h4>
-                                    <div className="space-y-1 text-xs">
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700">
+                                    <h4 className="font-semibold text-indigo-400 text-sm mb-2.5 pb-1.5 border-b border-gray-700">Timing</h4>
+                                    <div className="space-y-1.5 text-sm">
                                       <div className="flex justify-between">
                                         <span className="text-gray-400">Transaction:</span>
-                                        <span className="text-gray-200 text-[10px]">{formatDate(bet.transaction_time)}</span>
+                                        <span className="text-gray-200 text-sm">{formatDate(bet.transaction_time)}</span>
                                       </div>
                                       <div className="flex justify-between">
                                         <span className="text-gray-400">Processed:</span>
-                                        <span className="text-gray-200 text-[10px]">{formatDate(bet.processed_at)}</span>
+                                        <span className="text-gray-200 text-sm">{formatDate(bet.processed_at)}</span>
                                       </div>
                                       <div className="flex justify-between">
                                         <span className="text-gray-400">Relative:</span>
-                                        <span className="text-gray-200 text-[10px]">{getRelativeTime(bet.date)}</span>
+                                        <span className="text-gray-200 text-sm">{getRelativeTime(bet.date)}</span>
                                       </div>
                                     </div>
                                   </div>
                                   
-                                  <div className="bg-[#161B22] p-3 rounded-lg border border-gray-700 lg:col-span-3">
-                                    <h4 className="font-semibold text-indigo-400 text-xs mb-2 pb-1 border-b border-gray-700">Amount Summary</h4>
-                                    <div className="grid grid-cols-3 gap-3">
-                                      <div className={`p-2 rounded ${bet.betAmount > 0 ? 'bg-red-900/20 border border-red-800' : 'bg-gray-800'}`}>
-                                        <p className="text-[8px] text-gray-400 mb-0.5">Bet</p>
-                                        <p className="text-xs font-bold text-gray-200">{formatCurrency(bet.betAmount)}</p>
+                                  <div className="bg-[#161B22] p-4 rounded-lg border border-gray-700 lg:col-span-3">
+                                    <h4 className="font-semibold text-indigo-400 text-sm mb-2.5 pb-1.5 border-b border-gray-700">Amount Summary</h4>
+                                    <div className="grid grid-cols-3 gap-4">
+                                      <div className={`p-3 rounded ${bet.betAmount > 0 ? 'bg-red-900/20 border border-red-800' : 'bg-gray-800'}`}>
+                                        <p className="text-xs text-gray-400 mb-1">Bet</p>
+                                        <p className="text-base font-bold text-gray-200">{formatCurrency(bet.betAmount)}</p>
                                       </div>
-                                      <div className={`p-2 rounded ${bet.winAmount > 0 ? 'bg-green-900/20 border border-green-800' : 'bg-gray-800'}`}>
-                                        <p className="text-[8px] text-gray-400 mb-0.5">Win</p>
-                                        <p className="text-xs font-bold text-green-500">{formatCurrency(bet.winAmount)}</p>
+                                      <div className={`p-3 rounded ${bet.winAmount > 0 ? 'bg-green-900/20 border border-green-800' : 'bg-gray-800'}`}>
+                                        <p className="text-xs text-gray-400 mb-1">Win</p>
+                                        <p className="text-base font-bold text-green-500">{formatCurrency(bet.winAmount)}</p>
                                       </div>
-                                      <div className={`p-2 rounded ${bet.netAmount >= 0 ? 'bg-green-900/20 border border-green-800' : 'bg-red-900/20 border border-red-800'}`}>
-                                        <p className="text-[8px] text-gray-400 mb-0.5">Net</p>
-                                        <p className={`text-xs font-bold ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                      <div className={`p-3 rounded ${bet.netAmount >= 0 ? 'bg-green-900/20 border border-green-800' : 'bg-red-900/20 border border-red-800'}`}>
+                                        <p className="text-xs text-gray-400 mb-1">Net</p>
+                                        <p className={`text-base font-bold ${bet.netAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                           {formatCurrency(bet.netAmount)}
                                         </p>
                                       </div>
@@ -703,11 +692,11 @@ const Allbets = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="9" className="px-3 py-8 text-center">
+                        <td colSpan="9" className="px-4 py-10 text-center">
                           <div className="flex flex-col items-center justify-center text-gray-500">
-                            <FaSearch className="text-3xl mb-2 opacity-30" />
-                            <p className="text-sm font-medium text-gray-400">No bets found</p>
-                            <p className="text-xs text-gray-500">Try adjusting your search or filters</p>
+                            <FaSearch className="text-4xl mb-3 opacity-30" />
+                            <p className="text-base font-medium text-gray-400">No bets found</p>
+                            <p className="text-sm text-gray-500">Try adjusting your search or filters</p>
                           </div>
                         </td>
                       </tr>
@@ -719,10 +708,10 @@ const Allbets = () => {
             
             {/* Pagination */}
             {!loading && filteredBets.length > 0 && totalPages > 1 && (
-              <div className="flex items-center justify-between mt-3 px-2 py-2">
+              <div className="flex items-center justify-between mt-4 px-2 py-3">
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-[10px] text-gray-500">
+                    <p className="text-sm text-gray-500">
                       Showing <span className="font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
                       <span className="font-medium text-gray-300">
                         {Math.min(currentPage * itemsPerPage, pagination.total)}
@@ -739,7 +728,7 @@ const Allbets = () => {
                           fetchBettingHistory(newPage);
                         }}
                         disabled={currentPage === 1}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-1.5 rounded-l-md border text-xs font-medium ${
+                        className={`relative cursor-pointer inline-flex items-center px-4 py-2 rounded-l-md border text-sm font-medium ${
                           currentPage === 1 
                             ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700' 
                             : 'bg-[#161B22] text-gray-300 hover:bg-gray-700 border-gray-700'
@@ -750,7 +739,7 @@ const Allbets = () => {
                       
                       {getPaginationItems().map((page, index) => (
                         page === '...' ? (
-                          <span key={`dots-${index}`} className="relative inline-flex items-center px-3 py-1.5 border border-gray-700 bg-[#161B22] text-xs font-medium text-gray-500">
+                          <span key={`dots-${index}`} className="relative inline-flex items-center px-4 py-2 border border-gray-700 bg-[#161B22] text-sm font-medium text-gray-500">
                             ...
                           </span>
                         ) : (
@@ -760,7 +749,7 @@ const Allbets = () => {
                               setCurrentPage(page);
                               fetchBettingHistory(page);
                             }}
-                            className={`relative cursor-pointer inline-flex items-center px-3 py-1.5 border text-xs font-medium ${
+                            className={`relative cursor-pointer inline-flex items-center px-4 py-2 border text-sm font-medium ${
                               currentPage === page
                                 ? 'z-10 bg-indigo-600 border-indigo-600 text-white'
                                 : 'bg-[#161B22] border-gray-700 text-gray-300 hover:bg-gray-700'
@@ -778,7 +767,7 @@ const Allbets = () => {
                           fetchBettingHistory(newPage);
                         }}
                         disabled={currentPage === totalPages}
-                        className={`relative cursor-pointer inline-flex items-center px-3 py-1.5 rounded-r-md border text-xs font-medium ${
+                        className={`relative cursor-pointer inline-flex items-center px-4 py-2 rounded-r-md border text-sm font-medium ${
                           currentPage === totalPages
                             ? 'bg-gray-800 text-gray-600 cursor-not-allowed border-gray-700'
                             : 'bg-[#161B22] text-gray-300 hover:bg-gray-700 border-gray-700'
