@@ -4004,8 +4004,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
   try {
     const { game_uid, game_round, bet_amount, serial_number, win_amount, member_account, currency_code, timestamp } = req.body;
     console.log("response", req.body);
-
-    // Validate required fields
     if (!member_account || !game_uid || !serial_number) {
       return res.status(400).json({
         success: false,
@@ -4031,6 +4029,21 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         message: `Duplicate transaction - serial_number '${serial_number}' already exists.`,
       });
     }
+    // CHECK FOR DUPLICATE game_round
+    if (game_round) {
+      const existingGameRound = await BettingHistory.findOne({
+        game_uid: game_uid,
+        member_account: member_account,
+        game_round: game_round
+      });
+
+      if (existingGameRound) {
+        return res.status(409).json({
+          success: false,
+          message: `Duplicate game_round '${game_round}' already exists for this game and user.`,
+        });
+      }
+    }
 
     // Match user by gamingid (member_account is the gaming ID)
     const matcheduser = await User.findOne({ gamingid: member_account });
@@ -4047,7 +4060,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     console.log("balanceBefore", balanceBefore);
 
     // ============== AVIATOR SPECIFIC HANDLING ==============
-    // Check for Aviator game using the specific game_uid
     const AVIATOR_GAME_UID = "a04d1f3eb8ccec8a4823bdf18e3f0e84";
     const isAviatorGame = game_uid === AVIATOR_GAME_UID;
 
@@ -4056,47 +4068,30 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     let isCashout = false;
 
     if (isAviatorGame) {
-      console.log("🛩️ Aviator game detected with UID:", game_uid);
-      
-      // For Aviator, win_amount might be the cashout amount
-      // If win_amount > 0, it's a cashout (win)
-      // If win_amount <= 0, it's a crash (loss)
-      
       if (winamount > 0) {
-        // Cashout - win
         isCashout = true;
-        aviatorMultiplier = betamount > 0 ? (winamount / betamount) : 0; // Calculate multiplier
+        aviatorMultiplier = betamount > 0 ? (winamount / betamount) : 0;
         cashoutAmount = winamount;
-        console.log(`🛩️ Aviator Cashout! Multiplier: ${aviatorMultiplier.toFixed(2)}x, Amount: ${cashoutAmount}`);
       } else {
-        // Crash - loss
         isCashout = false;
         aviatorMultiplier = 0;
         cashoutAmount = 0;
-        console.log(`🛩️ Aviator Crash! Loss: ${betamount}`);
       }
     }
     // =====================================================
 
-    // YOUR SIMPLE BALANCE UPDATE LOGIC
     if (winamount <= 0) {
-      // Loss: deduct bet amount
       matcheduser.balance = matcheduser.balance - betamount;
       console.log(`💰 Loss: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) lost ${betamount}, New balance: ${matcheduser.balance}`);
     } else {
-      // Win: add win amount
       matcheduser.balance = matcheduser.balance + winamount;
       console.log(`💰 Win: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) won ${winamount}, New balance: ${matcheduser.balance}`);
     }
-
-    // Update weekly and monthly bet amounts
     matcheduser.weeklybetamount = (matcheduser.weeklybetamount || 0) + betamount;
     matcheduser.monthlybetamount = (matcheduser.monthlybetamount || 0) + betamount;
-    
-    // Save user balance
+
     await matcheduser.save();
-    
-    // Check if user has affiliate code
+
     const hasAffiliateCode = !!matcheduser.registrationSource?.affiliateCode;
     
     // Determine if win or loss
@@ -4115,13 +4110,12 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       }
     }
     
-    // Create BettingHistory record
     const bettingHistoryRecord = new BettingHistory({
       game_name: gameName,
       member_account: member_account,
-      original_username: matcheduser.username, // Store username as original_username
+      original_username: matcheduser.username,
       user_id: matcheduser._id,
-      gaming_id: matcheduser.gamingid, // Store gaming ID
+      gaming_id: matcheduser.gamingid,
       bet_amount: betamount,
       win_amount: winamount,
       net_amount: isWin ? winamount : -betamount,
@@ -4146,16 +4140,12 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       net_win_amount: isWin ? winamount : 0,
       game_round: game_round,
       timestamp: timestamp,
-      // Aviator specific fields
       aviator_multiplier: aviatorMultiplier,
       is_cashout: isCashout,
       cashout_amount: cashoutAmount
     });
 
-    // Save BettingHistory record
     await bettingHistoryRecord.save();
-
-    // Prepare bet record for user's betHistory array
     const betRecord = {
       betAmount: betamount,
       betResult: isWin ? "win" : "loss",
@@ -4168,8 +4158,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       bet_type: "SETTLE",
       winAmount: winamount,
       netWinAmount: isWin ? winamount : 0,
-      gaming_id: matcheduser.gamingid, // Store gaming ID in bet history
-      // Aviator specific
+      gaming_id: matcheduser.gamingid,
       aviator_multiplier: aviatorMultiplier,
       is_aviator: isAviatorGame,
       is_cashout: isCashout,
@@ -4310,8 +4299,8 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       message: "Callback data received and processed",
       data: {
         ...req.body,
-        username: matcheduser.username, // Include username in response
-        gaming_id: matcheduser.gamingid, // Include gaming ID in response
+        username: matcheduser.username,
+        gaming_id: matcheduser.gamingid,
         status: status,
         balance_before: balanceBefore,
         balance_after: matcheduser.balance,
@@ -4326,20 +4315,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         })
       }
     };
-
-    // Log Aviator specific info
-    if (isAviatorGame) {
-      console.log("🛩️ Aviator Transaction Summary:");
-      console.log(`   - User: ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid})`);
-      console.log(`   - Bet: ${betamount}`);
-      console.log(`   - Result: ${isWin ? 'CASHOUT ✅' : 'CRASH ❌'}`);
-      if (isWin) {
-        console.log(`   - Multiplier: ${aviatorMultiplier ? aviatorMultiplier.toFixed(2) : '0.00'}x`);
-        console.log(`   - Win Amount: ${winamount}`);
-      }
-      console.log(`   - New Balance: ${matcheduser.balance}`);
-      console.log(`   - Total Aviator Bets: ${matcheduser.aviator_stats?.total_bets || 0}`);
-    }
 
     res.status(200).json(responseData);
 
