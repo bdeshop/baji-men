@@ -4541,11 +4541,44 @@ Userrouter.post("/refund", async (req, res) => {
   }
 });
 // ----------------betting-records------------------------
-Userrouter.get("/betting-records/:userId", authenticateToken,async(req,res)=>{
-      const bettingrecords=await BettingHistory.find({user_id:req.params.userId}).sort({createdAt:-1});
-      res.status(200).json({success:true,data:bettingrecords});   
-})
-
+Userrouter.get("/betting-records/:userId", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+    
+    // Get total count for pagination
+    const totalRecords = await BettingHistory.countDocuments({ user_id: userId });
+    
+    // Get paginated records
+    const bettingRecords = await BettingHistory.find({ user_id: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const totalPages = Math.ceil(totalRecords / limit);
+    
+    res.status(200).json({
+      success: true,
+      data: bettingRecords,
+      pagination: {
+        total: totalRecords,
+        page: page,
+        limit: limit,
+        totalPages: totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching betting records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch betting records"
+    });
+  }
+});
 // Add this near the top with other model imports
 const Bonus = require("../models/Bonus");
 
