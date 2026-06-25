@@ -23,7 +23,6 @@ const BettingHistorySchema = new Schema({
     bet_amount: {
         type: Number,
         required: true,
-        min: 0
     },
     win_amount: {
         type: Number,
