@@ -86,7 +86,7 @@ const Allbets = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+      console.log("response.data",response.data)
       if (response.data.success) {
         const transformedBets = response.data.data.map((bet, index) => ({
           game_name: bet.game_name,
