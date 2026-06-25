@@ -244,62 +244,6 @@ const Bettings = () => {
               </div>
             </div>
 
-            {/* Stats Cards */}
-            {!loading && filteredRecords.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                      <FiDollarSign className="text-blue-400 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider">{t?.totalBets || "Total Bets"}</p>
-                      <p className="text-lg font-bold">{stats.totalBets}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                      <FiTrendingUp className="text-emerald-400 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider">{t?.totalBetAmount || "Total Bet"}</p>
-                      <p className="text-lg font-bold">{formatCurrency(stats.totalBetAmount)}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                      <FaTrophy className="text-purple-400 text-xl" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider">{t?.totalWins || "Total Wins"}</p>
-                      <p className="text-lg font-bold">{formatCurrency(stats.totalWinAmount)}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                      {stats.totalNetAmount >= 0 ? (
-                        <FiTrendingUp className="text-emerald-400 text-xl" />
-                      ) : (
-                        <FiTrendingDown className="text-rose-400 text-xl" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider">{t?.netProfit || "Net Profit"}</p>
-                      <p className={`text-lg font-bold ${stats.totalNetAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {stats.totalNetAmount >= 0 ? '+' : ''}{formatCurrency(stats.totalNetAmount)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Tabs and Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center bg-gray-800/50 backdrop-blur-sm rounded-lg p-1 border border-gray-700/50">
