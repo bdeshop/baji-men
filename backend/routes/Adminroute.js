@@ -9435,6 +9435,7 @@ Adminrouter.get("/betting-history", async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
     
+    // Filter parameters
     const { 
       gameType, 
       status, 
@@ -9445,6 +9446,7 @@ Adminrouter.get("/betting-history", async (req, res) => {
       sortOrder = -1
     } = req.query;
     
+    // Build filter object
     let filter = {};
     
     // Search by username or serial number
@@ -9466,14 +9468,8 @@ Adminrouter.get("/betting-history", async (req, res) => {
       filter.status = status.toLowerCase();
     }
     
-    // FILTER BY DATE - SHOW ONLY TODAY'S DATA BY DEFAULT
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
+    // Filter by date range
     if (startDate || endDate) {
-      // If custom date range is provided, use it
       filter.transaction_time = {};
       if (startDate) {
         filter.transaction_time.$gte = new Date(startDate);
@@ -9481,17 +9477,11 @@ Adminrouter.get("/betting-history", async (req, res) => {
       if (endDate) {
         filter.transaction_time.$lte = new Date(endDate);
       }
-    } else {
-      // Default: Show only today's data
-      filter.transaction_time = {
-        $gte: today,
-        $lt: tomorrow
-      };
     }
     
     // Get total count for pagination
     const totalCount = await BettingHistory.countDocuments(filter);
-    
+    console.log("bettingHistory",bettingHistory)
     // Get paginated and filtered data
     const bettingHistory = await BettingHistory.find(filter)
       .sort({ [sortBy]: parseInt(sortOrder) })
@@ -9501,7 +9491,7 @@ Adminrouter.get("/betting-history", async (req, res) => {
     if (!bettingHistory || bettingHistory.length === 0) {
       return res.send({
         success: false,
-        message: "No data found for today!",
+        message: "No data found!",
         data: [],
         pagination: {
           total: 0,
