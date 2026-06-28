@@ -4078,12 +4078,11 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       }
     }
     // =====================================================
+      matcheduser.balance = matcheduser.balance - betamount;
 
     if (winamount <= 0) {
-      matcheduser.balance = matcheduser.balance - betamount;
       console.log(`💰 Loss: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) lost ${betamount}, New balance: ${matcheduser.balance}`);
     } else {
-      matcheduser.balance = matcheduser.balance - betamount;
       matcheduser.balance = matcheduser.balance + winamount;
       console.log(`💰 Win: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) won ${winamount}, New balance: ${matcheduser.balance}`);
     }
