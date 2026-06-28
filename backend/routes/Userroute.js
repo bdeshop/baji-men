@@ -4010,7 +4010,6 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         message: "Required fields missing: member_account, game_uid, and serial_number are required",
       });
     }
-
     // Parse amounts
     const winamount = parseFloat(win_amount || 0);
     const betamount = parseFloat(bet_amount || 0);
@@ -4080,24 +4079,17 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     }
     // =====================================================
 
-    if (winamount <= 0) {
-      matcheduser.balance = matcheduser.balance - betamount;
-      console.log(`💰 Loss: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) lost ${betamount}, New balance: ${matcheduser.balance}`);
-    } else {
-      matcheduser.balance = matcheduser.balance + winamount;
-      console.log(`💰 Win: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) won ${winamount}, New balance: ${matcheduser.balance}`);
-    }
-    matcheduser.weeklybetamount = (matcheduser.weeklybetamount || 0) + betamount;
-    matcheduser.monthlybetamount = (matcheduser.monthlybetamount || 0) + betamount;
-
-    await matcheduser.save();
-
-    const hasAffiliateCode = !!matcheduser.registrationSource?.affiliateCode;
-    
     // Determine if win or loss
     const isWin = winamount > 0;
     const status = isWin ? 'won' : 'lost';
     
+    // Calculate new balance (but DON'T save yet)
+    const newBalance = isWin 
+      ? matcheduser.balance + winamount 
+      : matcheduser.balance - betamount;
+
+    console.log(`💰 ${isWin ? 'Win' : 'Loss'}: User ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid}) ${isWin ? 'won' : 'lost'} ${isWin ? winamount : betamount}, New balance: ${newBalance}`);
+
     // Get game name
     let gameName = "Game";
     if (isAviatorGame) {
@@ -4110,6 +4102,9 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       }
     }
     
+    const hasAffiliateCode = !!matcheduser.registrationSource?.affiliateCode;
+    
+    // Create betting history record with the new balance
     const bettingHistoryRecord = new BettingHistory({
       game_name: gameName,
       member_account: member_account,
@@ -4126,7 +4121,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
       currency_code: currency_code || 'BDT',
       status: status,
       balance_before: balanceBefore,
-      balance_after: matcheduser.balance,
+      balance_after: newBalance, // Use the calculated new balance
       transaction_time: new Date(),
       processed_at: new Date(),
       platform: 'casino',
@@ -4146,6 +4141,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     });
 
     await bettingHistoryRecord.save();
+
     const betRecord = {
       betAmount: betamount,
       betResult: isWin ? "win" : "loss",
@@ -4179,20 +4175,25 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         : `Lost ${betamount} in ${gameName}`;
     }
 
-    // Update user's betHistory and transactionHistory
+    // Prepare update data
     const updateData = {
+      $set: {
+        balance: newBalance, // ← FIX: Update balance only once here
+        weeklybetamount: (matcheduser.weeklybetamount || 0) + betamount,
+        monthlybetamount: (matcheduser.monthlybetamount || 0) + betamount,
+      },
       $push: {
         betHistory: betRecord,
         transactionHistory: {
           type: isWin ? "win" : "loss",
           amount: isWin ? winamount : betamount,
           balanceBefore: balanceBefore,
-          balanceAfter: matcheduser.balance,
+          balanceAfter: newBalance, // Use the calculated new balance
           description: transactionDescription,
           referenceId: serial_number,
           game_uid: game_uid,
           game_name: gameName,
-          gaming_id: matcheduser.gamingid, // Store gaming ID in transaction history
+          gaming_id: matcheduser.gamingid,
           is_aviator: isAviatorGame,
           aviator_multiplier: aviatorMultiplier,
           is_cashout: isCashout,
@@ -4224,20 +4225,20 @@ Userrouter.post("/callback-data-game", async (req, res) => {
         };
       }
 
-      // Update aviator stats
-      updateData.$set = {
-        'aviator_stats.total_bets': (matcheduser.aviator_stats.total_bets || 0) + 1,
-        'aviator_stats.total_cashouts': isWin ? (matcheduser.aviator_stats.total_cashouts || 0) + 1 : (matcheduser.aviator_stats.total_cashouts || 0),
-        'aviator_stats.total_crashes': !isWin ? (matcheduser.aviator_stats.total_crashes || 0) + 1 : (matcheduser.aviator_stats.total_crashes || 0),
-        'aviator_stats.total_win_amount': isWin ? (matcheduser.aviator_stats.total_win_amount || 0) + winamount : (matcheduser.aviator_stats.total_win_amount || 0),
-        'aviator_stats.total_loss_amount': !isWin ? (matcheduser.aviator_stats.total_loss_amount || 0) + betamount : (matcheduser.aviator_stats.total_loss_amount || 0),
-        'aviator_stats.highest_multiplier': isWin && aviatorMultiplier > (matcheduser.aviator_stats.highest_multiplier || 0) ? aviatorMultiplier : (matcheduser.aviator_stats.highest_multiplier || 0)
-      };
+      // Add aviator stats to $set
+      updateData.$set['aviator_stats.total_bets'] = (matcheduser.aviator_stats.total_bets || 0) + 1;
+      updateData.$set['aviator_stats.total_cashouts'] = isWin ? (matcheduser.aviator_stats.total_cashouts || 0) + 1 : (matcheduser.aviator_stats.total_cashouts || 0);
+      updateData.$set['aviator_stats.total_crashes'] = !isWin ? (matcheduser.aviator_stats.total_crashes || 0) + 1 : (matcheduser.aviator_stats.total_crashes || 0);
+      updateData.$set['aviator_stats.total_win_amount'] = isWin ? (matcheduser.aviator_stats.total_win_amount || 0) + winamount : (matcheduser.aviator_stats.total_win_amount || 0);
+      updateData.$set['aviator_stats.total_loss_amount'] = !isWin ? (matcheduser.aviator_stats.total_loss_amount || 0) + betamount : (matcheduser.aviator_stats.total_loss_amount || 0);
+      updateData.$set['aviator_stats.highest_multiplier'] = isWin && aviatorMultiplier > (matcheduser.aviator_stats.highest_multiplier || 0) ? aviatorMultiplier : (matcheduser.aviator_stats.highest_multiplier || 0);
       
+      // Use $inc for wins and losses counters
       updateData.$inc['aviator_stats.total_wins'] = isWin ? 1 : 0;
       updateData.$inc['aviator_stats.total_losses'] = !isWin ? 1 : 0;
     }
 
+    // Update user with all changes in one operation
     await User.findByIdAndUpdate(matcheduser._id, updateData);
 
     // -------------------------------------AFFILIATE COMMISSION SYSTEM------------------------------------------
@@ -4262,7 +4263,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           description: `Commission from user ${matcheduser.username} (Gaming ID: ${matcheduser.gamingid})'s ${isAviatorGame ? 'Aviator' : ''} losing bet`,
           status: 'approved',
           referredUser: matcheduser._id,
-          gaming_id: matcheduser.gamingid, // Store gaming ID in affiliate earnings
+          gaming_id: matcheduser.gamingid,
           sourceId: bettingHistoryRecord._id,
           sourceType: 'bet',
           commissionRate: affiliate.commissionRate,
@@ -4292,18 +4293,21 @@ Userrouter.post("/callback-data-game", async (req, res) => {
     }
     // -------------------------------------AFFILIATE COMMISSION SYSTEM------------------------------------------
 
+    // Get updated user for response
+    const updatedUser = await User.findById(matcheduser._id);
+
     // Send success response
     const responseData = {
       success: true,
-      balance: matcheduser.balance,
+      balance: updatedUser.balance,
       message: "Callback data received and processed",
       data: {
         ...req.body,
-        username: matcheduser.username,
-        gaming_id: matcheduser.gamingid,
+        username: updatedUser.username,
+        gaming_id: updatedUser.gamingid,
         status: status,
         balance_before: balanceBefore,
-        balance_after: matcheduser.balance,
+        balance_after: updatedUser.balance,
         betting_history_id: bettingHistoryRecord._id,
         game_name: gameName,
         is_aviator: isAviatorGame,
@@ -4311,7 +4315,7 @@ Userrouter.post("/callback-data-game", async (req, res) => {
           aviator_multiplier: aviatorMultiplier,
           is_cashout: isCashout,
           cashout_amount: cashoutAmount,
-          aviator_stats: matcheduser.aviator_stats
+          aviator_stats: updatedUser.aviator_stats
         })
       }
     };
